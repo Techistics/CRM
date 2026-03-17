@@ -10,11 +10,12 @@ export default async function AdminLayout({
   if (!userId) redirect('/sign-in')
 
   const role = (sessionClaims?.metadata as { role?: string })?.role
-  if (role !== 'admin') redirect('/pro/overview')
+
+  // If not admin, kick back to root — let root page.tsx decide where to go
+  if (role !== 'admin') redirect('/')
 
   return (
     <div className="flex min-h-screen bg-gray-950">
-      {/* Sidebar */}
       <aside className="w-64 border-r border-gray-800 bg-gray-900 flex flex-col">
         <div className="p-6 border-b border-gray-800">
           <h1 className="text-white font-semibold text-lg">EduCRM</h1>
@@ -39,8 +40,6 @@ export default async function AdminLayout({
           ))}
         </nav>
       </aside>
-
-      {/* Main content */}
       <main className="flex-1 overflow-auto">
         {children}
       </main>

@@ -67,7 +67,6 @@ export default async function ProOverviewPage() {
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
           <h2 className="text-white font-medium">My Leads</h2>
-          
           <a
             href="/pro/leads"
             className="text-emerald-400 text-sm hover:text-emerald-300 transition-colors"

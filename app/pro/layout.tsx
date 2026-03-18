@@ -1,5 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import { getUserRole } from '../../lib/role'
+import NotificationBell from '../components/NotificationBell'
 
 export default async function ProLayout({
   children,
@@ -9,7 +11,7 @@ export default async function ProLayout({
   const { userId, sessionClaims } = await auth()
   if (!userId) redirect('/sign-in')
 
-    const role = (sessionClaims?.metadata as { role?: string })?.role
+    const role = await getUserRole()
 
     // If not pro, kick back to root — let root page.tsx decide where to go
     if (role !== 'pro') redirect('/')
@@ -37,6 +39,9 @@ export default async function ProLayout({
             </a>
           ))}
         </nav>
+        <div className="p-4 border-t border-gray-800 flex items-center justify-between">
+  <NotificationBell portalBase="pro" />
+</div>
       </aside>
 
       <main className="flex-1 overflow-auto">

@@ -1,49 +1,16 @@
-import { auth } from '@clerk/nextjs/server'
-import { redirect } from 'next/navigation'
+import './globals.css'
+import { ClerkProvider } from '@clerk/nextjs'
 
-export default async function AdminLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const { userId, sessionClaims } = await auth()
-  if (!userId) redirect('/sign-in')
-
-  const role = (sessionClaims?.metadata as { role?: string })?.role
-  if (role !== 'admin') redirect('/pro/overview')
-
   return (
-    <div className="flex min-h-screen bg-gray-950">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-gray-800 bg-gray-900 flex flex-col">
-        <div className="p-6 border-b border-gray-800">
-          <h1 className="text-white font-semibold text-lg">EduCRM</h1>
-          <span className="text-xs text-emerald-400 font-medium">Admin Portal</span>
-        </div>
-        <nav className="flex-1 p-4 space-y-1">
-          {[
-            { label: 'Overview', href: '/admin/overview' },
-            { label: 'Leads', href: '/admin/leads' },
-            { label: 'Team', href: '/admin/team' },
-            { label: 'Import', href: '/admin/import' },
-            { label: 'Analytics', href: '/admin/analytics' },
-            { label: 'Settings', href: '/admin/settings' },
-          ].map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="block px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 text-sm transition-colors"
-            >
-              {item.label}
-            </a>
-          ))}
-        </nav>
-      </aside>
-
-      {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
-    </div>
+    <html lang="en">
+      <body className="min-h-screen bg-gray-950">
+        <ClerkProvider>{children}</ClerkProvider>
+      </body>
+    </html>
   )
 }

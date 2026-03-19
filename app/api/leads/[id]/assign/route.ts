@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { leads } from '@/db/schema'
+import { leads, notifications } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
 export async function PATCH(
@@ -14,10 +14,24 @@ export async function PATCH(
   const { id } = await params
   const { assignedTo } = await req.json()
 
+  // Get lead name
+  const [lead] = await db.select().from(leads).where(eq(leads.id, id))
+
   await db
     .update(leads)
     .set({ assignedTo: assignedTo || null, updatedAt: new Date() })
     .where(eq(leads.id, id))
+
+  // Notify the assigned pro user
+  if (assignedTo && lead) {
+    await db.insert(notifications).values({
+      userId: assignedTo,
+      title: 'New lead assigned',
+      body: `${lead.fullName} has been assigned to you`,
+      type: 'lead_assigned',
+      leadId: id,
+    })
+  }
 
   return NextResponse.json({ success: true })
 }

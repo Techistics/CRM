@@ -1,11 +1,12 @@
-import { db } from '@/db'
-import { leads, leadActivities, users } from '@/db/schema'
-import { eq, desc } from 'drizzle-orm'
 import { auth } from '@clerk/nextjs/server'
 import { redirect, notFound } from 'next/navigation'
-import LeadDetailClient from './LeadDetailClient'
+import { db } from '@/db'
+import { leads, leadActivities, users } from '@/db/schema'
+import { and, desc, eq } from 'drizzle-orm'
+import { getProDbUser } from '@/lib/app-user'
+import ProLeadDetailClient from './ProLeadDetailClient'
 
-export default async function LeadDetailPage({
+export default async function ProLeadDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>
@@ -13,9 +14,16 @@ export default async function LeadDetailPage({
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
+  const dbUser = await getProDbUser(userId)
+  if (!dbUser) redirect('/request-role')
+
   const { id } = await params
 
-  const [lead] = await db.select().from(leads).where(eq(leads.id, id))
+  const [lead] = await db
+    .select()
+    .from(leads)
+    .where(and(eq(leads.id, id), eq(leads.assignedTo, dbUser.id)))
+
   if (!lead) notFound()
 
   const activities = await db
@@ -34,15 +42,5 @@ export default async function LeadDetailPage({
     .where(eq(leadActivities.leadId, id))
     .orderBy(desc(leadActivities.createdAt))
 
-  const allUsers = await db
-    .select({ id: users.id, name: users.name, role: users.role })
-    .from(users)
-
-  return (
-    <LeadDetailClient
-      lead={lead}
-      activities={activities}
-      allUsers={allUsers}
-    />
-  )
+  return <ProLeadDetailClient lead={lead} activities={activities} />
 }

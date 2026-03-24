@@ -1,8 +1,9 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { leads, leadActivities, users } from '@/db/schema'
+import { leads, leadActivities } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
+import { getProDbUser } from '@/lib/app-user'
 
 export async function POST(
   req: NextRequest,
@@ -15,13 +16,8 @@ export async function POST(
   const { note, type } = await req.json()
   if (!note?.trim()) return NextResponse.json({ error: 'Note is empty' }, { status: 400 })
 
-  const { clerkClient } = await import('@clerk/nextjs/server')
-  const client = await clerkClient()
-  const clerkUser = await client.users.getUser(userId)
-  const email = clerkUser.emailAddresses[0]?.emailAddress
-
-  const [dbUser] = await db.select().from(users).where(eq(users.email, email))
-  if (!dbUser || dbUser.role !== 'pro') {
+  const dbUser = await getProDbUser(userId)
+  if (!dbUser) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

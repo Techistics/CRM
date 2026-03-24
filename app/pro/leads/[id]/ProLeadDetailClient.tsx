@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Lead, LeadActivity } from '@/db/schema'
+import LeadActivityTimeline from '@/components/LeadActivityTimeline'
 
 type StageValue = "new_lead" | "unresponsive" | "follow_up" | "docs_received" | "options_sent" | "final_decision" | "walkin_booked" | "walkin_conducted" | "cancelled" | "paid"
 
@@ -40,6 +41,7 @@ type ActivityRow = {
   note: string | null
   createdAt: Date | null
   userName: string | null
+  userEmail: string | null
 }
 
 export default function ProLeadDetailClient({
@@ -51,7 +53,6 @@ export default function ProLeadDetailClient({
 }) {
   const router = useRouter()
   const [stage, setStage] = useState(lead.stage ?? 'new_lead')
-  const [activities, setActivities] = useState(initialActivities)
   const [note, setNote] = useState('')
   const [noteType, setNoteType] = useState<'note' | 'call' | 'message'>('note')
   const [saving, setSaving] = useState(false)
@@ -80,14 +81,6 @@ export default function ProLeadDetailClient({
     setNote('')
     setAddingNote(false)
     router.refresh()
-  }
-
-  function formatDate(d: Date | null) {
-    if (!d) return ''
-    return new Date(d).toLocaleString('en-PK', {
-      day: 'numeric', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    })
   }
 
   const stageLabel = STAGES.find((s) => s.value === stage)?.label ?? stage
@@ -187,32 +180,10 @@ export default function ProLeadDetailClient({
         {/* Activity log */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 h-fit">
           <h2 className="text-white font-medium mb-4">Activity Log</h2>
-          {activities.length === 0 ? (
-            <p className="text-gray-600 text-sm">No activity yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {activities.map((a) => (
-                <div key={a.id} className="flex gap-3">
-                  <span className="text-gray-500 text-sm mt-0.5 w-4 shrink-0">
-                    {a.type === 'stage_change' ? '⟳' : a.type === 'call' ? '☎' : a.type === 'message' ? '✉' : '✎'}
-                  </span>
-                  <div>
-                    {a.type === 'stage_change' ? (
-                      <p className="text-gray-400 text-xs">
-                        Moved to{' '}
-                        <span className="text-emerald-400">
-                          {STAGES.find((s) => s.value === a.toStage)?.label ?? a.toStage}
-                        </span>
-                      </p>
-                    ) : (
-                      <p className="text-gray-300 text-xs">{a.note}</p>
-                    )}
-                    <p className="text-gray-600 text-xs mt-0.5">{formatDate(a.createdAt)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <p className="text-gray-500 text-xs mb-4">
+            Full timeline: who changed what, with email and exact date and time (newest first).
+          </p>
+          <LeadActivityTimeline activities={initialActivities} />
         </div>
       </div>
     </div>

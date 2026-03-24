@@ -88,6 +88,25 @@ export type Notification = typeof notifications.$inferSelect
     createdAt: timestamp('created_at').defaultNow(),
   })
   
+// ─── Role access requests (signup → admin approves in Clerk + DB) ─
+export const roleRequests = pgTable('role_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clerkId: text('clerk_id').notNull(),
+  email: text('email').notNull(),
+  name: text('name').notNull(),
+  requestedRole: text('requested_role', { enum: ['admin', 'pro'] }).notNull(),
+  status: text('status', {
+    enum: ['pending', 'approved', 'rejected'],
+  })
+    .notNull()
+    .default('pending'),
+  createdAt: timestamp('created_at').defaultNow(),
+  reviewedAt: timestamp('reviewed_at'),
+  reviewedByClerkId: text('reviewed_by_clerk_id'),
+})
+
+export type RoleRequest = typeof roleRequests.$inferSelect
+
   // ─── CSV Import Batches ───────────────────────────────────────
   export const csvImports = pgTable('csv_imports', {
     id: uuid('id').primaryKey().defaultRandom(),

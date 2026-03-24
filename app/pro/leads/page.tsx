@@ -1,9 +1,9 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { db } from '@/db'
-import { leads, users } from '@/db/schema'
+import { leads } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { clerkClient } from '@clerk/nextjs/server'
+import { syncAppUserFromClerk } from '@/lib/app-user'
 
 const STAGE_LABELS: Record<string, { label: string; color: string }> = {
   new_lead:         { label: 'New Lead',       color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
@@ -22,12 +22,8 @@ export default async function ProLeadsPage() {
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
-  const client = await clerkClient()
-  const clerkUser = await client.users.getUser(userId)
-  const email = clerkUser.emailAddresses[0]?.emailAddress
-
-  const [dbUser] = await db.select().from(users).where(eq(users.email, email))
-  if (!dbUser) redirect('/sign-in')
+  const dbUser = await syncAppUserFromClerk(userId)
+  if (!dbUser) redirect('/request-role')
 
   const myLeads = await db
     .select()

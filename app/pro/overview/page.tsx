@@ -1,10 +1,10 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { db } from '@/db'
-import { leads, users } from '@/db/schema'
+import { leads } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { UserButton } from '@clerk/nextjs'
-import { clerkClient } from '@clerk/nextjs/server'
+import { syncAppUserFromClerk } from '@/lib/app-user'
 
 const STAGE_LABELS: Record<string, string> = {
   new_lead: 'New Lead', unresponsive: 'Unresponsive',
@@ -18,12 +18,8 @@ export default async function ProOverviewPage() {
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
-  const client = await clerkClient()
-  const clerkUser = await client.users.getUser(userId)
-  const email = clerkUser.emailAddresses[0]?.emailAddress
-
-  const [dbUser] = await db.select().from(users).where(eq(users.email, email))
-  if (!dbUser) redirect('/sign-in')
+  const dbUser = await syncAppUserFromClerk(userId)
+  if (!dbUser) redirect('/request-role')
 
   const myLeads = await db
     .select()
@@ -44,7 +40,7 @@ export default async function ProOverviewPage() {
           <p className="text-gray-400 text-sm mt-1">Welcome back, {dbUser.name}</p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-400">{email}</span>
+          <span className="text-sm text-gray-400">{dbUser.email}</span>
           <UserButton />
         </div>
       </div>

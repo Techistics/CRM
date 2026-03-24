@@ -1,19 +1,19 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import NotificationBell from '@/components/NotificationBell'
+import { getUserRole } from '@/lib/role'
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const { userId, sessionClaims } = await auth()
+  const { userId } = await auth()
 
   if (!userId) redirect('/sign-in')
 
-  const role = (sessionClaims?.metadata as { role?: string } | null)?.role
-
-  if (role && role !== 'admin') redirect('/')
+  const role = await getUserRole()
+  if (role !== 'admin') redirect('/')
 
   return (
     <div className="flex min-h-screen bg-gray-950">
@@ -27,6 +27,7 @@ export default async function AdminLayout({
             { label: 'Overview',  href: '/admin/overview' },
             { label: 'Leads',     href: '/admin/leads' },
             { label: 'Kanban',    href: '/admin/kanban' },
+            { label: 'Access requests', href: '/admin/requests' },
             { label: 'Team',      href: '/admin/team' },
             { label: 'Import',    href: '/admin/import' },
             { label: 'Analytics', href: '/admin/analytics' },

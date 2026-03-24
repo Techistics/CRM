@@ -12,5 +12,5 @@ export default async function Home() {
   if (role === 'admin') redirect('/admin/overview')
   if (role === 'pro') redirect('/pro/overview')
 
-  redirect('/no-role')
+  redirect('/request-role')
 }

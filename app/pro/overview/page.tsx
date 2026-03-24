@@ -4,6 +4,7 @@ import { db } from '@/db'
 import { leads } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { UserButton } from '@clerk/nextjs'
+import Link from 'next/link'
 import { syncAppUserFromClerk } from '@/lib/app-user'
 
 const STAGE_LABELS: Record<string, string> = {
@@ -29,7 +30,6 @@ export default async function ProOverviewPage() {
   const activeLeads = myLeads.filter(
     (l) => l.stage !== 'cancelled' && l.stage !== 'paid'
   )
-  const paidLeads = myLeads.filter((l) => l.stage === 'paid')
   const followUps = myLeads.filter((l) => l.stage === 'follow_up')
 
   return (
@@ -64,12 +64,12 @@ export default async function ProOverviewPage() {
         <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
           <h2 className="text-white font-medium">My Leads</h2>
           
-          <a
+          <Link
             href="/pro/leads"
             className="text-emerald-400 text-sm hover:text-emerald-300 transition-colors"
           >
             View all →
-          </a>
+          </Link>
         </div>
         {myLeads.length === 0 ? (
           <div className="px-6 py-12 text-center text-gray-600 text-sm">
@@ -103,12 +103,12 @@ export default async function ProOverviewPage() {
                     </span>
                   </td>
                   <td className="px-6 py-3">
-                    <a
+                    <Link
                       href={`/pro/leads/${lead.id}`}
                       className="text-xs text-emerald-400 hover:text-emerald-300"
                     >
                       View →
-                    </a>
+                    </Link>
                   </td>
                 </tr>
               ))}

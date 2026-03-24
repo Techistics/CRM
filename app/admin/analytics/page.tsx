@@ -1,6 +1,6 @@
 import { db } from '@/db'
 import { leads, users } from '@/db/schema'
-import { eq, count, and, not, inArray } from 'drizzle-orm'
+import { eq, count } from 'drizzle-orm'
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 
@@ -16,17 +16,6 @@ export default async function AnalyticsPage() {
 
   // Total leads
   const totalLeads = byStage.reduce((sum, s) => sum + Number(s.total), 0)
-
-  // Assigned vs unassigned
-  const assignedCount = await db
-    .select({ total: count(leads.id) })
-    .from(leads)
-    .where(not(eq(leads.assignedTo, leads.assignedTo)))
-
-  const unassigned = await db
-    .select({ total: count(leads.id) })
-    .from(leads)
-    .where(eq(leads.source, 'csv_import'))
 
   // Per agent stats
   const proUsers = await db

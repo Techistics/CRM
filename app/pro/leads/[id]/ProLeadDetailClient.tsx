@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Lead, LeadActivity } from '@/db/schema'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
@@ -88,9 +89,9 @@ export default function ProLeadDetailClient({
   return (
     <div className="p-8 max-w-4xl">
       <div className="mb-8">
-        <a href="/pro/leads" className="text-gray-500 text-sm hover:text-gray-300">
+        <Link href="/pro/leads" className="text-gray-500 text-sm hover:text-gray-300">
           ← Back to My Leads
-        </a>
+        </Link>
         <h1 className="text-2xl font-semibold text-white mt-2">{lead.fullName}</h1>
         <div className="flex items-center gap-3 mt-2">
           <span className={`text-xs px-2 py-1 rounded-md border ${STAGE_COLORS[stage]}`}>

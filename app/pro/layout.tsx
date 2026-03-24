@@ -8,7 +8,7 @@ export default async function ProLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { userId, sessionClaims } = await auth()
+  const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
     const role = await getUserRole()

@@ -19,17 +19,21 @@ export default function NotificationBell({ portalBase }: { portalBase: 'admin' |
 
   const unreadCount = notifs.filter((n) => n.read === 'false').length
 
-  async function fetchNotifs() {
-    const res = await fetch('/api/notifications')
-    const data = await res.json()
-    setNotifs(data.notifications ?? [])
-  }
-
   useEffect(() => {
-    fetchNotifs()
-    // Poll every 30 seconds
-    const interval = setInterval(fetchNotifs, 30000)
-    return () => clearInterval(interval)
+    let cancelled = false
+    async function load() {
+      const res = await fetch('/api/notifications')
+      const data = await res.json()
+      if (!cancelled) setNotifs(data.notifications ?? [])
+    }
+    void load()
+    const interval = setInterval(() => {
+      void load()
+    }, 30000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
   }, [])
 
   useEffect(() => {

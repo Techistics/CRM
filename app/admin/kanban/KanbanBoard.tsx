@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import {
   DndContext,
   DragEndEvent,
@@ -225,12 +226,12 @@ export default function KanbanBoard({
           </p>
         </div>
         <div className="flex items-center">
-          <a
+          <Link
             href="/admin/leads"
             className="text-gray-500 text-sm hover:text-gray-300 transition-colors"
           >
             ← List view
-          </a>
+          </Link>
         </div>
       </div>
 

@@ -17,11 +17,17 @@ const STAGE_LABELS: Record<string, { label: string; color: string }> = {
   paid:             { label: 'Paid',           color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
 }
 
-export default async function LeadsPage() {
+export default async function LeadsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ assignedTo?: string }>
+}) {
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
-  const allLeads = await db
+  const { assignedTo } = await searchParams
+
+  const baseSelect = db
     .select({
       id: leads.id,
       fullName: leads.fullName,
@@ -35,7 +41,11 @@ export default async function LeadsPage() {
     })
     .from(leads)
     .leftJoin(users, eq(leads.assignedTo, users.id))
-    .orderBy(leads.createdAt)
+
+  // When coming from "View assigned leads" we only show leads assigned to that agent.
+  const allLeads = assignedTo
+    ? await baseSelect.where(eq(leads.assignedTo, assignedTo)).orderBy(leads.createdAt)
+    : await baseSelect.orderBy(leads.createdAt)
 
   return (
     <div className="p-8">

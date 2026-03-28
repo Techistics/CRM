@@ -30,7 +30,6 @@ export default async function AdminLayout({
             { label: 'Access requests', href: '/admin/requests' },
             { label: 'Team',      href: '/admin/team' },
             { label: 'Import',    href: '/admin/import' },
-            { label: 'Analytics', href: '/admin/analytics' },
             { label: 'Settings',  href: '/admin/settings' },
           ].map((item) => (
             <a

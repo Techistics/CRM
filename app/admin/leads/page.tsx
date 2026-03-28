@@ -1,8 +1,11 @@
 import { db } from '@/db'
 import { leads, users } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { count, eq, or, ilike, and } from 'drizzle-orm'
 import { auth } from '@clerk/nextjs/server'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import Pagination from '@/components/Pagination'
+import SearchInput from '@/components/SearchInput'
 
 const STAGE_LABELS: Record<string, { label: string; color: string }> = {
   new_lead:         { label: 'New Lead',       color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
@@ -20,12 +23,20 @@ const STAGE_LABELS: Record<string, { label: string; color: string }> = {
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ assignedTo?: string }>
+  searchParams: Promise<{ assignedTo?: string; page?: string; q?: string }>
 }) {
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
-  const { assignedTo } = await searchParams
+  const { assignedTo, page, q } = await searchParams
+
+  const pageSize = 10
+  const currentPage = (() => {
+    const n = Number(page ?? '1')
+    if (!Number.isFinite(n) || n < 1) return 1
+    return Math.floor(n)
+  })()
+  const offset = (currentPage - 1) * pageSize
 
   const baseSelect = db
     .select({
@@ -42,29 +53,72 @@ export default async function LeadsPage({
     .from(leads)
     .leftJoin(users, eq(leads.assignedTo, users.id))
 
+  const queryFilter = q ? or(
+    ilike(leads.fullName, `%${q}%`),
+    ilike(leads.contactNumber, `%${q}%`),
+    ilike(leads.email, `%${q}%`)
+  ) : undefined
+
   // When coming from "View assigned leads" we only show leads assigned to that agent.
-  const allLeads = assignedTo
-    ? await baseSelect.where(eq(leads.assignedTo, assignedTo)).orderBy(leads.createdAt)
-    : await baseSelect.orderBy(leads.createdAt)
+  const pageLeads = assignedTo
+    ? await baseSelect
+        .where(queryFilter ? and(eq(leads.assignedTo, assignedTo), queryFilter) : eq(leads.assignedTo, assignedTo))
+        .orderBy(leads.createdAt)
+        .limit(pageSize)
+        .offset(offset)
+    : queryFilter
+      ? await baseSelect
+          .where(queryFilter)
+          .orderBy(leads.createdAt)
+          .limit(pageSize)
+          .offset(offset)
+      : await baseSelect
+          .orderBy(leads.createdAt)
+          .limit(pageSize)
+          .offset(offset)
+
+  const countResult = assignedTo
+    ? await db
+        .select({ total: count(leads.id) })
+        .from(leads)
+        .where(queryFilter ? and(eq(leads.assignedTo, assignedTo), queryFilter) : eq(leads.assignedTo, assignedTo))
+    : queryFilter
+      ? await db
+          .select({ total: count(leads.id) })
+          .from(leads)
+          .where(queryFilter)
+      : await db
+          .select({ total: count(leads.id) })
+          .from(leads)
+
+  const totalLeads = Number(countResult[0]?.total ?? 0)
+  const totalPages = Math.ceil(totalLeads / pageSize)
 
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-semibold text-white">Leads</h1>
-          <p className="text-gray-400 text-sm mt-1">{allLeads.length} total leads</p>
+          <p className="text-gray-400 text-sm mt-1">
+            {totalLeads} total leads
+          </p>
         </div>
-        <a
-          href="/admin/import"
-          className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-        >
-          + Import Leads
-        </a>
+        <div className="flex items-center gap-4">
+          <SearchInput placeholder="Search phone, name, email..." />
+          <Link
+            href="/admin/import"
+            className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            + Import Leads
+          </Link>
+        </div>
       </div>
 
-      {allLeads.length === 0 ? (
+      {pageLeads.length === 0 ? (
         <div className="text-center py-24 text-gray-600">
-          No leads yet. Import a CSV to get started.
+          {totalLeads === 0
+            ? 'No leads yet. Import a CSV to get started.'
+            : 'No leads found for this page.'}
         </div>
       ) : (
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
@@ -81,7 +135,7 @@ export default async function LeadsPage({
               </tr>
             </thead>
             <tbody>
-              {allLeads.map((lead, i) => {
+              {pageLeads.map((lead, i) => {
                 const stage = STAGE_LABELS[lead.stage ?? 'new_lead']
                 return (
                   <tr
@@ -116,18 +170,34 @@ export default async function LeadsPage({
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <a
+                      <Link
                         href={`/admin/leads/${lead.id}`}
                         className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
                       >
                         View →
-                      </a>
+                      </Link>
                     </td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {pageLeads.length > 0 && totalPages > 1 && (
+        <div className="mt-6 flex justify-center">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            makeHref={(p) => {
+              const sp = new URLSearchParams()
+              if (assignedTo) sp.set('assignedTo', assignedTo)
+              if (q) sp.set('q', q)
+              sp.set('page', String(p))
+              return `/admin/leads?${sp.toString()}`
+            }}
+          />
         </div>
       )}
     </div>

@@ -2,8 +2,9 @@ import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { db } from '@/db'
 import { leads } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, or, ilike, and } from 'drizzle-orm'
 import { syncAppUserFromClerk } from '@/lib/app-user'
+import SearchInput from '@/components/SearchInput'
 
 const STAGE_LABELS: Record<string, { label: string; color: string }> = {
   new_lead:         { label: 'New Lead',       color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
@@ -18,23 +19,38 @@ const STAGE_LABELS: Record<string, { label: string; color: string }> = {
   paid:             { label: 'Paid',           color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
 }
 
-export default async function ProLeadsPage() {
+export default async function ProLeadsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>
+}) {
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
+
+  const { q } = await searchParams
 
   const dbUser = await syncAppUserFromClerk(userId)
   if (!dbUser) redirect('/request-role')
 
+  const queryFilter = q ? or(
+    ilike(leads.fullName, `%${q}%`),
+    ilike(leads.contactNumber, `%${q}%`),
+    ilike(leads.email, `%${q}%`)
+  ) : undefined
+
   const myLeads = await db
     .select()
     .from(leads)
-    .where(eq(leads.assignedTo, dbUser.id))
+    .where(queryFilter ? and(eq(leads.assignedTo, dbUser.id), queryFilter) : eq(leads.assignedTo, dbUser.id))
 
   return (
     <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-white">My Leads</h1>
-        <p className="text-gray-400 text-sm mt-1">{myLeads.length} leads assigned to you</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-white">My Leads</h1>
+          <p className="text-gray-400 text-sm mt-1">{myLeads.length} leads assigned to you</p>
+        </div>
+        <SearchInput placeholder="Search phone, name, email..." />
       </div>
 
       {myLeads.length === 0 ? (

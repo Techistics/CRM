@@ -80,7 +80,7 @@ export default async function ProOverviewPage() {
           <div className="px-6 py-16 text-center text-gray-500 text-sm">
             <div className="text-4xl mb-4 transition-transform hover:scale-110 duration-300 inline-block">📭</div>
             <p className="font-medium text-gray-900 text-lg">No leads found</p>
-            <p className="mt-1">You haven't been assigned any leads yet.</p>
+            <p className="mt-1">You haven&apos;t been assigned any leads yet.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

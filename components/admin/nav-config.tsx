@@ -1,14 +1,9 @@
-import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard,
   Users,
   Wallet,
   BarChart3,
-  User,
-  Shield,
-  MessageSquare,
   KeyRound,
-  HelpCircle,
   Import,
 } from 'lucide-react'
 

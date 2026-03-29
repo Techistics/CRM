@@ -1,6 +1,6 @@
 export const STAGE_LABELS: Record<string, { label: string; color: string }> = {
   new_lead:         { label: 'New Lead',       color: 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm' },
-  unresponsive:     { label: 'Unresponsive',   color: 'bg-gray-50 text-gray-700 border-gray-200 shadow- sm' },
+  unresponsive:     { label: 'Unresponsive',   color: 'bg-gray-50 text-gray-700 border-gray-200 shadow-sm' },
   follow_up:        { label: 'Follow Up',      color: 'bg-yellow-50 text-yellow-700 border-yellow-200 shadow-sm' },
   docs_received:    { label: 'Docs Received',  color: 'bg-purple-50 text-purple-700 border-purple-200 shadow-sm' },
   options_sent:     { label: 'Options Sent',   color: 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm' },

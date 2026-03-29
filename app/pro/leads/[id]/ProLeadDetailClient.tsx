@@ -3,47 +3,18 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import type { Lead, LeadActivity } from '@/db/schema'
+import type { Lead } from '@/db/schema'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
+import { useToast } from '@/hooks/use-toast'
+import { STAGE_LABELS } from '@/constants/leads'
 
-type StageValue = "new_lead" | "unresponsive" | "follow_up" | "docs_received" | "options_sent" | "final_decision" | "walkin_booked" | "walkin_conducted" | "cancelled" | "paid"
+import type { StageValue, ActivityRow } from '@/types/leads'
 
-const STAGES: { value: StageValue; label: string }[] = [
-  { value: 'new_lead',         label: 'New Lead' },
-  { value: 'unresponsive',     label: 'Unresponsive' },
-  { value: 'follow_up',        label: 'Follow Up' },
-  { value: 'docs_received',    label: 'Docs Received' },
-  { value: 'options_sent',     label: 'Options Sent' },
-  { value: 'final_decision',   label: 'Final Decision' },
-  { value: 'walkin_booked',    label: 'Walk-in Booked' },
-  { value: 'walkin_conducted', label: 'Walk-in Done' },
-  { value: 'cancelled',        label: 'Cancelled' },
-  { value: 'paid',             label: 'Paid' },
+// Generate ordered stages logically for the UI selector
+const ORDERED_STAGES: StageValue[] = [
+  'new_lead', 'unresponsive', 'follow_up', 'docs_received', 'options_sent', 
+  'final_decision', 'walkin_booked', 'walkin_conducted', 'cancelled', 'paid'
 ]
-
-const STAGE_COLORS: Record<StageValue, string> = {
-  new_lead:         'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  unresponsive:     'bg-gray-500/10 text-gray-400 border-gray-500/20',
-  follow_up:        'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-  docs_received:    'bg-purple-500/10 text-purple-400 border-purple-500/20',
-  options_sent:     'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-  final_decision:   'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  walkin_booked:    'bg-teal-500/10 text-teal-400 border-teal-500/20',
-  walkin_conducted: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
-  cancelled:        'bg-red-500/10 text-red-400 border-red-500/20',
-  paid:             'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-}
-
-type ActivityRow = {
-  id: string
-  type: LeadActivity['type']
-  fromStage: string | null
-  toStage: string | null
-  note: string | null
-  createdAt: Date | null
-  userName: string | null
-  userEmail: string | null
-}
 
 export default function ProLeadDetailClient({
   lead,
@@ -52,6 +23,7 @@ export default function ProLeadDetailClient({
   lead: Lead
   activities: ActivityRow[]
 }) {
+  const { toast } = useToast()
   const router = useRouter()
   const [stage, setStage] = useState(lead.stage ?? 'new_lead')
   const [note, setNote] = useState('')
@@ -68,6 +40,7 @@ export default function ProLeadDetailClient({
       body: JSON.stringify({ stage: newStage }),
     })
     setSaving(false)
+    toast({ title: 'Stage Updated', description: 'Lead stage has been successfully updated.' })
     router.refresh()
   }
 
@@ -81,32 +54,39 @@ export default function ProLeadDetailClient({
     })
     setNote('')
     setAddingNote(false)
+    toast({ title: 'Activity Added', description: 'Your note was attached to the lead.' })
     router.refresh()
   }
 
-  const stageLabel = STAGES.find((s) => s.value === stage)?.label ?? stage
+  const currentStageObj = STAGE_LABELS[stage] ?? STAGE_LABELS['new_lead']
 
   return (
     <div className="p-8 max-w-4xl">
       <div className="mb-8">
-        <Link href="/pro/leads" className="text-gray-500 text-sm hover:text-gray-300">
-          ← Back to My Leads
+        <Link href="/pro/leads" className="text-blue-600 font-medium text-sm hover:text-blue-700 transition flex items-center gap-1 w-max bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          Back to My Leads
         </Link>
-        <h1 className="text-2xl font-semibold text-white mt-2">{lead.fullName}</h1>
-        <div className="flex items-center gap-3 mt-2">
-          <span className={`text-xs px-2 py-1 rounded-md border ${STAGE_COLORS[stage]}`}>
-            {stageLabel}
+        <h1 className="text-3xl font-bold text-gray-900 mt-4 tracking-tight">{lead.fullName}</h1>
+        <div className="flex items-center gap-3 mt-3">
+          <span className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium bg-white shadow-sm ${currentStageObj.color}`}>
+            {currentStageObj.label}
           </span>
-          {saving && <span className="text-gray-500 text-xs">Saving...</span>}
+          {saving && <span className="text-gray-400 font-medium text-xs flex items-center gap-1.5"><svg className="animate-spin h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Saving...</span>}
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 space-y-6">
           {/* Contact info */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-white font-medium mb-4">Contact Info</h2>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6">
+            <h2 className="text-gray-900 font-semibold mb-5 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+              </span>
+              Contact Info
+            </h2>
+            <div className="grid grid-cols-2 gap-5 text-sm">
               {[
                 { label: 'Email', value: lead.email },
                 { label: 'Phone', value: lead.contactNumber },
@@ -115,46 +95,64 @@ export default function ProLeadDetailClient({
                 { label: 'Grades', value: lead.grades },
               ].map(({ label, value }) => (
                 <div key={label}>
-                  <p className="text-gray-500">{label}</p>
-                  <p className="text-white mt-0.5">{value ?? '—'}</p>
+                  <p className="text-gray-500 font-medium">{label}</p>
+                  <p className="text-gray-900 font-medium mt-1 bg-gray-50 px-2 py-1.5 rounded-md border border-gray-100">{value ?? '—'}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Pipeline */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-white font-medium mb-4">Pipeline Stage</h2>
-            <div className="grid grid-cols-2 gap-2">
-              {STAGES.map((s) => (
-                <button
-                  key={s.value}
-                  onClick={() => handleStageChange(s.value)}
-                  className={`text-left px-3 py-2 rounded-lg text-sm transition-colors border ${
-                    stage === s.value
-                      ? STAGE_COLORS[s.value]
-                      : 'border-gray-800 text-gray-500 hover:text-gray-300 hover:border-gray-600'
-                  }`}
-                >
-                  {stage === s.value && <span className="mr-1">✓</span>}
-                  {s.label}
-                </button>
-              ))}
+          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6">
+            <h2 className="text-gray-900 font-semibold mb-5 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-md bg-purple-50 text-purple-600 flex items-center justify-center shadow-sm">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+              </span>
+              Pipeline Stage
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {ORDERED_STAGES.map((s) => {
+                const isSelected = stage === s
+                const stageObj = STAGE_LABELS[s]
+                return (
+                  <button
+                    key={s}
+                    onClick={() => handleStageChange(s)}
+                    className={`text-left px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all border ${
+                      isSelected
+                        ? `bg-gray-50 shadow-sm border-gray-300 ring-1 ring-gray-200 ${stageObj.color.split(' ')[1]}` // keep text color but add active outline
+                        : 'bg-white border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-300 hover:shadow-sm'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                       <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${isSelected ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-300'}`}>
+                         {isSelected && <svg className="w-2 h-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                       </div>
+                       {stageObj.label}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
           {/* Add note */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-white font-medium mb-4">Add Activity</h2>
-            <div className="flex gap-2 mb-3">
+          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6">
+            <h2 className="text-gray-900 font-semibold mb-4 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-sm">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+              </span>
+              Add Activity
+            </h2>
+            <div className="flex gap-2 mb-3 bg-gray-50 p-1.5 rounded-xl w-max border border-gray-100">
               {(['note', 'call', 'message'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setNoteType(t)}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors capitalize ${
+                  className={`text-xs px-3.5 py-1.5 rounded-lg transition-all font-medium capitalize shadow-sm ${
                     noteType === t
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                      : 'border-gray-700 text-gray-500 hover:text-gray-300'
+                      ? 'bg-white text-gray-900 border border-gray-200'
+                      : 'border border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   {t}
@@ -164,27 +162,31 @@ export default function ProLeadDetailClient({
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder={`Add a ${noteType}...`}
+              placeholder={`Add a ${noteType} for future reference...`}
               rows={3}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 resize-none focus:outline-none focus:border-gray-500"
+              className="w-full bg-white border border-gray-200 shadow-sm rounded-xl px-4 py-3 text-gray-900 text-sm placeholder-gray-400 resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium"
             />
-            <button
-              onClick={handleAddNote}
-              disabled={!note.trim() || addingNote}
-              className="mt-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-800 disabled:text-gray-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-            >
-              {addingNote ? 'Saving...' : 'Save'}
-            </button>
+            <div className="flex justify-end mt-3">
+              <button
+                onClick={handleAddNote}
+                disabled={!note.trim() || addingNote}
+                className="bg-gray-900 hover:bg-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm transition-all"
+              >
+                {addingNote ? 'Saving...' : 'Save Activity'}
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Activity log */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 h-fit">
-          <h2 className="text-white font-medium mb-4">Activity Log</h2>
-          <p className="text-gray-500 text-xs mb-4">
-            Full timeline: who changed what, with email and exact date and time (newest first).
+        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6 h-fit">
+          <h2 className="text-gray-900 font-semibold mb-2">Activity Log</h2>
+          <p className="text-gray-500 text-xs mb-6 font-medium">
+            Historical timeline of status changes, calls, notes, and messages.
           </p>
-          <LeadActivityTimeline activities={initialActivities} />
+          <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+            <LeadActivityTimeline activities={initialActivities} />
+          </div>
         </div>
       </div>
     </div>

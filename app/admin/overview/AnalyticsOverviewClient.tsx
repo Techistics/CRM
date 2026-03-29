@@ -1,18 +1,31 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Cell,
+  Legend,
 } from 'recharts'
-
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  UserPlus,
+  Users,
+  Activity,
+  UserRoundX,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -21,36 +34,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 
-type StageDatum = {
-  value: string
-  label: string
-  count: number
-  color: string // hex color for chart
-}
-
-type AgentStat = {
-  id: string
-  name: string
-  email: string | null
-  total: number
-  active: number
-  paid: number
-  cancelled: number
-}
-
-type FunnelStep = {
-  label: string
-  count: number
-  pct: number
-  colorClass: string
-}
+import type { StageDatum, AgentStat, FunnelStep, ChartWindow } from '@/types/analytics'
 
 export default function AnalyticsOverviewClient({
   totalLeads,
   activeCount,
   paidCount,
   cancelledCount,
+  newLeadsToday,
+  unassignedCount,
   stageData,
   funnelSteps,
   agentStats,
@@ -59,135 +53,295 @@ export default function AnalyticsOverviewClient({
   activeCount: number
   paidCount: number
   cancelledCount: number
+  newLeadsToday: number
+  unassignedCount: number
   stageData: StageDatum[]
   funnelSteps: FunnelStep[]
   agentStats: AgentStat[]
 }) {
   const router = useRouter()
+  const [chartWindow, setChartWindow] = useState<ChartWindow>('week')
+
+  /** One series per funnel milestone + aligned pipeline counts + % (right axis). */
+  const unifiedChartData = useMemo(() => {
+    const get = (value: string) =>
+      stageData.find((s) => s.value === value)?.count ?? 0
+
+    const walkin = get('walkin_booked') + get('walkin_conducted')
+    const paid = get('paid')
+
+    const contactedLike =
+      [
+        'follow_up',
+        'docs_received',
+        'options_sent',
+        'final_decision',
+        'walkin_booked',
+        'walkin_conducted',
+        'paid',
+      ].reduce((acc, v) => acc + get(v), 0)
+
+    const pipelineAtMilestone = [
+      totalLeads,
+      contactedLike,
+      walkin,
+      paid,
+    ]
+
+    return funnelSteps.map((step, i) => {
+      const short =
+        step.label.length > 20
+          ? `${step.label.slice(0, 18)}…`
+          : step.label
+      return {
+        label: short,
+        fullLabel: step.label,
+        funnel: step.count,
+        pipeline: pipelineAtMilestone[i] ?? 0,
+        conversion: step.pct,
+      }
+    })
+  }, [funnelSteps, stageData, totalLeads])
+
+  const activePct =
+    totalLeads > 0 ? Math.round((activeCount / totalLeads) * 100) : 0
+  const unassignedPct =
+    totalLeads > 0 ? Math.round((unassignedCount / totalLeads) * 100) : 0
+
+  const kpiItems = [
+    {
+      title: 'New leads today',
+      value: newLeadsToday,
+      hint: 'Created since midnight',
+      trend: 'neutral' as const,
+      icon: UserPlus,
+    },
+    {
+      title: 'Total leads',
+      value: totalLeads.toLocaleString(),
+      hint: `${paidCount.toLocaleString()} paid · ${cancelledCount.toLocaleString()} cancelled`,
+      trend: 'positive' as const,
+      icon: Users,
+    },
+    {
+      title: 'Active pipeline',
+      value: activeCount.toLocaleString(),
+      hint: `${activePct}% of all leads`,
+      trend: 'positive' as const,
+      icon: Activity,
+    },
+    {
+      title: 'Unassigned',
+      value: unassignedCount.toLocaleString(),
+      hint:
+        unassignedCount > 0
+          ? `${unassignedPct}% need assignment`
+          : 'All leads assigned',
+      trend: unassignedCount > 0 ? ('negative' as const) : ('positive' as const),
+      icon: UserRoundX,
+    },
+  ]
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-white">Overview</h1>
-        <p className="text-gray-400 text-sm mt-1">
-          Admin dashboard analytics
-        </p>
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
+            Dashboard
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Overview of your platform statistics and performance.
+          </p>
+        </div>
       </div>
 
-      {/* Top stats */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        {[
-          { label: 'Total Leads', value: totalLeads, color: 'text-white' },
-          { label: 'Active', value: activeCount, color: 'text-blue-400' },
-          { label: 'Paid', value: paidCount, color: 'text-emerald-400' },
-          {
-            label: 'Cancelled',
-            value: cancelledCount,
-            color: 'text-red-400',
-          },
-        ].map((stat) => (
-          <Card key={stat.label} className="p-5">
-            <p className="text-gray-400 text-sm">{stat.label}</p>
-            <p className={`text-2xl font-semibold mt-1 ${stat.color}`}>
-              {stat.value}
-            </p>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {kpiItems.map((item) => (
+          <Card key={item.title} className="border shadow-sm">
+            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                {item.title}
+              </CardTitle>
+              <item.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold tracking-tight">{item.value}</p>
+              <p
+                className={cn(
+                  'mt-1 text-xs',
+                  item.trend === 'positive' && 'text-emerald-600',
+                  item.trend === 'negative' && 'text-red-600',
+                  item.trend === 'neutral' && 'text-muted-foreground',
+                )}
+              >
+                {item.hint}
+              </p>
+            </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Leads by stage graph */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Leads by stage</CardTitle>
+      <div className="w-full">
+        <Card className="w-full border shadow-sm">
+          <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle>Pipeline &amp; conversion</CardTitle>
+              <CardDescription>
+                Funnel milestones with pipeline stage counts and share of total
+              </CardDescription>
+            </div>
+            <div
+              className="flex shrink-0 gap-1 rounded-lg border bg-muted/50 p-1"
+              role="group"
+              aria-label="Chart window"
+            >
+              {(
+                [
+                  ['week', 'Week'],
+                  ['month', 'Month'],
+                  ['year', 'Year'],
+                ] as const
+              ).map(([key, label]) => (
+                <Button
+                  key={key}
+                  type="button"
+                  variant={chartWindow === key ? 'default' : 'ghost'}
+                  size="sm"
+                  className={cn(
+                    'h-8 min-w-[4rem] px-3 text-xs font-medium',
+                    chartWindow === key && 'shadow-sm',
+                  )}
+                  onClick={() => setChartWindow(key)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="h-72">
+            <div className="h-[380px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={stageData}
-                  layout="vertical"
-                  margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
+                <LineChart
+                  data={unifiedChartData}
+                  margin={{ top: 8, right: 12, left: 4, bottom: 8 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" tick={{ fill: '#9ca3af' }} />
-                  <YAxis
+                  <CartesianGrid
+                    strokeDasharray="3 6"
+                    vertical
+                    horizontal={false}
+                    className="stroke-border"
+                  />
+                  <XAxis
                     dataKey="label"
-                    type="category"
-                    width={140}
-                    tick={{ fill: '#6b7280' }}
+                    tick={{
+                      fill: 'hsl(var(--muted-foreground))',
+                      fontSize: 11,
+                    }}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={0}
+                    angle={-12}
+                    textAnchor="end"
+                    height={72}
+                  />
+                  <YAxis
+                    yAxisId="left"
+                    tick={{
+                      fill: 'hsl(var(--muted-foreground))',
+                      fontSize: 11,
+                    }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={44}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    domain={[0, 100]}
+                    tickFormatter={(v) => `${v}%`}
+                    tick={{
+                      fill: 'hsl(var(--muted-foreground))',
+                      fontSize: 11,
+                    }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={40}
                   />
                   <Tooltip
                     contentStyle={{
-                      background: '#111827',
-                      border: '1px solid #374151',
+                      background: 'hsl(var(--popover))',
+                      border: '1px solid hsl(var(--border))',
                       borderRadius: 8,
-                      color: '#fff',
+                      color: 'hsl(var(--popover-foreground))',
                     }}
-                    // `recharts` types are strict here; we always return a string label.
-                    formatter={(value) => [String(value), 'Leads']}
-                    labelFormatter={(label) => String(label)}
+                    labelFormatter={(_, payload) => {
+                      const row = payload?.[0]?.payload as
+                        | { fullLabel?: string }
+                        | undefined
+                      return row?.fullLabel ?? ''
+                    }}
                   />
-                  <Bar dataKey="count" radius={[6, 6, 6, 6]}>
-                    {stageData.map((entry) => (
-                      <Cell key={entry.value} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
+                  <Legend
+                    verticalAlign="top"
+                    align="right"
+                    wrapperStyle={{ fontSize: 12, paddingBottom: 8 }}
+                  />
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="funnel"
+                    name="Funnel volume"
+                    stroke="#2563eb"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="pipeline"
+                    name="Pipeline (stages)"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="conversion"
+                    name="Share of total"
+                    stroke="#f59e0b"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                </LineChart>
               </ResponsiveContainer>
             </div>
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              View: {chartWindow === 'week' ? 'Week' : chartWindow === 'month' ? 'Month' : 'Year'} · data is the
+              current pipeline snapshot (time-series breakdown can be wired later).
+            </p>
           </CardContent>
         </Card>
 
-        {/* Conversion funnel */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Conversion funnel</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="space-y-2">
-              {funnelSteps.map((step) => (
-                <div key={step.label}>
-                  <div className="flex justify-between text-xs mb-1.5">
-                    <span className="text-gray-400">{step.label}</span>
-                    <span className="text-gray-500">
-                      {step.count} ({step.pct}%)
-                    </span>
-                  </div>
-                  <div className="h-6 bg-gray-800 rounded-lg overflow-hidden">
-                    <div
-                      className={`h-full ${step.colorClass} rounded-lg transition-all duration-500 flex items-center justify-end pr-2`}
-                      style={{
-                        width: `${Math.max(step.pct, step.count > 0 ? 4 : 0)}%`,
-                      }}
-                    >
-                      {step.pct >= 10 && (
-                        <span className="text-white text-xs font-medium">
-                          {step.pct}%
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Agent performance */}
-      <Card>
-        <div className="px-6 py-4 border-b border-gray-800">
-          <div className="flex items-center justify-between">
-            <CardTitle>Agent performance</CardTitle>
-            <span className="text-xs text-gray-500">
-              Click an agent to view assigned leads
-            </span>
+      <Card className="border shadow-sm">
+        <CardHeader className="border-b">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Agent performance</CardTitle>
+              <CardDescription>
+                Click an agent to view assigned leads
+              </CardDescription>
+            </div>
           </div>
-        </div>
+        </CardHeader>
 
         {agentStats.length === 0 ? (
-          <div className="px-6 py-8 text-center text-gray-600 text-sm">
+          <div className="px-6 py-10 text-center text-sm text-muted-foreground">
             No agents yet.
           </div>
         ) : (
@@ -213,7 +367,7 @@ export default function AnalyticsOverviewClient({
                   return (
                     <TableRow
                       key={agent.id}
-                      className="cursor-pointer hover:bg-gray-800/40 transition-colors"
+                      className="cursor-pointer hover:bg-muted/50"
                       role="link"
                       tabIndex={0}
                       onClick={() =>
@@ -223,7 +377,7 @@ export default function AnalyticsOverviewClient({
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault()
                           router.push(
-                            `/admin/leads?assignedTo=${agent.id}`
+                            `/admin/leads?assignedTo=${agent.id}`,
                           )
                         }
                       }}
@@ -231,40 +385,30 @@ export default function AnalyticsOverviewClient({
                     >
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 font-semibold text-xs">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border bg-muted text-xs font-semibold text-foreground">
                             {agent.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="text-white font-medium">{agent.name}</p>
-                            <p className="text-gray-500 text-xs">
+                            <p className="font-medium">{agent.name}</p>
+                            <p className="text-xs text-muted-foreground">
                               {agent.email ?? ''}
                             </p>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-white font-medium">
-                        {agent.total}
-                      </TableCell>
-                      <TableCell className="text-blue-400">
-                        {agent.active}
-                      </TableCell>
-                      <TableCell className="text-emerald-400">
-                        {agent.paid}
-                      </TableCell>
-                      <TableCell className="text-red-400">
-                        {agent.cancelled}
-                      </TableCell>
+                      <TableCell className="font-medium">{agent.total}</TableCell>
+                      <TableCell className="text-blue-600">{agent.active}</TableCell>
+                      <TableCell className="text-emerald-600">{agent.paid}</TableCell>
+                      <TableCell className="text-red-600">{agent.cancelled}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
                             <div
-                              className="h-full bg-emerald-500 rounded-full"
-                              style={{
-                                width: `${conversionPct}%`,
-                              }}
+                              className="h-full rounded-full bg-emerald-500"
+                              style={{ width: `${conversionPct}%` }}
                             />
                           </div>
-                          <span className="text-gray-400 text-xs w-8">
+                          <span className="w-8 text-xs text-muted-foreground">
                             {conversionPct}%
                           </span>
                         </div>
@@ -280,4 +424,3 @@ export default function AnalyticsOverviewClient({
     </div>
   )
 }
-

@@ -85,11 +85,12 @@ export default function NotificationBell({ portalBase }: { portalBase: 'admin' |
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className="relative p-2 rounded-lg hover:bg-gray-800 transition-colors"
+        className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
       >
         <svg
-          className="w-5 h-5 text-gray-400"
+          className="h-5 w-5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -109,13 +110,13 @@ export default function NotificationBell({ portalBase }: { portalBase: 'admin' |
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 w-80 bg-gray-900 border border-gray-800 rounded-xl shadow-2xl z-50">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-            <h3 className="text-white text-sm font-medium">Notifications</h3>
+        <div className="absolute right-0 top-10 z-50 w-80 rounded-xl border border-border bg-popover text-popover-foreground shadow-lg">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <h3 className="text-sm font-medium">Notifications</h3>
             {unreadCount > 0 && (
               <button
                 onClick={markAllRead}
-                className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                className="text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
                 Mark all read
               </button>
@@ -124,7 +125,7 @@ export default function NotificationBell({ portalBase }: { portalBase: 'admin' |
 
           <div className="max-h-80 overflow-y-auto">
             {notifs.length === 0 ? (
-              <div className="px-4 py-8 text-center text-gray-600 text-sm">
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                 No notifications yet
               </div>
             ) : (
@@ -137,8 +138,8 @@ export default function NotificationBell({ portalBase }: { portalBase: 'admin' |
                       window.location.href = `/${portalBase}/leads/${n.leadId}`
                     }
                   }}
-                  className={`px-4 py-3 border-b border-gray-800/50 cursor-pointer hover:bg-gray-800/40 transition-colors flex gap-3 ${
-                    n.read === 'false' ? 'bg-gray-800/20' : ''
+                  className={`flex cursor-pointer gap-3 border-b border-border/50 px-4 py-3 transition-colors hover:bg-accent ${
+                    n.read === 'false' ? 'bg-muted/40' : ''
                   }`}
                 >
                   <span className="text-base mt-0.5 shrink-0">
@@ -146,13 +147,13 @@ export default function NotificationBell({ portalBase }: { portalBase: 'admin' |
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-white text-xs font-medium">{n.title}</p>
+                      <p className="text-xs font-medium">{n.title}</p>
                       {n.read === 'false' && (
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 mt-1" />
                       )}
                     </div>
-                    <p className="text-gray-400 text-xs mt-0.5">{n.body}</p>
-                    <p className="text-gray-600 text-xs mt-1">{formatTime(n.createdAt)}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{n.body}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{formatTime(n.createdAt)}</p>
                   </div>
                 </div>
               ))

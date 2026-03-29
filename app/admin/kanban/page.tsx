@@ -3,7 +3,7 @@ import { leads, users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
-import KanbanBoard from './KanbanBoard'
+import KanbanBoard from '@/components/KanbanBoard'
 
 export default async function KanbanPage() {
   const { userId } = await auth()

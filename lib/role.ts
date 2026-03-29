@@ -1,6 +1,7 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 
-export type AppRole = 'admin' | 'pro'
+import type { AppRole } from '@/types/roles'
+export type { AppRole }
 
 export function normalizeAppRole(value: unknown): AppRole | undefined {
   if (typeof value !== 'string') return undefined

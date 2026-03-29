@@ -1,7 +1,13 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
-import NotificationBell from '@/components/NotificationBell'
+import { count, eq } from 'drizzle-orm'
+
+import { db } from '@/db'
+import { users } from '@/db/schema'
 import { getUserRole } from '@/lib/role'
+import { SidebarProvider } from '@/components/sidebar-provider'
+import { AdminSidebar } from '@/components/admin/admin-sidebar'
+import { AdminHeader } from '@/components/admin/admin-header'
 
 export default async function AdminLayout({
   children,
@@ -15,39 +21,25 @@ export default async function AdminLayout({
   const role = await getUserRole()
   if (role !== 'admin') redirect('/')
 
+  const [teamRow] = await db
+    .select({ c: count() })
+    .from(users)
+    .where(eq(users.role, 'pro'))
+
+  const teamBadge =
+    teamRow && Number(teamRow.c) > 0 ? String(Number(teamRow.c)) : '0'
+
   return (
-    <div className="flex min-h-screen bg-gray-950">
-      <aside className="w-64 border-r border-gray-800 bg-gray-900 flex flex-col">
-        <div className="p-6 border-b border-gray-800">
-          <h1 className="text-white font-semibold text-lg">EduCRM</h1>
-          <span className="text-xs text-emerald-400 font-medium">Admin Portal</span>
+    <SidebarProvider>
+      <div className="min-h-screen bg-muted/50">
+        <AdminSidebar teamBadge={teamBadge} />
+        <div className="flex min-h-screen flex-col lg:pl-52">
+          <AdminHeader />
+          <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 md:px-8 md:py-8">
+            {children}
+          </main>
         </div>
-        <nav className="flex-1 p-4 space-y-1">
-          {[
-            { label: 'Overview',  href: '/admin/overview' },
-            { label: 'Leads',     href: '/admin/leads' },
-            { label: 'Kanban',    href: '/admin/kanban' },
-            { label: 'Access requests', href: '/admin/requests' },
-            { label: 'Team',      href: '/admin/team' },
-            { label: 'Import',    href: '/admin/import' },
-            { label: 'Settings',  href: '/admin/settings' },
-          ].map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="block px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 text-sm transition-colors"
-            > 
-              {item.label}
-            </a>
-          ))}
-        </nav>
-        <div className="p-4 border-t border-gray-800">
-          <NotificationBell portalBase="admin" />
-        </div>
-      </aside>
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
-    </div>
+      </div>
+    </SidebarProvider>
   )
 }

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Lead, LeadActivity, User, LeadStage } from '@/db/schema'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
+import { useToast } from '@/hooks/use-toast'
 
 const STAGES: { value: LeadStage; label: string }[] = [
   { value: 'new_lead',         label: 'New Lead' },
@@ -32,18 +33,7 @@ const STAGE_COLORS: Record<string, string> = {
   paid:             'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
 }
 
-type ActivityRow = {
-  id: string
-  type: LeadActivity['type']
-  fromStage: string | null
-  toStage: string | null
-  note: string | null
-  createdAt: Date | null
-  userName: string | null
-  userEmail: string | null
-}
-
-type UserRow = Pick<User, 'id' | 'name' | 'role'>
+import type { ActivityRow, UserRow } from '@/types/leads'
 
 export default function LeadDetailClient({
   lead,
@@ -54,6 +44,7 @@ export default function LeadDetailClient({
   activities: ActivityRow[]
   allUsers: UserRow[]
 }) {
+  const { toast } = useToast()
   const router = useRouter()
   const [stage, setStage] = useState(lead.stage ?? 'new_lead')
   const [assignedTo, setAssignedTo] = useState(lead.assignedTo ?? '')
@@ -73,6 +64,7 @@ export default function LeadDetailClient({
       body: JSON.stringify({ stage: newStage }),
     })
     setSaving(false)
+    toast({ title: 'Stage Updated', description: 'Lead stage has been successfully updated.' })
     router.refresh()
   }
 
@@ -83,6 +75,7 @@ export default function LeadDetailClient({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ assignedTo: newAssignedTo || null }),
     })
+    toast({ title: 'Lead Assigned', description: 'Assignment updated successfully.' })
     router.refresh()
   }
 
@@ -96,6 +89,7 @@ export default function LeadDetailClient({
     })
     setNote('')
     setAddingNote(false)
+    toast({ title: 'Activity Added', description: 'Your note was attached to the lead.' })
     router.refresh()
   }
 

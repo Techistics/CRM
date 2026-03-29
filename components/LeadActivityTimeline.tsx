@@ -1,16 +1,7 @@
 import type { LeadActivity } from '@/db/schema'
 import { leadStageLabel } from '@/lib/lead-stage-labels'
 
-export type TimelineActivity = {
-  id: string
-  type: LeadActivity['type']
-  fromStage: string | null
-  toStage: string | null
-  note: string | null
-  createdAt: Date | string | null
-  userName: string | null
-  userEmail: string | null
-}
+import type { TimelineActivity } from '@/types/leads'
 
 const ICONS: Record<string, string> = {
   stage_change: '⟳',

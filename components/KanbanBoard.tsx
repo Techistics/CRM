@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import {
   DndContext,
   DragEndEvent,
@@ -19,6 +18,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { useToast } from '@/hooks/use-toast'
 
 const STAGES = [
   { value: 'new_lead',         label: 'New Lead',       color: 'border-t-blue-500' },
@@ -33,16 +33,7 @@ const STAGES = [
   { value: 'paid',             label: 'Paid',           color: 'border-t-emerald-500' },
 ]
 
-type KanbanLead = {
-  id: string
-  fullName: string
-  email: string | null
-  contactNumber: string | null
-  city: string | null
-  stage: string | null
-  lastQualification: string | null
-  assigneeName: string | null
-}
+import type { KanbanLead } from '@/types/leads'
 
 function LeadCard({
   lead,
@@ -68,40 +59,40 @@ function LeadCard({
       style={style}
       {...attributes}
       {...listeners}
-      className={`bg-gray-800 border rounded-lg p-3 cursor-grab active:cursor-grabbing transition-colors ${
+      className={`bg-white border rounded-lg p-2 cursor-grab active:cursor-grabbing shadow-sm transition-all ${
         isBlocked
-          ? 'border-red-500/60 bg-red-950/30'
-          : 'border-gray-700 hover:border-gray-600'
+          ? 'border-red-400 bg-red-50/50'
+          : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
       }`}
     >
-      <p className="text-white text-sm font-medium truncate">{lead.fullName}</p>
+      <p className="text-gray-900 text-[11px] font-bold tracking-tight truncate leading-tight">{lead.fullName}</p>
       {lead.email && (
-        <p className="text-gray-500 text-xs mt-0.5 truncate">{lead.email}</p>
+        <p className="text-gray-500 text-[9px] mt-0.5 truncate font-medium">{lead.email}</p>
       )}
-      <div className="flex items-center gap-2 mt-2 flex-wrap">
+      <div className="flex items-center gap-1 mt-1 flex-wrap">
         {lead.city && (
-          <span className="text-xs text-gray-500 bg-gray-700/60 px-1.5 py-0.5 rounded">
+          <span className="text-[8px] text-gray-600 bg-gray-50 border border-gray-200 px-1 py-[1px] rounded flex-shrink-0 font-medium whitespace-nowrap">
             {lead.city}
           </span>
         )}
         {lead.lastQualification && (
-          <span className="text-xs text-gray-500 bg-gray-700/60 px-1.5 py-0.5 rounded">
+          <span className="text-[8px] text-gray-600 bg-gray-50 border border-gray-200 px-1 py-[1px] rounded flex-shrink-0 font-medium whitespace-nowrap">
             {lead.lastQualification}
           </span>
         )}
       </div>
 
       {lead.assigneeName ? (
-        <div className="mt-2 flex items-center gap-1.5">
-          <div className="w-4 h-4 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 text-xs">
+        <div className="mt-1.5 flex items-center gap-1">
+          <div className="w-3.5 h-3.5 rounded bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-[8px] shadow-sm">
             {lead.assigneeName.charAt(0)}
           </div>
-          <span className="text-xs text-gray-500">{lead.assigneeName}</span>
+          <span className="text-[9px] text-gray-600 font-medium truncate">{lead.assigneeName}</span>
         </div>
       ) : (
-        <div className="mt-2 flex items-center gap-1.5">
-          <span className={`text-xs ${isBlocked ? 'text-red-400' : 'text-gray-600'}`}>
-            {isBlocked ? '✕ Assign first to move' : 'Unassigned'}
+        <div className="mt-1.5 flex items-center gap-1">
+          <span className={`text-[9px] font-semibold ${isBlocked ? 'text-red-500' : 'text-gray-400'}`}>
+            {isBlocked ? '✕ Assign first' : 'Unassigned'}
           </span>
         </div>
       )}
@@ -111,10 +102,10 @@ function LeadCard({
 
 function DragCard({ lead }: { lead: KanbanLead }) {
   return (
-    <div className="bg-gray-800 border border-emerald-500/40 rounded-lg p-3 shadow-xl rotate-1 w-52">
-      <p className="text-white text-sm font-medium truncate">{lead.fullName}</p>
+    <div className="bg-white border border-blue-400 rounded-lg p-2 shadow-xl rotate-3 w-40 scale-105">
+      <p className="text-gray-900 text-[11px] font-bold truncate leading-tight">{lead.fullName}</p>
       {lead.email && (
-        <p className="text-gray-500 text-xs mt-0.5 truncate">{lead.email}</p>
+        <p className="text-gray-500 text-[9px] mt-0.5 truncate font-medium">{lead.email}</p>
       )}
     </div>
   )
@@ -122,9 +113,14 @@ function DragCard({ lead }: { lead: KanbanLead }) {
 
 export default function KanbanBoard({
   initialLeads,
+  baseApiUrl = '/api/leads',
+  backUrl = '/admin/leads'
 }: {
   initialLeads: KanbanLead[]
+  baseApiUrl?: string
+  backUrl?: string
 }) {
+  const { toast } = useToast()
   const [leadsState, setLeadsState] = useState<KanbanLead[]>(initialLeads)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
@@ -132,7 +128,7 @@ export default function KanbanBoard({
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
+      activationConstraint: { distance: 5 },
     })
   )
 
@@ -156,7 +152,8 @@ export default function KanbanBoard({
     const overId = over.id as string
 
     const activeLead = leadsState.find((l) => l.id === activeLeadId)
-    if (!activeLead?.assigneeName) return // block unassigned
+    // block unassigned from drag overs
+    if (!activeLead?.assigneeName) return 
 
     const overStage = STAGES.find((s) => s.value === overId)
     if (overStage) {
@@ -188,7 +185,7 @@ export default function KanbanBoard({
     const lead = leadsState.find((l) => l.id === leadId)
     if (!lead) return
 
-    // Block unassigned leads from moving
+    // Block unassigned leads from completing drop
     if (!lead.assigneeName) {
       setLeadsState((prev) =>
         prev.map((l) =>
@@ -200,38 +197,35 @@ export default function KanbanBoard({
       setActiveId(null)
       setBlockedId(leadId)
       setTimeout(() => setBlockedId(null), 2000)
+      toast({ variant: 'destructive', title: 'Action Blocked', description: 'Assign lead first before moving.' })
       return
     }
 
     setActiveId(null)
     setSaving(leadId)
 
-    await fetch(`/api/leads/${leadId}/stage`, {
+    const res = await fetch(`${baseApiUrl}/${leadId}/stage`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stage: lead.stage }),
     })
+    
+    if (res.ok) {
+      toast({ title: 'Stage Updated', description: `${lead.fullName} moved to section.` })
+    }
 
     setSaving(null)
   }
 
   return (
-    <div className="p-8 h-full">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-3 bg-[#F8FAFC] flex flex-col h-full min-h-[calc(100vh-3rem)]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Pipeline Board</h1>
-          <p className="text-gray-400 text-sm mt-1">
+          <h1 className="text-lg font-bold text-gray-900 tracking-tight leading-tight">Pipeline Board</h1>
+          <p className="text-gray-500 text-[10px] mt-0.5">
             Drag cards between columns to update stage —{' '}
-            <span className="text-gray-600">unassigned leads must be assigned first</span>
+            <span className="font-semibold text-gray-600">unassigned leads must be assigned first</span>
           </p>
-        </div>
-        <div className="flex items-center">
-          <Link
-            href="/admin/leads"
-            className="text-gray-500 text-sm hover:text-gray-300 transition-colors"
-          >
-            ← List view
-          </Link>
         </div>
       </div>
 
@@ -242,19 +236,18 @@ export default function KanbanBoard({
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-3 overflow-x-auto pb-4">
+        <div className="flex gap-2 overflow-x-auto pb-4 pt-1 select-none flex-1 min-h-0">
           {STAGES.map((stage) => {
             const stageLeads = getLeadsByStage(stage.value)
             return (
               <div
                 key={stage.value}
-                className={`flex-shrink-0 w-52 bg-gray-900 border border-gray-800 rounded-xl border-t-2 ${stage.color} flex flex-col`}
-                style={{ minHeight: '60vh' }}
+                className={`flex-shrink-0 w-[180px] bg-gray-50/80 border border-gray-200 rounded-lg border-t-2 ${stage.color} flex flex-col shadow-sm`}
               >
-                <div className="px-3 py-3 border-b border-gray-800">
+                <div className="px-2.5 py-1.5 border-b border-gray-200 bg-white/50 rounded-t-lg">
                   <div className="flex items-center justify-between">
-                    <p className="text-white text-xs font-medium">{stage.label}</p>
-                    <span className="text-gray-500 text-xs bg-gray-800 px-1.5 py-0.5 rounded-full">
+                    <p className="text-gray-900 text-[11px] font-bold tracking-tight">{stage.label}</p>
+                    <span className="text-gray-600 text-[9px] font-bold bg-white border border-gray-200 shadow-sm px-1 py-[1px] rounded">
                       {stageLeads.length}
                     </span>
                   </div>
@@ -265,7 +258,7 @@ export default function KanbanBoard({
                   items={stageLeads.map((l) => l.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="flex-1 p-2 space-y-2 min-h-24">
+                  <div className="flex-1 p-2 space-y-2 overflow-y-auto w-full">
                     {stageLeads.map((lead) => (
                       <div key={lead.id} className="relative">
                         <LeadCard
@@ -274,8 +267,11 @@ export default function KanbanBoard({
                           isBlocked={blockedId === lead.id}
                         />
                         {saving === lead.id && (
-                          <div className="absolute inset-0 bg-gray-900/60 rounded-lg flex items-center justify-center">
-                            <span className="text-xs text-emerald-400">Saving...</span>
+                          <div className="absolute inset-0 bg-white/80 backdrop-blur-[1px] rounded-lg flex items-center justify-center border border-gray-100 object-cover z-10 transition-opacity">
+                            <span className="text-[9px] font-bold text-blue-600 flex items-center gap-1">
+                              <svg className="animate-spin h-3 w-3 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                               Saving
+                            </span>
                           </div>
                         )}
                       </div>

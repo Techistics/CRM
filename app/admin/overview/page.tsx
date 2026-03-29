@@ -1,6 +1,6 @@
 import { db } from '@/db'
 import { leads, users } from '@/db/schema'
-import { eq, count } from 'drizzle-orm'
+import { eq, count, gte, isNull } from 'drizzle-orm'
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import AnalyticsOverviewClient from './AnalyticsOverviewClient'
@@ -17,6 +17,22 @@ export default async function AdminOverviewPage() {
 
   // Total leads
   const totalLeads = byStage.reduce((sum, s) => sum + Number(s.total), 0)
+
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+
+  const [newLeadsTodayRow] = await db
+    .select({ c: count(leads.id) })
+    .from(leads)
+    .where(gte(leads.createdAt, startOfToday))
+
+  const [unassignedRow] = await db
+    .select({ c: count(leads.id) })
+    .from(leads)
+    .where(isNull(leads.assignedTo))
+
+  const newLeadsToday = Number(newLeadsTodayRow?.c ?? 0)
+  const unassignedCount = Number(unassignedRow?.c ?? 0)
 
   // Per agent stats
   const proUsers = await db
@@ -152,6 +168,8 @@ export default async function AdminOverviewPage() {
       activeCount={activeCount}
       paidCount={paidCount}
       cancelledCount={cancelledCount}
+      newLeadsToday={newLeadsToday}
+      unassignedCount={unassignedCount}
       stageData={stageData}
       funnelSteps={funnelSteps}
       agentStats={agentStats}

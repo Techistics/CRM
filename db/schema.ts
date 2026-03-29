@@ -31,7 +31,7 @@ export const notifications = pgTable('notifications', {
   createdAt: timestamp('created_at').defaultNow(),
 })
 
-export type Notification = typeof notifications.$inferSelect
+
 
   // ─── Leads ───────────────────────────────────────────────────
   export const leads = pgTable('leads', {
@@ -105,7 +105,7 @@ export const roleRequests = pgTable('role_requests', {
   reviewedByClerkId: text('reviewed_by_clerk_id'),
 })
 
-export type RoleRequest = typeof roleRequests.$inferSelect
+
 
   // ─── CSV Import Batches ───────────────────────────────────────
   export const csvImports = pgTable('csv_imports', {
@@ -121,9 +121,6 @@ export type RoleRequest = typeof roleRequests.$inferSelect
     createdAt: timestamp('created_at').defaultNow(),
   })
   
-  // ─── Types ────────────────────────────────────────────────────
-  export type User = typeof users.$inferSelect
-  export type Lead = typeof leads.$inferSelect
-  export type LeadActivity = typeof leadActivities.$inferSelect
-  export type CsvImport = typeof csvImports.$inferSelect
-  export type LeadStage = Lead['stage']
+// ─── Re-exported Types ─────────────────────────────────────────
+export type { User, Lead, LeadActivity, CsvImport, LeadStage, Notification, RoleRequest } from '@/types/models'
+  

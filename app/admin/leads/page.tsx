@@ -6,31 +6,20 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import Pagination from '@/components/Pagination'
 import SearchInput from '@/components/SearchInput'
-
-const STAGE_LABELS: Record<string, { label: string; color: string }> = {
-  new_lead:         { label: 'New Lead',       color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-  unresponsive:     { label: 'Unresponsive',   color: 'bg-gray-500/10 text-gray-400 border-gray-500/20' },
-  follow_up:        { label: 'Follow Up',      color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' },
-  docs_received:    { label: 'Docs Received',  color: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
-  options_sent:     { label: 'Options Sent',   color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
-  final_decision:   { label: 'Final Decision', color: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
-  walkin_booked:    { label: 'Walk-in Booked', color: 'bg-teal-500/10 text-teal-400 border-teal-500/20' },
-  walkin_conducted: { label: 'Walk-in Done',   color: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' },
-  cancelled:        { label: 'Cancelled',      color: 'bg-red-500/10 text-red-400 border-red-500/20' },
-  paid:             { label: 'Paid',           color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-}
+import PageSizeDropdown from '@/components/PageSizeDropdown'
+import { STAGE_LABELS } from '@/constants/leads'
 
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ assignedTo?: string; page?: string; q?: string }>
+  searchParams: Promise<{ assignedTo?: string; page?: string; q?: string; pageSize?: string }>
 }) {
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
-  const { assignedTo, page, q } = await searchParams
+  const { assignedTo, page, q, pageSize: pageSizeParam } = await searchParams
 
-  const pageSize = 10
+  const pageSize = Number(pageSizeParam) || 10
   const currentPage = (() => {
     const n = Number(page ?? '1')
     if (!Number.isFinite(n) || n < 1) return 1
@@ -98,106 +87,127 @@ export default async function LeadsPage({
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Leads</h1>
-          <p className="text-gray-400 text-sm mt-1">
+          <h1 className="text-2xl font-semibold text-[#223955]">Leads</h1>
+          <p className="text-gray-500 text-sm mt-1">
             {totalLeads} total leads
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <SearchInput placeholder="Search phone, name, email..." />
+          <div className="w-64">
+            <SearchInput placeholder="Search phone, name, email..." />
+          </div>
           <Link
             href="/admin/import"
-            className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-1 bg-[#223955] hover:bg-[#1a2b40] text-white text-sm font-medium px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5"
           >
-            + Import Leads
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Import Leads
           </Link>
         </div>
       </div>
 
       {pageLeads.length === 0 ? (
-        <div className="text-center py-24 text-gray-600">
+        <div className="text-center bg-white border border-gray-200 shadow-sm rounded-2xl py-24 text-gray-500 transition-all hover:shadow-md">
           {totalLeads === 0
             ? 'No leads yet. Import a CSV to get started.'
-            : 'No leads found for this page.'}
+            : 'No leads found for this search/page.'}
         </div>
       ) : (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-800">
-                <th className="text-left text-gray-500 font-medium px-4 py-3">Name</th>
-                <th className="text-left text-gray-500 font-medium px-4 py-3">Contact</th>
-                <th className="text-left text-gray-500 font-medium px-4 py-3">City</th>
-                <th className="text-left text-gray-500 font-medium px-4 py-3">Qualification</th>
-                <th className="text-left text-gray-500 font-medium px-4 py-3">Stage</th>
-                <th className="text-left text-gray-500 font-medium px-4 py-3">Assigned To</th>
-                <th className="text-left text-gray-500 font-medium px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageLeads.map((lead, i) => {
-                const stage = STAGE_LABELS[lead.stage ?? 'new_lead']
-                return (
-                  <tr
-                    key={lead.id}
-                    className={`border-b border-gray-800/50 hover:bg-gray-800/40 transition-colors ${
-                      i % 2 === 0 ? '' : 'bg-gray-800/10'
-                    }`}
-                  >
-                    <td className="px-4 py-3">
-                      <p className="text-white font-medium">{lead.fullName}</p>
-                      {lead.email && (
-                        <p className="text-gray-500 text-xs mt-0.5">{lead.email}</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-400">
-                      {lead.contactNumber ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-gray-400">
-                      {lead.city ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-gray-400">
-                      {lead.lastQualification ?? '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-1 rounded-md border ${stage.color}`}>
-                        {stage.label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-400">
-                      {lead.assigneeName ?? (
-                        <span className="text-gray-600 italic">Unassigned</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/admin/leads/${lead.id}`}
-                        className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
-                      >
-                        View →
-                      </Link>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <div className="bg-white border border-gray-200 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1)]">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm whitespace-nowrap">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs">Name</th>
+                  <th className="text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs">Contact</th>
+                  <th className="text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs">City</th>
+                  <th className="text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs">Qualification</th>
+                  <th className="text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs">Stage</th>
+                  <th className="text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs">Assigned To</th>
+                  <th className="text-right text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {pageLeads.map((lead) => {
+                  const stage = STAGE_LABELS[lead.stage ?? 'new_lead']
+                  return (
+                    <tr
+                      key={lead.id}
+                      className="hover:bg-blue-50/30 transition-colors group cursor-default"
+                    >
+                      <td className="px-6 py-4">
+                        <p className="text-gray-900 font-semibold">{lead.fullName}</p>
+                        {lead.email && (
+                          <p className="text-gray-500 text-xs mt-1">{lead.email}</p>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">
+                        {lead.contactNumber ?? '—'}
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">
+                        {lead.city ?? '—'}
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">
+                        {lead.lastQualification ?? '—'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`text-xs px-2.5 py-1 rounded-full border ${stage.color} font-medium tracking-wide`}>
+                          {stage.label}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {lead.assigneeName ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+                              {lead.assigneeName.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="text-gray-700 font-medium">{lead.assigneeName}</span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 italic text-sm">Unassigned</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <Link
+                          href={`/admin/leads/${lead.id}`}
+                          className="inline-flex items-center justify-center text-sm font-medium text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 border border-blue-100 transition-all rounded-lg px-3 py-1.5 shadow-sm group-hover:shadow"
+                        >
+                          View <span className="ml-1 transition-transform group-hover:translate-x-0.5">→</span>
+                        </Link>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {pageLeads.length > 0 && totalPages > 1 && (
-        <div className="mt-6 flex justify-center">
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            makeHref={(p) => {
-              const sp = new URLSearchParams()
-              if (assignedTo) sp.set('assignedTo', assignedTo)
-              if (q) sp.set('q', q)
-              sp.set('page', String(p))
-              return `/admin/leads?${sp.toString()}`
-            }}
-          />
+      {pageLeads.length > 0 && (
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex-1">
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                makeHref={(p) => {
+                  const sp = new URLSearchParams()
+                  if (assignedTo) sp.set('assignedTo', assignedTo)
+                  if (q) sp.set('q', q)
+                  if (pageSize !== 10) sp.set('pageSize', String(pageSize))
+                  sp.set('page', String(p))
+                  return `/admin/leads?${sp.toString()}`
+                }}
+              />
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500 font-medium">Rows per page</span>
+            <PageSizeDropdown currentSize={pageSize} />
+          </div>
         </div>
       )}
     </div>

@@ -15,21 +15,32 @@ export function AuthToastWrapper() {
   useEffect(() => {
     // Wait until Clerk resolves the initial state
     if (!isLoaded) return
+    // Avoid duplicate toasts on fast remounts/navigations
+    const key = 'auth-toast:last'
+    const now = Date.now()
+    const last = Number(sessionStorage.getItem(key) ?? '0')
+    const recentlyToasted = Number.isFinite(last) && now - last < 3000
 
     // On state change transitions
     if (prevIsSignedIn.current !== undefined) {
       if (prevIsSignedIn.current === false && isSignedIn === true) {
-        toast({
-          title: 'Logged In Successfully',
-          description: user?.firstName 
-            ? `Welcome back, ${user.firstName}!` 
-            : 'Welcome back!',
-        })
+        if (!recentlyToasted) {
+          sessionStorage.setItem(key, String(now))
+          toast({
+            title: 'Signed in',
+            description: user?.firstName
+              ? `Welcome, ${user.firstName}.`
+              : 'Welcome back.',
+          })
+        }
       } else if (prevIsSignedIn.current === true && isSignedIn === false) {
-        toast({
-          title: 'Logged Out',
-          description: 'You have been successfully logged out.',
-        })
+        if (!recentlyToasted) {
+          sessionStorage.setItem(key, String(now))
+          toast({
+            title: 'Signed out',
+            description: 'You have been signed out.',
+          })
+        }
       }
     }
 

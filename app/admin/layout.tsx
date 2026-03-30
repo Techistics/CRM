@@ -6,8 +6,9 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { getUserRole } from '@/lib/role'
 import { SidebarProvider } from '@/components/sidebar-provider'
-import { AdminSidebar } from '@/components/admin/admin-sidebar'
+import { RoleSidebar } from '@/components/shared/role-sidebar'
 import { AdminHeader } from '@/components/admin/admin-header'
+import { UiScaleWrapper } from '@/components/shared/ui-scale-wrapper'
 
 export default async function AdminLayout({
   children,
@@ -32,11 +33,11 @@ export default async function AdminLayout({
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-muted/50">
-        <AdminSidebar teamBadge={teamBadge} />
+        <RoleSidebar role="admin" badges={{ team: teamBadge }} />
         <div className="flex min-h-screen flex-col lg:pl-52">
           <AdminHeader />
           <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 md:px-8 md:py-8">
-            {children}
+            <UiScaleWrapper>{children}</UiScaleWrapper>
           </main>
         </div>
       </div>

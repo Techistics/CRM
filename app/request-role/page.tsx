@@ -26,22 +26,22 @@ export default async function RequestRolePage() {
   const lastRejected = Boolean(latest && latest.status === 'rejected' && !pending)
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-950 px-6 py-12 text-white">
-      <div className="w-full max-w-md rounded-2xl border border-gray-800 bg-gray-900 p-6">
+    <main className="flex min-h-screen items-center justify-center bg-muted/50 px-6 py-12">
+      <div className="w-full max-w-md rounded-2xl border bg-card p-6 text-card-foreground shadow-sm">
         <h1 className="text-xl font-semibold">Request access</h1>
-        <p className="mt-2 text-sm text-gray-400">
+        <p className="mt-2 text-sm text-muted-foreground">
           Choose the role you need. An admin will review and approve your account in the CRM.
         </p>
 
         {pending ? (
           <div className="mt-6 space-y-4">
-            <div className="rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-3 text-sm">
-              <p className="text-emerald-400 font-medium">Request pending</p>
-              <p className="text-gray-400 mt-2">
-                You asked for <strong className="text-white">{pending.requestedRole}</strong> access as{' '}
-                <span className="text-gray-300">{pending.email}</span>.
+            <div className="rounded-xl border bg-muted/40 px-4 py-3 text-sm">
+              <p className="font-medium text-primary">Request pending</p>
+              <p className="mt-2 text-muted-foreground">
+                You asked for <strong className="text-foreground">{pending.requestedRole}</strong> access as{' '}
+                <span className="text-foreground/80">{pending.email}</span>.
               </p>
-              <p className="text-gray-500 text-xs mt-2">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Submitted {pending.createdAt ? new Date(pending.createdAt).toLocaleString() : '—'}. An admin
                 will approve or decline soon.
               </p>
@@ -50,7 +50,7 @@ export default async function RequestRolePage() {
               <SignOutButton redirectUrl="/sign-in">
                 <button
                   type="button"
-                  className="rounded-lg border border-gray-600 px-4 py-2 text-sm text-gray-200 hover:bg-gray-800"
+                  className="rounded-lg border px-4 py-2 text-sm text-muted-foreground hover:bg-muted"
                 >
                   Sign out
                 </button>
@@ -64,7 +64,7 @@ export default async function RequestRolePage() {
               <SignOutButton redirectUrl="/sign-in">
                 <button
                   type="button"
-                  className="text-xs text-gray-500 hover:text-gray-300 underline underline-offset-2"
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
                 >
                   Sign out
                 </button>

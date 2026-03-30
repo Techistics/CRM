@@ -2,7 +2,9 @@ import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { getUserRole } from '../../lib/role'
 import { ProHeader } from '@/components/pro/pro-header'
-import { ProSidebar } from '@/components/pro/pro-sidebar'
+import { SidebarProvider } from '@/components/sidebar-provider'
+import { RoleSidebar } from '@/components/shared/role-sidebar'
+import { UiScaleWrapper } from '@/components/shared/ui-scale-wrapper'
 
 export default async function ProLayout({
   children,
@@ -18,15 +20,16 @@ export default async function ProLayout({
   if (role !== 'pro') redirect('/')
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC]">
-      <ProSidebar />
-
-      <main className="flex-1 flex flex-col min-w-0 max-h-screen overflow-hidden">
-        <ProHeader />
-        <div className="flex-1 overflow-auto">
-          {children}
+    <SidebarProvider>
+      <div className="min-h-screen bg-muted/50">
+        <RoleSidebar role="pro" />
+        <div className="flex min-h-screen flex-col lg:pl-52">
+          <ProHeader />
+          <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 md:px-8 md:py-8">
+            <UiScaleWrapper>{children}</UiScaleWrapper>
+          </main>
         </div>
-      </main>
-    </div>
+      </div>
+    </SidebarProvider>
   )
 }

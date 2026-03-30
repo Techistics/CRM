@@ -1,32 +1,51 @@
 'use client'
 
 import { UserButton } from '@clerk/nextjs'
-import { Search } from 'lucide-react'
+import { Menu, Search } from 'lucide-react'
 import NotificationBell from '@/app/components/NotificationBell'
+import { useSidebar } from '@/components/sidebar-provider'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 export function ProHeader() {
+  const { toggle } = useSidebar()
+
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/80 backdrop-blur px-8 py-3.5 flex items-center shadow-[0_2px_15px_-3px_rgba(0,0,0,0.03)]">
-      <div className="min-w-0 flex-1 flex items-center">
-        <div className="relative w-full max-w-lg">
-          <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
-          <input
-            type="search"
-            placeholder="Search leads, activities..."
-            className="w-full pl-10 pr-4 py-2 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-medium placeholder:text-gray-400 text-gray-900"
+    <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="flex h-14 items-center gap-4 px-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden"
+          onClick={toggle}
+          type="button"
+        >
+          <Menu className="h-5 w-5" />
+          <span className="sr-only">Open menu</span>
+        </Button>
+
+        <div className="min-w-0 flex-1">
+          <div className="relative mx-auto max-w-xl">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search..."
+              className="w-full pl-8 md:max-w-xl"
+              aria-label="Search"
+            />
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1">
+          <NotificationBell portalBase="pro" />
+          <UserButton
+            appearance={{
+              elements: {
+                avatarBox: 'h-8 w-8',
+              },
+            }}
           />
         </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-4 ml-4">
-        <NotificationBell portalBase="pro" />
-        <div className="h-5 w-px bg-gray-200" />
-        <UserButton
-          appearance={{
-            elements: {
-              avatarBox: 'h-8 w-8 shadow-sm border border-gray-200',
-            },
-          }}
-        />
       </div>
     </header>
   )

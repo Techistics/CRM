@@ -21,7 +21,7 @@ export function ProHeader() {
           type="button"
         >
           <Menu className="h-5 w-5" />
-          <span className="sr-only">Open menu</span>
+          <span className="sr-only">Open Menu</span>
         </Button>
 
         <div className="min-w-0 flex-1">

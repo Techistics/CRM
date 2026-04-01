@@ -2,25 +2,18 @@ import { clerkClient } from '@clerk/nextjs/server'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { normalizeAppRole } from '@/lib/role'
 
 /**
- * Ensures a `users` row exists for this Clerk user when Clerk public/unsafe
- * metadata includes a valid app role. New users are not in the DB until this runs
- * (or a script inserts them).
+ * Ensures a `users` row exists for this Clerk user (global profile).
+ * Workspace roles come from Clerk Organizations + `tenant_members`.
  */
 export async function syncAppUserFromClerk(
-  userId: string
+  userId: string,
 ): Promise<(typeof users.$inferSelect) | null> {
   const client = await clerkClient()
   const cu = await client.users.getUser(userId)
   const email = cu.emailAddresses[0]?.emailAddress
   if (!email) return null
-
-  const role = normalizeAppRole(
-    cu.publicMetadata?.role ?? cu.unsafeMetadata?.role
-  )
-  if (!role) return null
 
   const name =
     [cu.firstName, cu.lastName].filter(Boolean).join(' ') ||
@@ -29,19 +22,19 @@ export async function syncAppUserFromClerk(
 
   await db
     .insert(users)
-    .values({ clerkId: userId, email, name, role })
+    .values({ clerkId: userId, email, name, role: 'pro' })
     .onConflictDoUpdate({
       target: users.clerkId,
-      set: { email, name, role },
+      set: { email, name },
     })
 
   const [row] = await db.select().from(users).where(eq(users.clerkId, userId))
   return row ?? null
 }
 
-/** For pro API routes: synced row must exist and role must be `pro`. */
+/** @deprecated Prefer syncTenantMembership + tenant-scoped queries */
 export async function getProDbUser(userId: string) {
   const row = await syncAppUserFromClerk(userId)
-  if (!row || row.role !== 'pro') return null
+  if (!row) return null
   return row
 }

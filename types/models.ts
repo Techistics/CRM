@@ -1,5 +1,16 @@
-import { users, leads, leadActivities, csvImports, notifications, roleRequests } from '@/db/schema'
+import {
+  users,
+  leads,
+  leadActivities,
+  csvImports,
+  notifications,
+  roleRequests,
+  tenants,
+  tenantMembers,
+} from '@/db/schema'
 
+export type Tenant = typeof tenants.$inferSelect
+export type TenantMember = typeof tenantMembers.$inferSelect
 export type User = typeof users.$inferSelect
 export type Lead = typeof leads.$inferSelect
 export type LeadActivity = typeof leadActivities.$inferSelect

@@ -1,12 +1,13 @@
-import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
-import { db } from '@/db'
-import { leads, users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
+import { db } from '@/db'
+import { leads, users } from '@/db/schema'
+import { requireTenantMemberApi } from '@/lib/tenant-api'
+
 export async function GET() {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await requireTenantMemberApi()
+  if (!ctx.ok) return ctx.response
 
   const allLeads = await db
     .select({
@@ -21,6 +22,7 @@ export async function GET() {
     })
     .from(leads)
     .leftJoin(users, eq(leads.assignedTo, users.id))
+    .where(eq(leads.tenantId, ctx.tenant.id))
 
   return NextResponse.json({ leads: allLeads })
 }

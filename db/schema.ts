@@ -1,26 +1,105 @@
 import {
-    pgTable,
-    uuid,
-    text,
-    timestamp,
-    integer,
-    jsonb,
-  } from 'drizzle-orm/pg-core'
-  
-  // ─── Users (synced from Clerk) ───────────────────────────────
-  export const users = pgTable('users', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    clerkId: text('clerk_id').notNull().unique(),
-    email: text('email').notNull(),
-    name: text('name').notNull(),
-    role: text('role', { enum: ['admin', 'pro'] }).notNull().default('pro'),
+  pgTable,
+  uuid,
+  text,
+  timestamp,
+  integer,
+  jsonb,
+  primaryKey,
+} from 'drizzle-orm/pg-core'
+
+// ─── Tenants (workspaces) ─────────────────────────────────────
+export const tenants = pgTable('tenants', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: text('slug').notNull().unique(),
+  name: text('name').notNull(),
+  brandName: text('brand_name'),
+  clerkOrgId: text('clerk_org_id').notNull().unique(),
+  status: text('status', { enum: ['active', 'suspended'] })
+    .notNull()
+    .default('active'),
+  settings: jsonb('settings'),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// ─── Users (synced from Clerk) ───────────────────────────────
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clerkId: text('clerk_id').notNull().unique(),
+  email: text('email').notNull(),
+  name: text('name').notNull(),
+  /** @deprecated Use tenant_members.role per workspace */
+  role: text('role', { enum: ['admin', 'pro'] }).notNull().default('pro'),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
+// ─── Tenant membership ────────────────────────────────────────
+export const tenantMembers = pgTable(
+  'tenant_members',
+  {
+    tenantId: uuid('tenant_id')
+      .references(() => tenants.id, { onDelete: 'cascade' })
+      .notNull(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    role: text('role', { enum: ['tenant_admin', 'agent'] }).notNull(),
     createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.tenantId, t.userId] }),
+  }),
+)
+
+// ─── Leads ───────────────────────────────────────────────────
+export const leads = pgTable('leads', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id')
+    .references(() => tenants.id, { onDelete: 'cascade' })
+    .notNull(),
+  fullName: text('full_name').notNull(),
+  contactNumber: text('contact_number'),
+  email: text('email'),
+  city: text('city'),
+  lastQualification: text('last_qualification'),
+  grades: text('grades'),
+  source: text('source').default('csv_import'),
+  rawData: jsonb('raw_data'),
+
+  stage: text('stage', {
+    enum: [
+      'new_lead',
+      'unresponsive',
+      'follow_up',
+      'docs_received',
+      'options_sent',
+      'final_decision',
+      'walkin_booked',
+      'walkin_conducted',
+      'cancelled',
+      'paid',
+    ],
   })
-  
-  // ─── Notifications ────────────────────────────────────────────
+    .notNull()
+    .default('new_lead'),
+
+  assignedTo: uuid('assigned_to').references(() => users.id, {
+    onDelete: 'set null',
+  }),
+  createdBy: uuid('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+// ─── Notifications ────────────────────────────────────────────
 export const notifications = pgTable('notifications', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  tenantId: uuid('tenant_id')
+    .references(() => tenants.id, { onDelete: 'cascade' })
+    .notNull(),
+  userId: uuid('user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .notNull(),
   title: text('title').notNull(),
   body: text('body').notNull(),
   type: text('type', {
@@ -31,66 +110,33 @@ export const notifications = pgTable('notifications', {
   createdAt: timestamp('created_at').defaultNow(),
 })
 
+// ─── Lead Activity Log ────────────────────────────────────────
+export const leadActivities = pgTable('lead_activities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id')
+    .references(() => tenants.id, { onDelete: 'cascade' })
+    .notNull(),
+  leadId: uuid('lead_id')
+    .references(() => leads.id, { onDelete: 'cascade' })
+    .notNull(),
+  userId: uuid('user_id')
+    .references(() => users.id)
+    .notNull(),
+  type: text('type', {
+    enum: ['stage_change', 'note', 'call', 'message', 'document'],
+  }),
+  fromStage: text('from_stage'),
+  toStage: text('to_stage'),
+  note: text('note'),
+  createdAt: timestamp('created_at').defaultNow(),
+})
 
-
-  // ─── Leads ───────────────────────────────────────────────────
-  export const leads = pgTable('leads', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    fullName: text('full_name').notNull(),
-    contactNumber: text('contact_number'),
-    email: text('email'),
-    city: text('city'),
-    lastQualification: text('last_qualification'),
-    grades: text('grades'),
-    source: text('source').default('csv_import'),
-    rawData: jsonb('raw_data'),
-  
-    stage: text('stage', {
-      enum: [
-        'new_lead',
-        'unresponsive',
-        'follow_up',
-        'docs_received',
-        'options_sent',
-        'final_decision',
-        'walkin_booked',
-        'walkin_conducted',
-        'cancelled',
-        'paid',
-      ],
-    })
-      .notNull()
-      .default('new_lead'),
-  
-    assignedTo: uuid('assigned_to').references(() => users.id, {
-      onDelete: 'set null',
-    }),
-    createdBy: uuid('created_by').references(() => users.id),
-    createdAt: timestamp('created_at').defaultNow(),
-    updatedAt: timestamp('updated_at').defaultNow(),
-  })
-  
-  // ─── Lead Activity Log ────────────────────────────────────────
-  export const leadActivities = pgTable('lead_activities', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    leadId: uuid('lead_id')
-      .references(() => leads.id, { onDelete: 'cascade' })
-      .notNull(),
-    userId: uuid('user_id')
-      .references(() => users.id)
-      .notNull(),
-    type: text('type', {
-      enum: ['stage_change', 'note', 'call', 'message', 'document'],
-    }),
-    fromStage: text('from_stage'),
-    toStage: text('to_stage'),
-    note: text('note'),
-    createdAt: timestamp('created_at').defaultNow(),
-  })
-  
-// ─── Role access requests (signup → admin approves in Clerk + DB) ─
+// ─── Role access requests ─────────────────────────────────────
 export const roleRequests = pgTable('role_requests', {
   id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').references(() => tenants.id, {
+    onDelete: 'cascade',
+  }),
   clerkId: text('clerk_id').notNull(),
   email: text('email').notNull(),
   name: text('name').notNull(),
@@ -105,22 +151,19 @@ export const roleRequests = pgTable('role_requests', {
   reviewedByClerkId: text('reviewed_by_clerk_id'),
 })
 
-
-
-  // ─── CSV Import Batches ───────────────────────────────────────
-  export const csvImports = pgTable('csv_imports', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    importedBy: uuid('imported_by').references(() => users.id),
-    fileName: text('file_name'),
-    totalRows: integer('total_rows'),
-    importedRows: integer('imported_rows'),
-    skippedRows: integer('skipped_rows'),
-    status: text('status', {
-      enum: ['processing', 'done', 'failed'],
-    }).default('processing'),
-    createdAt: timestamp('created_at').defaultNow(),
-  })
-  
-// ─── Re-exported Types ─────────────────────────────────────────
-export type { User, Lead, LeadActivity, CsvImport, LeadStage, Notification, RoleRequest } from '@/types/models'
-  
+// ─── CSV Import Batches ───────────────────────────────────────
+export const csvImports = pgTable('csv_imports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id')
+    .references(() => tenants.id, { onDelete: 'cascade' })
+    .notNull(),
+  importedBy: uuid('imported_by').references(() => users.id),
+  fileName: text('file_name'),
+  totalRows: integer('total_rows'),
+  importedRows: integer('imported_rows'),
+  skippedRows: integer('skipped_rows'),
+  status: text('status', {
+    enum: ['processing', 'done', 'failed'],
+  }).default('processing'),
+  createdAt: timestamp('created_at').defaultNow(),
+})

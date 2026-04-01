@@ -23,7 +23,10 @@ export type ActivityRow = {
   userEmail: string | null
 }
 
-export type UserRow = Pick<User, 'id' | 'name' | 'role'>
+export type UserRow = Pick<User, 'id' | 'name'> & {
+  /** Workspace role from `tenant_members` (e.g. agent, tenant_admin) */
+  role: string
+}
 
 export type KanbanLead = {
   id: string

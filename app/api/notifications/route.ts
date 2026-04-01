@@ -1,25 +1,23 @@
-import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
+import { desc, and, eq } from 'drizzle-orm'
+
 import { db } from '@/db'
-import { notifications, users } from '@/db/schema'
-import { eq, desc } from 'drizzle-orm'
+import { notifications } from '@/db/schema'
+import { requireTenantMemberApi } from '@/lib/tenant-api'
 
 export async function GET() {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { clerkClient } = await import('@clerk/nextjs/server')
-  const client = await clerkClient()
-  const clerkUser = await client.users.getUser(userId)
-  const email = clerkUser.emailAddresses[0]?.emailAddress
-
-  const [dbUser] = await db.select().from(users).where(eq(users.email, email))
-  if (!dbUser) return NextResponse.json({ notifications: [] })
+  const ctx = await requireTenantMemberApi()
+  if (!ctx.ok) return ctx.response
 
   const userNotifs = await db
     .select()
     .from(notifications)
-    .where(eq(notifications.userId, dbUser.id))
+    .where(
+      and(
+        eq(notifications.tenantId, ctx.tenant.id),
+        eq(notifications.userId, ctx.dbUserId),
+      ),
+    )
     .orderBy(desc(notifications.createdAt))
     .limit(20)
 

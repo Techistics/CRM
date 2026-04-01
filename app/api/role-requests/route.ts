@@ -1,9 +1,12 @@
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
+import { and, eq } from 'drizzle-orm'
+
 import { db } from '@/db'
 import { roleRequests } from '@/db/schema'
-import { and, eq } from 'drizzle-orm'
-import { getUserRole, normalizeAppRole } from '@/lib/role'
+import { requireTenantFromApiHeaders } from '@/lib/tenant-api'
+import { syncTenantMembership } from '@/lib/tenant-membership'
+import { normalizeAppRole } from '@/lib/role'
 
 export async function POST(req: Request) {
   const { userId } = await auth()
@@ -11,8 +14,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  if (await getUserRole()) {
-    return NextResponse.json({ error: 'You already have access' }, { status: 400 })
+  const t = await requireTenantFromApiHeaders()
+  if (!t.ok) return t.response
+
+  const already = await syncTenantMembership(userId, t.tenant)
+  if (already) {
+    return NextResponse.json(
+      { error: 'You already belong to this workspace' },
+      { status: 400 },
+    )
   }
 
   let body: { requestedRole?: unknown }
@@ -41,14 +51,24 @@ export async function POST(req: Request) {
   const [existingPending] = await db
     .select()
     .from(roleRequests)
-    .where(and(eq(roleRequests.clerkId, userId), eq(roleRequests.status, 'pending')))
+    .where(
+      and(
+        eq(roleRequests.clerkId, userId),
+        eq(roleRequests.status, 'pending'),
+        eq(roleRequests.tenantId, t.tenant.id),
+      ),
+    )
     .limit(1)
 
   if (existingPending) {
-    return NextResponse.json({ error: 'You already have a pending request' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'You already have a pending request' },
+      { status: 400 },
+    )
   }
 
   await db.insert(roleRequests).values({
+    tenantId: t.tenant.id,
     clerkId: userId,
     email,
     name,

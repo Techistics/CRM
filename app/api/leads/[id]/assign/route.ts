@@ -1,30 +1,53 @@
-import { auth } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { and, eq } from 'drizzle-orm'
+
 import { db } from '@/db'
-import { leads, notifications } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { leads, notifications, tenantMembers } from '@/db/schema'
+import { requireTenantAdminApi } from '@/lib/tenant-api'
+import { getLeadInTenant } from '@/lib/lead-tenant'
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await requireTenantAdminApi()
+  if (!ctx.ok) return ctx.response
 
   const { id } = await params
   const { assignedTo } = await req.json()
 
-  // Get lead name
-  const [lead] = await db.select().from(leads).where(eq(leads.id, id))
+  const lead = await getLeadInTenant(id, ctx.tenant.id)
+  if (!lead) {
+    return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
+  }
+
+  if (assignedTo) {
+    const [member] = await db
+      .select()
+      .from(tenantMembers)
+      .where(
+        and(
+          eq(tenantMembers.tenantId, ctx.tenant.id),
+          eq(tenantMembers.userId, assignedTo),
+        ),
+      )
+      .limit(1)
+    if (!member) {
+      return NextResponse.json(
+        { error: 'Assignee is not in this workspace' },
+        { status: 400 },
+      )
+    }
+  }
 
   await db
     .update(leads)
     .set({ assignedTo: assignedTo || null, updatedAt: new Date() })
-    .where(eq(leads.id, id))
+    .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenant.id)))
 
-  // Notify the assigned pro user
-  if (assignedTo && lead) {
+  if (assignedTo) {
     await db.insert(notifications).values({
+      tenantId: ctx.tenant.id,
       userId: assignedTo,
       title: 'New lead assigned',
       body: `${lead.fullName} has been assigned to you`,

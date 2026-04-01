@@ -1,4 +1,4 @@
-import type { LeadActivity } from '@/db/schema'
+import type { LeadActivity } from '@/types/models'
 import { leadStageLabel } from '@/lib/lead-stage-labels'
 
 import type { TimelineActivity } from '@/types/leads'

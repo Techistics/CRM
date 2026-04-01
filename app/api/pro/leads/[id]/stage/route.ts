@@ -1,40 +1,43 @@
-import { auth } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { eq, and } from 'drizzle-orm'
+
 import { db } from '@/db'
 import { leads, leadActivities } from '@/db/schema'
-import { eq, and } from 'drizzle-orm'
-import { getProDbUser } from '@/lib/app-user'
+import { requireTenantMemberApi } from '@/lib/tenant-api'
+import { getLeadForMemberAction } from '@/lib/lead-tenant'
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await requireTenantMemberApi()
+  if (!ctx.ok) return ctx.response
 
   const { id } = await params
   const { stage } = await req.json()
 
-  const dbUser = await getProDbUser(userId)
-  if (!dbUser) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
-  // Verify this lead is assigned to this pro
-  const [lead] = await db
-    .select()
-    .from(leads)
-    .where(and(eq(leads.id, id), eq(leads.assignedTo, dbUser.id)))
-
+  const lead = await getLeadForMemberAction(
+    id,
+    ctx.tenant.id,
+    ctx.role,
+    ctx.dbUserId,
+  )
   if (!lead) {
-    return NextResponse.json({ error: 'Lead not found or not assigned to you' }, { status: 404 })
+    return NextResponse.json(
+      { error: 'Lead not found or not assigned to you' },
+      { status: 404 },
+    )
   }
 
-  await db.update(leads).set({ stage, updatedAt: new Date() }).where(eq(leads.id, id))
+  await db
+    .update(leads)
+    .set({ stage, updatedAt: new Date() })
+    .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenant.id)))
 
   await db.insert(leadActivities).values({
+    tenantId: ctx.tenant.id,
     leadId: id,
-    userId: dbUser.id,
+    userId: ctx.dbUserId,
     type: 'stage_change',
     fromStage: lead.stage,
     toStage: stage,

@@ -1,28 +1,26 @@
-import { auth } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/db'
-import { notifications, users } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
 
+import { db } from '@/db'
+import { notifications } from '@/db/schema'
+import { requireTenantMemberApi } from '@/lib/tenant-api'
+
 export async function POST(req: NextRequest) {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await requireTenantMemberApi()
+  if (!ctx.ok) return ctx.response
 
   const { notificationId } = await req.json()
-
-  const { clerkClient } = await import('@clerk/nextjs/server')
-  const client = await clerkClient()
-  const clerkUser = await client.users.getUser(userId)
-  const email = clerkUser.emailAddresses[0]?.emailAddress
-
-  const [dbUser] = await db.select().from(users).where(eq(users.email, email))
-  if (!dbUser) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   if (notificationId === 'all') {
     await db
       .update(notifications)
       .set({ read: 'true' })
-      .where(eq(notifications.userId, dbUser.id))
+      .where(
+        and(
+          eq(notifications.userId, ctx.dbUserId),
+          eq(notifications.tenantId, ctx.tenant.id),
+        ),
+      )
   } else {
     await db
       .update(notifications)
@@ -30,8 +28,9 @@ export async function POST(req: NextRequest) {
       .where(
         and(
           eq(notifications.id, notificationId),
-          eq(notifications.userId, dbUser.id)
-        )
+          eq(notifications.userId, ctx.dbUserId),
+          eq(notifications.tenantId, ctx.tenant.id),
+        ),
       )
   }
 

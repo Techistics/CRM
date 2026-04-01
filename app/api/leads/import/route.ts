@@ -1,8 +1,8 @@
-import { auth, clerkClient } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
-import { leads, csvImports, users } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { leads, csvImports } from '@/db/schema'
+import { eq, and } from 'drizzle-orm'
+import { requireTenantAdminApi } from '@/lib/tenant-api'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 
@@ -51,22 +51,8 @@ function mapRow(row: Record<string, string>) {
 }
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  // Get email from Clerk directly, then look up by email
-  const client = await clerkClient()
-  const clerkUser = await client.users.getUser(userId)
-  const email = clerkUser.emailAddresses[0]?.emailAddress
-
-  const [adminUser] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, email))
-
-  if (!adminUser || adminUser.role !== 'admin') {
-    return NextResponse.json({ error: 'Forbidden — not admin' }, { status: 403 })
-  }
+  const ctx = await requireTenantAdminApi()
+  if (!ctx.ok) return ctx.response
 
   const formData = await req.formData()
   const file = formData.get('file') as File
@@ -86,7 +72,8 @@ export async function POST(req: NextRequest) {
   const [importRecord] = await db
     .insert(csvImports)
     .values({
-      importedBy: adminUser.id,
+      tenantId: ctx.tenant.id,
+      importedBy: ctx.dbUserId,
       fileName,
       status: 'processing',
       totalRows: 0,
@@ -135,6 +122,7 @@ export async function POST(req: NextRequest) {
       await db
         .insert(leads)
         .values({
+          tenantId: ctx.tenant.id,
           fullName,
           contactNumber: mapped.contactNumber,
           email: mapped.email,
@@ -144,7 +132,7 @@ export async function POST(req: NextRequest) {
           source: 'csv_import',
           rawData: row,
           stage: 'new_lead',
-          createdBy: adminUser.id,
+          createdBy: ctx.dbUserId,
         })
         .onConflictDoNothing()
 
@@ -154,7 +142,12 @@ export async function POST(req: NextRequest) {
     await db
       .update(csvImports)
       .set({ status: 'done', totalRows, importedRows, skippedRows })
-      .where(eq(csvImports.id, importRecord.id))
+      .where(
+        and(
+          eq(csvImports.id, importRecord.id),
+          eq(csvImports.tenantId, ctx.tenant.id),
+        ),
+      )
 
     return NextResponse.json({ success: true, totalRows, importedRows, skippedRows })
 
@@ -163,7 +156,12 @@ export async function POST(req: NextRequest) {
     await db
       .update(csvImports)
       .set({ status: 'failed' })
-      .where(eq(csvImports.id, importRecord.id))
+      .where(
+        and(
+          eq(csvImports.id, importRecord.id),
+          eq(csvImports.tenantId, ctx.tenant.id),
+        ),
+      )
 
     return NextResponse.json({ error: 'Import failed' }, { status: 500 })
   }

@@ -114,11 +114,9 @@ function DragCard({ lead }: { lead: KanbanLead }) {
 export default function KanbanBoard({
   initialLeads,
   baseApiUrl = '/api/leads',
-  backUrl = '/admin/leads'
 }: {
   initialLeads: KanbanLead[]
   baseApiUrl?: string
-  backUrl?: string
 }) {
   const { toast } = useToast()
   const [leadsState, setLeadsState] = useState<KanbanLead[]>(initialLeads)

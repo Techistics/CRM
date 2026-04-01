@@ -1,5 +1,5 @@
 import { db } from '@/db'
-import { leads, leadActivities, users, tenantMembers } from '@/db/schema'
+import { leadActivities, users, tenantMembers } from '@/db/schema'
 import { eq, desc, and } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import LeadDetailClient from './LeadDetailClient'

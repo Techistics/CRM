@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { and, eq } from 'drizzle-orm'
+// removed unused imports
 
 import { db } from '@/db'
 import { leadActivities } from '@/db/schema'

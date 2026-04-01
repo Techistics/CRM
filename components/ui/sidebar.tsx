@@ -662,7 +662,6 @@ const SidebarMenuSkeleton = React.forwardRef<
   const width = React.useMemo(() => {
     const widths = ['50%', '60%', '70%', '80%', '90%']
     return widths[Math.abs(Date.now()) % widths.length]
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (

@@ -29,7 +29,6 @@ export default async function ProKanbanPage() {
     <KanbanBoard
       initialLeads={myLeads}
       baseApiUrl="/api/pro/leads"
-      backUrl="/pro/leads"
     />
   )
 }

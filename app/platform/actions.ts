@@ -52,10 +52,12 @@ export async function createWorkspaceAction(formData: FormData) {
       name,
       createdBy: userId,
     })
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as Record<string, unknown> | undefined
+    const errors = e?.errors as Array<{ message?: string }> | undefined
     const msg =
-      err?.errors?.[0]?.message ||
-      err?.message ||
+      errors?.[0]?.message ||
+      (e && typeof e === 'object' && 'message' in e ? String(e.message) : null) ||
       'Clerk organization creation failed'
     throw new Error(`Workspace creation failed: ${msg}`)
   }
@@ -68,10 +70,12 @@ export async function createWorkspaceAction(formData: FormData) {
       role: 'org:admin',
       redirectUrl: `${workspaceOrigin(slug)}/sign-in`,
     })
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as Record<string, unknown> | undefined
+    const errors = e?.errors as Array<{ message?: string }> | undefined
     const msg =
-      err?.errors?.[0]?.message ||
-      err?.message ||
+      errors?.[0]?.message ||
+      (e && typeof e === 'object' && 'message' in e ? String(e.message) : null) ||
       'Could not invite first admin'
     throw new Error(`Workspace created, but invite failed: ${msg}`)
   }
@@ -125,9 +129,13 @@ export async function inviteWorkspaceUserAction(formData: FormData) {
       role: clerkRole,
       redirectUrl: `${workspaceOrigin(tenant.slug)}/sign-in`,
     })
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as Record<string, unknown> | undefined
+    const errors = e?.errors as Array<{ message?: string }> | undefined
     const msg =
-      err?.errors?.[0]?.message || err?.message || 'Could not send invitation'
+      errors?.[0]?.message ||
+      (e && typeof e === 'object' && 'message' in e ? String(e.message) : null) ||
+      'Could not send invitation'
     throw new Error(`Invite failed: ${msg}`)
   }
 

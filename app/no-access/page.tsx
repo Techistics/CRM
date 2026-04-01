@@ -1,10 +1,6 @@
 import Link from 'next/link'
 
-export default function NoAccessPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ reason?: string }>
-}) {
+export default function NoAccessPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/50 px-6">
       <div className="w-full max-w-lg rounded-2xl border bg-card p-6 text-card-foreground shadow-sm">

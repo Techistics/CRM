@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import type { Lead, LeadActivity, LeadStage } from '@/types/models'
+import type { Lead, LeadStage } from '@/types/models'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
 import { useToast } from '@/hooks/use-toast'
 

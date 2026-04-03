@@ -27,6 +27,8 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.next({ request: { headers: nextHeaders } })
   }
 
+  
+
   if (
     slug &&
     !pathname.startsWith('/_next') &&

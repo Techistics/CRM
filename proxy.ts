@@ -9,6 +9,7 @@ const isPublicRoute = createRouteMatcher([
   '/sign-up(.*)',
   '/no-role',
   '/no-access(.*)',
+  '/platform(.*)',
 ])
 
 export default clerkMiddleware(async (auth, req) => {
@@ -33,6 +34,7 @@ export default clerkMiddleware(async (auth, req) => {
     !pathname.startsWith('/sign-up') &&
     !pathname.startsWith('/request-role') &&
     !pathname.startsWith('/no-access') &&
+    !pathname.startsWith('/platform') &&
     !pathname.startsWith(`/t/${slug}`)
   ) {
     url.pathname =

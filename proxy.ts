@@ -29,14 +29,20 @@ export default clerkMiddleware(async (auth, req) => {
 
   
 
+  const shouldSkipTenantRewrite =
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/sign-in') ||
+    pathname.startsWith('/sign-up') ||
+    pathname.startsWith('/request-role') ||
+    pathname.startsWith('/no-access') ||
+    pathname.startsWith('/no-role') ||
+    pathname.startsWith('/platform') ||
+    pathname.startsWith('/t/')
+
   if (
     slug &&
-    !pathname.startsWith('/_next') &&
-    !pathname.startsWith('/sign-in') &&
-    !pathname.startsWith('/sign-up') &&
-    !pathname.startsWith('/request-role') &&
-    !pathname.startsWith('/no-access') &&
-    !pathname.startsWith('/platform') &&
+    !shouldSkipTenantRewrite &&
     !pathname.startsWith(`/t/${slug}`)
   ) {
     url.pathname =

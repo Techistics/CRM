@@ -7,6 +7,7 @@ export default function SignInPage() {
       <SignIn
         path="/sign-in"
         routing="path"
+        forceRedirectUrl="/"
         fallbackRedirectUrl="/"
         signUpUrl="/sign-up"
       />

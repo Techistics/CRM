@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { Lead, LeadStage } from '@/types/models'
@@ -34,6 +34,7 @@ const STAGE_COLORS: Record<string, string> = {
 }
 
 import type { ActivityRow, UserRow } from '@/types/leads'
+import type { LeadDocumentChecklistItem, LeadReminder } from '@/types/models'
 
 export default function LeadDetailClient({
   lead,
@@ -52,8 +53,51 @@ export default function LeadDetailClient({
   const [noteType, setNoteType] = useState<'note' | 'call' | 'message'>('note')
   const [saving, setSaving] = useState(false)
   const [addingNote, setAddingNote] = useState(false)
+  const [editingLead, setEditingLead] = useState(false)
+  const [checklistItems, setChecklistItems] = useState<LeadDocumentChecklistItem[]>([])
+  const [loadingChecklist, setLoadingChecklist] = useState(true)
+  const [reminders, setReminders] = useState<LeadReminder[]>([])
+  const [loadingReminders, setLoadingReminders] = useState(true)
+  const [reminderTitle, setReminderTitle] = useState('')
+  const [reminderNote, setReminderNote] = useState('')
+  const [reminderDueAt, setReminderDueAt] = useState('')
+  const [profileForm, setProfileForm] = useState({
+    fullName: lead.fullName ?? '',
+    email: lead.email ?? '',
+    contactNumber: lead.contactNumber ?? '',
+    city: lead.city ?? '',
+    country: lead.country ?? 'India',
+    lastQualification: lead.lastQualification ?? '',
+    grades: lead.grades ?? '',
+  })
 
   const proUsers = allUsers.filter((u) => u.role === 'agent')
+  const checklistProgress = useMemo(() => {
+    if (checklistItems.length === 0) return { done: 0, total: 0 }
+    const done = checklistItems.filter((item) => item.isSubmitted === 'true').length
+    return { done, total: checklistItems.length }
+  }, [checklistItems])
+
+  useEffect(() => {
+    async function loadChecklist() {
+      setLoadingChecklist(true)
+      const res = await fetch(`/api/leads/${lead.id}/checklist`)
+      const data = await res.json()
+      setChecklistItems(data.items ?? [])
+      setLoadingChecklist(false)
+    }
+
+    async function loadReminders() {
+      setLoadingReminders(true)
+      const res = await fetch(`/api/leads/${lead.id}/reminders`)
+      const data = await res.json()
+      setReminders(data.reminders ?? [])
+      setLoadingReminders(false)
+    }
+
+    loadChecklist()
+    loadReminders()
+  }, [lead.id])
 
   async function handleStageChange(newStage: Lead['stage']) {
     setStage(newStage)
@@ -93,6 +137,72 @@ export default function LeadDetailClient({
     router.refresh()
   }
 
+  async function handleSaveLeadProfile() {
+    setEditingLead(true)
+    const res = await fetch(`/api/leads/${lead.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profileForm),
+    })
+    setEditingLead(false)
+    if (!res.ok) {
+      toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not update lead profile.' })
+      return
+    }
+    toast({ title: 'Lead Updated', description: 'Core lead fields saved successfully.' })
+    router.refresh()
+  }
+
+  async function toggleChecklistItem(itemId: string, nextSubmitted: boolean) {
+    const res = await fetch(`/api/leads/${lead.id}/checklist`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId, isSubmitted: nextSubmitted }),
+    })
+    if (!res.ok) {
+      toast({ variant: 'destructive', title: 'Checklist Update Failed', description: 'Unable to update checklist item.' })
+      return
+    }
+    const data = await res.json()
+    setChecklistItems((prev) =>
+      prev.map((it) => (it.id === itemId ? data.item : it)),
+    )
+  }
+
+  async function createReminder() {
+    if (!reminderTitle.trim() || !reminderDueAt) return
+    const res = await fetch(`/api/leads/${lead.id}/reminders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: reminderTitle,
+        note: reminderNote,
+        dueAt: new Date(reminderDueAt).toISOString(),
+      }),
+    })
+    if (!res.ok) {
+      toast({ variant: 'destructive', title: 'Reminder Failed', description: 'Could not create reminder.' })
+      return
+    }
+    const data = await res.json()
+    setReminders((prev) => [...prev, data.reminder].sort((a, b) => +new Date(a.dueAt ?? 0) - +new Date(b.dueAt ?? 0)))
+    setReminderTitle('')
+    setReminderNote('')
+    setReminderDueAt('')
+    toast({ title: 'Reminder Added', description: 'Follow-up reminder created.' })
+  }
+
+  async function completeReminder(reminderId: string) {
+    const res = await fetch(`/api/leads/${lead.id}/reminders/${reminderId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'completed' }),
+    })
+    if (!res.ok) return
+    const data = await res.json()
+    setReminders((prev) => prev.map((r) => (r.id === reminderId ? data.reminder : r)))
+  }
+
   const stageLabel = STAGES.find((s) => s.value === stage)?.label ?? stage
 
   return (
@@ -128,6 +238,7 @@ export default function LeadDetailClient({
                 { label: 'Email', value: lead.email },
                 { label: 'Phone', value: lead.contactNumber },
                 { label: 'City', value: lead.city },
+                  { label: 'Country', value: lead.country },
                 { label: 'Qualification', value: lead.lastQualification },
                 { label: 'Grades', value: lead.grades },
                 { label: 'Source', value: lead.source },
@@ -138,6 +249,41 @@ export default function LeadDetailClient({
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <h2 className="text-white font-medium mb-4">Edit Lead Fields</h2>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              {(
+                [
+                  ['fullName', 'Full Name'],
+                  ['email', 'Email'],
+                  ['contactNumber', 'Phone'],
+                  ['city', 'City'],
+                  ['country', 'Country'],
+                  ['lastQualification', 'Qualification'],
+                  ['grades', 'Grades'],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="flex flex-col gap-1">
+                  <span className="text-xs text-gray-400">{label}</span>
+                  <input
+                    value={profileForm[key]}
+                    onChange={(e) =>
+                      setProfileForm((prev) => ({ ...prev, [key]: e.target.value }))
+                    }
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  />
+                </label>
+              ))}
+            </div>
+            <button
+              onClick={handleSaveLeadProfile}
+              disabled={editingLead}
+              className="mt-3 bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50"
+            >
+              {editingLead ? 'Saving...' : 'Save Lead Profile'}
+            </button>
           </div>
 
           {/* Pipeline stage selector */}
@@ -228,6 +374,95 @@ export default function LeadDetailClient({
               Full timeline: who changed what, with email and exact date and time (newest first).
             </p>
             <LeadActivityTimeline activities={initialActivities} />
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <h2 className="text-white font-medium mb-2">Country Document Checklist</h2>
+            <p className="text-xs text-gray-500 mb-4">
+              {checklistProgress.done}/{checklistProgress.total} documents submitted
+            </p>
+            {loadingChecklist ? (
+              <p className="text-sm text-gray-500">Loading checklist...</p>
+            ) : (
+              <div className="space-y-2">
+                {checklistItems.map((item) => {
+                  const isSubmitted = item.isSubmitted === 'true'
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => toggleChecklistItem(item.id, !isSubmitted)}
+                      className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${
+                        isSubmitted
+                          ? 'border-emerald-600 bg-emerald-600/10 text-emerald-300'
+                          : 'border-gray-700 text-gray-300'
+                      }`}
+                    >
+                      {isSubmitted ? '✓' : '○'} {item.documentLabel}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <h2 className="text-white font-medium mb-4">Follow-up Reminders</h2>
+            <div className="space-y-2 mb-4">
+              <input
+                value={reminderTitle}
+                onChange={(e) => setReminderTitle(e.target.value)}
+                placeholder="Reminder title"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+              />
+              <input
+                value={reminderNote}
+                onChange={(e) => setReminderNote(e.target.value)}
+                placeholder="Optional note"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+              />
+              <input
+                type="datetime-local"
+                value={reminderDueAt}
+                onChange={(e) => setReminderDueAt(e.target.value)}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
+              />
+              <button
+                onClick={createReminder}
+                className="bg-yellow-600 hover:bg-yellow-500 text-white text-sm px-4 py-2 rounded-lg"
+              >
+                Add Reminder
+              </button>
+            </div>
+
+            {loadingReminders ? (
+              <p className="text-sm text-gray-500">Loading reminders...</p>
+            ) : reminders.length === 0 ? (
+              <p className="text-sm text-gray-500">No reminders yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {reminders.map((reminder) => (
+                  <div key={reminder.id} className="border border-gray-700 rounded-lg p-3">
+                    <div className="flex justify-between items-start gap-3">
+                      <div>
+                        <p className="text-sm text-white font-medium">{reminder.title}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Due {reminder.dueAt ? new Date(reminder.dueAt).toLocaleString() : '—'}
+                        </p>
+                        {reminder.note && <p className="text-xs text-gray-500 mt-1">{reminder.note}</p>}
+                      </div>
+                      {reminder.status !== 'completed' && (
+                        <button
+                          onClick={() => completeReminder(reminder.id)}
+                          className="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-2 py-1 rounded"
+                        >
+                          Mark done
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

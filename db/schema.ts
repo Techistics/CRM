@@ -61,6 +61,7 @@ export const leads = pgTable('leads', {
   contactNumber: text('contact_number'),
   email: text('email'),
   city: text('city'),
+  country: text('country').default('Pakistan'),
   lastQualification: text('last_qualification'),
   grades: text('grades'),
   source: text('source').default('csv_import'),
@@ -87,6 +88,57 @@ export const leads = pgTable('leads', {
     onDelete: 'set null',
   }),
   createdBy: uuid('created_by').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+// ─── Lead Reminder Queue ──────────────────────────────────────
+export const leadReminders = pgTable('lead_reminders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id')
+    .references(() => tenants.id, { onDelete: 'cascade' })
+    .notNull(),
+  leadId: uuid('lead_id')
+    .references(() => leads.id, { onDelete: 'cascade' })
+    .notNull(),
+  title: text('title').notNull(),
+  note: text('note'),
+  dueAt: timestamp('due_at').notNull(),
+  status: text('status', { enum: ['pending', 'completed', 'overdue'] })
+    .notNull()
+    .default('pending'),
+  assignedTo: uuid('assigned_to').references(() => users.id, {
+    onDelete: 'set null',
+  }),
+  completedAt: timestamp('completed_at'),
+  createdBy: uuid('created_by')
+    .references(() => users.id)
+    .notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
+// ─── Lead Country Document Checklist ──────────────────────────
+export const leadDocumentChecklist = pgTable('lead_document_checklist', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id')
+    .references(() => tenants.id, { onDelete: 'cascade' })
+    .notNull(),
+  leadId: uuid('lead_id')
+    .references(() => leads.id, { onDelete: 'cascade' })
+    .notNull(),
+  country: text('country').notNull(),
+  documentKey: text('document_key').notNull(),
+  documentLabel: text('document_label').notNull(),
+  required: text('required').notNull().default('true'),
+  isSubmitted: text('is_submitted').notNull().default('false'),
+  submittedAt: timestamp('submitted_at'),
+  verifiedBy: uuid('verified_by').references(() => users.id, {
+    onDelete: 'set null',
+  }),
+  updatedBy: uuid('updated_by').references(() => users.id, {
+    onDelete: 'set null',
+  }),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 })

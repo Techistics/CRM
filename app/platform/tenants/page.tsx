@@ -3,7 +3,6 @@ import { asc } from 'drizzle-orm'
 
 import { db } from '@/db'
 import { tenants } from '@/db/schema'
-import { workspaceOrigin, getRootDomain } from '@/lib/public-url'
 import { inviteWorkspaceUserAction } from '@/app/platform/actions'
 
 export default async function PlatformTenantsPage() {
@@ -15,8 +14,7 @@ export default async function PlatformTenantsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Workspaces</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Subdomains use root domain:{' '}
-            <code className="text-xs bg-muted px-1 rounded">{getRootDomain()}</code>
+            Manage all your workspaces and team members.
           </p>
         </div>
         <Link
@@ -38,7 +36,7 @@ export default async function PlatformTenantsPage() {
                 </p>
               </div>
               <a
-                href={workspaceOrigin(t.slug)}
+                href={`/t/${t.slug}`}
                 className="text-sm text-primary hover:underline"
               >
                 Open →

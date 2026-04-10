@@ -4,7 +4,11 @@ export function getRootDomain(): string {
 }
 
 export function workspaceOrigin(tenantSlug: string): string {
-  const root = getRootDomain()
+  let root = getRootDomain()
+  
+  // Remove protocol if it exists (handle if env var includes https://)
+  root = root.replace(/^https?:\/\//, '')
+  
   const isLocalhost = root.includes('localhost')
   const protocol = isLocalhost ? 'http' : 'https'
   

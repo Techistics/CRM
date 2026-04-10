@@ -68,7 +68,7 @@ export async function createWorkspaceAction(formData: FormData) {
       inviterUserId: userId,
       emailAddress: firstAdminEmail,
       role: 'org:admin',
-      redirectUrl: `${workspaceOrigin(slug)}/sign-in`,
+      redirectUrl: `${workspaceOrigin(slug)}`,
     })
   } catch (err: unknown) {
     const e = err as Record<string, unknown> | undefined
@@ -127,7 +127,7 @@ export async function inviteWorkspaceUserAction(formData: FormData) {
       inviterUserId: userId,
       emailAddress: email,
       role: clerkRole,
-      redirectUrl: `${workspaceOrigin(tenant.slug)}/sign-in`,
+      redirectUrl: `${workspaceOrigin(tenant.slug)}`,
     })
   } catch (err: unknown) {
     const e = err as Record<string, unknown> | undefined

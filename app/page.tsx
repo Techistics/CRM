@@ -5,7 +5,7 @@ import { asc, inArray } from 'drizzle-orm'
 import { db } from '@/db'
 import { tenants } from '@/db/schema'
 import { isPlatformSuperAdmin } from '@/lib/platform-role'
-import { workspaceOrigin, getRootDomain } from '@/lib/public-url'
+import { workspaceOrigin } from '@/lib/public-url'
 
 export default async function Home() {
   const { userId } = await auth()
@@ -37,10 +37,7 @@ export default async function Home() {
       <div className="mx-auto max-w-lg">
         <h1 className="text-2xl font-semibold text-foreground">Your workspaces</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Open your CRM on its subdomain ({getRootDomain()}). Example:{' '}
-          <code className="text-xs bg-muted px-1 py-0.5 rounded">
-            acme.{getRootDomain()}
-          </code>
+          Click on a workspace to open it.
         </p>
         <ul className="mt-8 space-y-3">
           {list.map((t) => (

@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { tenants } from '@/db/schema'
 import { isPlatformSuperAdmin } from '@/lib/platform-role'
-import { workspaceOrigin } from '@/lib/public-url'
+import { workspaceOrigin, getRootDomain } from '@/lib/public-url'
 
 function slugify(input: string) {
   return input
@@ -63,12 +63,16 @@ export async function createWorkspaceAction(formData: FormData) {
   }
 
   try {
+    const root = getRootDomain()
+    const protocol = root.includes('localhost') ? 'http' : 'https'
+    const homeUrl = `${protocol}://${root}/`
+    
     await client.organizations.createOrganizationInvitation({
       organizationId: org.id,
       inviterUserId: userId,
       emailAddress: firstAdminEmail,
       role: 'org:admin',
-      redirectUrl: `${workspaceOrigin(slug)}`,
+      redirectUrl: homeUrl,
     })
   } catch (err: unknown) {
     const e = err as Record<string, unknown> | undefined
@@ -122,12 +126,16 @@ export async function inviteWorkspaceUserAction(formData: FormData) {
   const client = await clerkClient()
 
   try {
+    const root = getRootDomain()
+    const protocol = root.includes('localhost') ? 'http' : 'https'
+    const homeUrl = `${protocol}://${root}/`
+    
     await client.organizations.createOrganizationInvitation({
       organizationId: tenant.clerkOrgId,
       inviterUserId: userId,
       emailAddress: email,
       role: clerkRole,
-      redirectUrl: `${workspaceOrigin(tenant.slug)}`,
+      redirectUrl: homeUrl,
     })
   } catch (err: unknown) {
     const e = err as Record<string, unknown> | undefined

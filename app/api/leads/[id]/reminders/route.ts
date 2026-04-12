@@ -3,6 +3,7 @@ import { and, asc, eq } from 'drizzle-orm'
 
 import { db } from '@/db'
 import { leadActivities, leadReminders } from '@/db/schema'
+import { reconcileOverdueRemindersForTenant } from '@/lib/lead-reminders-sync'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
 import { requireTenantMemberApi } from '@/lib/tenant-api'
 
@@ -23,6 +24,8 @@ export async function GET(
   if (!lead) {
     return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
   }
+
+  await reconcileOverdueRemindersForTenant(ctx.tenant.id)
 
   const reminders = await db
     .select()

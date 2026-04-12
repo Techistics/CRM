@@ -7,7 +7,7 @@ import { useSidebar } from '@/components/sidebar-provider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-export function ProHeader() {
+export function ProHeader({ tenantSlug }: { tenantSlug: string }) {
   const { toggle } = useSidebar()
 
   return (
@@ -37,7 +37,7 @@ export function ProHeader() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          <NotificationBell portalBase="pro" />
+          <NotificationBell tenantSlug={tenantSlug} portalBase="pro" />
           <UserButton
             appearance={{
               elements: {

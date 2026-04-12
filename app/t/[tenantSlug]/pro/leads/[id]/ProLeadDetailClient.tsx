@@ -2,19 +2,17 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import type { Lead } from '@/types/models'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
 import { useToast } from '@/hooks/use-toast'
 import { STAGE_LABELS } from '@/constants/leads'
+import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
+import { tenantPath } from '@/lib/tenant-path'
 
 import type { StageValue, ActivityRow } from '@/types/leads'
 
-// Generate ordered stages logically for the UI selector
-const ORDERED_STAGES: StageValue[] = [
-  'new_lead', 'unresponsive', 'follow_up', 'docs_received', 'options_sent', 
-  'final_decision', 'walkin_booked', 'walkin_conducted', 'cancelled', 'paid'
-]
+const ORDERED_STAGES: StageValue[] = PIPELINE_STAGES.map((s) => s.value)
 
 export default function ProLeadDetailClient({
   lead,
@@ -25,6 +23,8 @@ export default function ProLeadDetailClient({
 }) {
   const { toast } = useToast()
   const router = useRouter()
+  const params = useParams()
+  const tenantSlug = String(params?.tenantSlug ?? '')
   const [stage, setStage] = useState(lead.stage ?? 'new_lead')
   const [note, setNote] = useState('')
   const [noteType, setNoteType] = useState<'note' | 'call' | 'message'>('note')
@@ -32,14 +32,24 @@ export default function ProLeadDetailClient({
   const [addingNote, setAddingNote] = useState(false)
 
   async function handleStageChange(newStage: StageValue) {
+    const previous = stage
     setStage(newStage)
     setSaving(true)
-    await fetch(`/api/pro/leads/${lead.id}/stage`, {
+    const res = await fetch(`/api/pro/leads/${lead.id}/stage`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stage: newStage }),
     })
     setSaving(false)
+    if (!res.ok) {
+      setStage(previous)
+      toast({
+        variant: 'destructive',
+        title: 'Stage update failed',
+        description: 'Could not save the new stage.',
+      })
+      return
+    }
     toast({ title: 'Stage Updated', description: 'Lead stage has been successfully updated.' })
     router.refresh()
   }
@@ -63,7 +73,10 @@ export default function ProLeadDetailClient({
   return (
     <div className="p-8 max-w-4xl">
       <div className="mb-8">
-        <Link href="/pro/leads" className="text-blue-600 font-medium text-sm hover:text-blue-700 transition flex items-center gap-1 w-max bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100">
+        <Link
+          href={tenantSlug ? tenantPath(tenantSlug, '/pro/leads') : '/pro/leads'}
+          className="text-blue-600 font-medium text-sm hover:text-blue-700 transition flex items-center gap-1 w-max bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100"
+        >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
           Back to My Leads
         </Link>

@@ -37,6 +37,8 @@ export type KanbanLead = {
   stage: string | null
   lastQualification: string | null
   assigneeName: string | null
+  /** Use for gating moves; assigneeName can be null if assignee row is missing. */
+  assignedTo: string | null
 }
 
 export type TimelineActivity = {

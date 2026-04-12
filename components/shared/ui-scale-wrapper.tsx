@@ -8,7 +8,7 @@ const KANBAN_SCALE = 0.78
 
 function getScaleForPath(pathname: string | null) {
   if (!pathname) return DEFAULT_SCALE
-  if (pathname.startsWith('/admin/kanban') || pathname.startsWith('/pro/kanban')) {
+  if (pathname.includes('/admin/kanban') || pathname.includes('/pro/kanban')) {
     return KANBAN_SCALE
   }
   return DEFAULT_SCALE

@@ -8,7 +8,7 @@ import { useSidebar } from '@/components/sidebar-provider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-export function AdminHeader() {
+export function AdminHeader({ tenantSlug }: { tenantSlug: string }) {
   const { toggle } = useSidebar()
 
   return (
@@ -38,7 +38,7 @@ export function AdminHeader() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          <NotificationBell portalBase="admin" />
+          <NotificationBell tenantSlug={tenantSlug} portalBase="admin" />
           <UserButton
             appearance={{
               elements: {

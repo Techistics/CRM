@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { and, eq } from 'drizzle-orm'
 
+import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { getChecklistTemplateForCountry } from '@/constants/documents'
 import { db } from '@/db'
 import { leadDocumentChecklist, leadActivities } from '@/db/schema'
@@ -44,7 +45,7 @@ export async function GET(
       template.map((doc) => ({
         tenantId: ctx.tenant.id,
         leadId: id,
-        country: lead.country ?? 'India',
+        country: lead.country ?? DEFAULT_LEAD_COUNTRY,
         documentKey: doc.key,
         documentLabel: doc.label,
         required: doc.required ? 'true' : 'false',

@@ -1,8 +1,8 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 
+import { resolveTenantAccess } from '@/lib/tenant-access'
 import { getTenantBySlug } from '@/lib/tenant-server'
-import { syncTenantMembership } from '@/lib/tenant-membership'
 
 export default async function TenantHomePage({
   params,
@@ -16,9 +16,10 @@ export default async function TenantHomePage({
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
-  const m = await syncTenantMembership(userId, tenant)
-  if (!m) redirect('/no-access?reason=not-in-org')
+  const actor = await resolveTenantAccess(userId, tenant)
+  if (!actor) redirect('/no-access?reason=not-in-org')
 
-  if (m.role === 'tenant_admin') redirect('/admin/overview')
-  redirect('/pro/overview')
+  const base = `/t/${tenantSlug}`
+  if (actor.role === 'tenant_admin') redirect(`${base}/admin/overview`)
+  redirect(`${base}/pro/overview`)
 }

@@ -2,23 +2,16 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import type { Lead, LeadStage } from '@/types/models'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
 import { useToast } from '@/hooks/use-toast'
+import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
+import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 
-const STAGES: { value: LeadStage; label: string }[] = [
-  { value: 'new_lead',         label: 'New Lead' },
-  { value: 'unresponsive',     label: 'Unresponsive' },
-  { value: 'follow_up',        label: 'Follow Up' },
-  { value: 'docs_received',    label: 'Docs Received' },
-  { value: 'options_sent',     label: 'Options Sent' },
-  { value: 'final_decision',   label: 'Final Decision' },
-  { value: 'walkin_booked',    label: 'Walk-in Booked' },
-  { value: 'walkin_conducted', label: 'Walk-in Done' },
-  { value: 'cancelled',        label: 'Cancelled' },
-  { value: 'paid',             label: 'Paid' },
-]
+const STAGES: { value: LeadStage; label: string }[] = PIPELINE_STAGES.map(
+  (s) => ({ value: s.value, label: s.label }),
+)
 
 const STAGE_COLORS: Record<string, string> = {
   new_lead:         'bg-blue-500/10 text-blue-400 border-blue-500/20',
@@ -34,7 +27,10 @@ const STAGE_COLORS: Record<string, string> = {
 }
 
 import type { ActivityRow, UserRow } from '@/types/leads'
+import { tenantPath } from '@/lib/tenant-path'
 import type { LeadDocumentChecklistItem, LeadReminder } from '@/types/models'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { LeadDocumentsPanel } from '@/components/lead/LeadDocumentsPanel'
 
 export default function LeadDetailClient({
   lead,
@@ -47,6 +43,8 @@ export default function LeadDetailClient({
 }) {
   const { toast } = useToast()
   const router = useRouter()
+  const params = useParams()
+  const tenantSlug = String(params?.tenantSlug ?? '')
   const [stage, setStage] = useState(lead.stage ?? 'new_lead')
   const [assignedTo, setAssignedTo] = useState(lead.assignedTo ?? '')
   const [note, setNote] = useState('')
@@ -66,7 +64,7 @@ export default function LeadDetailClient({
     email: lead.email ?? '',
     contactNumber: lead.contactNumber ?? '',
     city: lead.city ?? '',
-    country: lead.country ?? 'India',
+    country: lead.country ?? DEFAULT_LEAD_COUNTRY,
     lastQualification: lead.lastQualification ?? '',
     grades: lead.grades ?? '',
   })
@@ -100,14 +98,24 @@ export default function LeadDetailClient({
   }, [lead.id])
 
   async function handleStageChange(newStage: Lead['stage']) {
+    const previous = stage
     setStage(newStage)
     setSaving(true)
-    await fetch(`/api/leads/${lead.id}/stage`, {
+    const res = await fetch(`/api/leads/${lead.id}/stage`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stage: newStage }),
     })
     setSaving(false)
+    if (!res.ok) {
+      setStage(previous)
+      toast({
+        variant: 'destructive',
+        title: 'Stage update failed',
+        description: 'Could not save the new stage.',
+      })
+      return
+    }
     toast({ title: 'Stage Updated', description: 'Lead stage has been successfully updated.' })
     router.refresh()
   }
@@ -206,29 +214,44 @@ export default function LeadDetailClient({
   const stageLabel = STAGES.find((s) => s.value === stage)?.label ?? stage
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <Link
-            href="/admin/leads"
-            className="text-gray-500 text-sm hover:text-gray-300 transition-colors"
+            href={
+              tenantSlug ? tenantPath(tenantSlug, '/admin/leads') : '/admin/leads'
+            }
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             ← Back to Leads
           </Link>
-          <h1 className="text-2xl font-semibold text-white mt-2">{lead.fullName}</h1>
-          <div className="flex items-center gap-3 mt-2">
-            <span className={`text-xs px-2 py-1 rounded-md border ${STAGE_COLORS[stage]}`}>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+            {lead.fullName}
+          </h1>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <span className={`rounded-md border px-2 py-1 text-xs ${STAGE_COLORS[stage]}`}>
               {stageLabel}
             </span>
-            {saving && <span className="text-gray-500 text-xs">Saving...</span>}
+            {saving && <span className="text-xs text-muted-foreground">Saving…</span>}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="mb-6 grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="documents" className="outline-none">
+          <LeadDocumentsPanel leadId={lead.id} />
+        </TabsContent>
+
+        <TabsContent value="overview" className="outline-none">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         {/* Left — lead info + pipeline */}
-        <div className="col-span-2 space-y-6">
+        <div className="space-y-6 xl:col-span-2">
 
           {/* Info card */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
@@ -466,6 +489,8 @@ export default function LeadDetailClient({
           </div>
         </div>
       </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -9,14 +9,14 @@ export default async function ProLayout({
 }: {
   children: React.ReactNode
 }) {
-  await requireTenantSession()
+  const { tenant } = await requireTenantSession()
 
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-muted/50">
-        <RoleSidebar role="pro" />
+        <RoleSidebar role="pro" tenantSlug={tenant.slug} />
         <div className="flex min-h-screen flex-col lg:pl-52">
-          <ProHeader />
+          <ProHeader tenantSlug={tenant.slug} />
           <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 md:px-8 md:py-8">
             <UiScaleWrapper>{children}</UiScaleWrapper>
           </main>

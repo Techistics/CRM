@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { and, eq, ilike, or } from 'drizzle-orm'
+import { and, count, desc, eq, ilike, or } from 'drizzle-orm'
 
+import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'
 import { leads } from '@/db/schema'
+import { leadsVisibleWhere } from '@/lib/leads-scope'
 import { requireTenantAdminApi, requireTenantMemberApi } from '@/lib/tenant-api'
+import { leadCreateBodySchema } from '@/lib/validators/lead'
 import type { StageValue } from '@/types/leads'
 
 export async function GET(req: NextRequest) {
@@ -19,20 +22,42 @@ export async function GET(req: NextRequest) {
       )
     : undefined
 
+  const scope = leadsVisibleWhere(ctx.tenant.id, ctx.role, ctx.dbUserId)
   const where =
-    queryFilter && ctx.role === 'agent'
-      ? and(
-          eq(leads.tenantId, ctx.tenant.id),
-          eq(leads.assignedTo, ctx.dbUserId),
-          queryFilter,
-        )
-      : queryFilter
-        ? and(eq(leads.tenantId, ctx.tenant.id), queryFilter)
-        : ctx.role === 'agent'
-          ? and(eq(leads.tenantId, ctx.tenant.id), eq(leads.assignedTo, ctx.dbUserId))
-          : eq(leads.tenantId, ctx.tenant.id)
+    queryFilter != null ? and(scope, queryFilter)! : scope
 
-  const rows = await db.select().from(leads).where(where)
+  const pageParam = req.nextUrl.searchParams.get('page')
+  const pageSizeParam = req.nextUrl.searchParams.get('pageSize')
+  const paginate = pageParam != null || pageSizeParam != null
+  const pageSize = Math.min(100, Math.max(1, Number(pageSizeParam) || 50))
+  const page = Math.max(1, Number(pageParam) || 1)
+  const offset = (page - 1) * pageSize
+
+  if (paginate) {
+    const [totalRow] = await db
+      .select({ c: count() })
+      .from(leads)
+      .where(where)
+    const rows = await db
+      .select()
+      .from(leads)
+      .where(where)
+      .orderBy(desc(leads.updatedAt))
+      .limit(pageSize)
+      .offset(offset)
+    return NextResponse.json({
+      leads: rows,
+      total: Number(totalRow?.c ?? 0),
+      page,
+      pageSize,
+    })
+  }
+
+  const rows = await db
+    .select()
+    .from(leads)
+    .where(where)
+    .orderBy(desc(leads.updatedAt))
   return NextResponse.json({ leads: rows })
 }
 
@@ -40,28 +65,41 @@ export async function POST(req: NextRequest) {
   const ctx = await requireTenantAdminApi()
   if (!ctx.ok) return ctx.response
 
-  const body = await req.json()
-  const fullName = String(body?.fullName ?? '').trim()
-  const nextStage = (body?.stage ? String(body.stage) : 'new_lead') as StageValue
-  if (!fullName) {
-    return NextResponse.json({ error: 'fullName is required' }, { status: 400 })
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
+
+  const parsed = leadCreateBodySchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsed.error.flatten() },
+      { status: 400 },
+    )
+  }
+
+  const data = parsed.data
+  const nextStage = data.stage as StageValue
+  const emailNorm =
+    data.email === undefined || data.email === '' || data.email === null
+      ? null
+      : data.email
 
   const [created] = await db
     .insert(leads)
     .values({
       tenantId: ctx.tenant.id,
-      fullName,
-      contactNumber: body?.contactNumber ? String(body.contactNumber).trim() : null,
-      email: body?.email ? String(body.email).trim().toLowerCase() : null,
-      city: body?.city ? String(body.city).trim() : null,
-      country: body?.country ? String(body.country).trim() : 'India',
-      lastQualification: body?.lastQualification
-        ? String(body.lastQualification).trim()
-        : null,
-      grades: body?.grades ? String(body.grades).trim() : null,
-      source: body?.source ? String(body.source).trim() : 'manual',
-      assignedTo: body?.assignedTo ? String(body.assignedTo) : null,
+      fullName: data.fullName,
+      contactNumber: data.contactNumber?.trim() || null,
+      email: emailNorm,
+      city: data.city?.trim() || null,
+      country: data.country?.trim() || DEFAULT_LEAD_COUNTRY,
+      lastQualification: data.lastQualification?.trim() || null,
+      grades: data.grades?.trim() || null,
+      source: data.source?.trim() || 'manual',
+      assignedTo: data.assignedTo ?? null,
       createdBy: ctx.dbUserId,
       stage: nextStage,
       updatedAt: new Date(),

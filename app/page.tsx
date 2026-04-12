@@ -32,6 +32,10 @@ export default async function Home() {
     .where(inArray(tenants.clerkOrgId, orgIds))
     .orderBy(asc(tenants.name))
 
+  if (list.length === 1) {
+    redirect(workspaceOrigin(list[0].slug))
+  }
+
   return (
     <main className="min-h-screen bg-muted/50 px-4 py-12">
       <div className="mx-auto max-w-lg">
@@ -53,11 +57,23 @@ export default async function Home() {
           ))}
         </ul>
         {list.length === 0 && (
-          <p className="mt-6 text-sm text-muted-foreground">
-            You belong to Clerk organizations that are not linked yet. Ask the platform
-            admin to register your workspace, or ensure the organization was created from
-            the platform console.
-          </p>
+          <div className="mt-6 space-y-3 text-sm text-muted-foreground">
+            <p>
+              Your account is in a Clerk organization, but that organization is not
+              registered as a workspace in this app yet (or you used a different Clerk
+              app / environment).
+            </p>
+            <p>
+              If you just accepted an email invite, ask your admin to resend it after
+              the app is updated, or open the invite link again — you should land
+              directly in the workspace.
+            </p>
+            <p>
+              Platform admins: create the workspace from{' '}
+              <span className="font-medium text-foreground">Platform → Workspaces</span>{' '}
+              so the Clerk org id is linked in the database.
+            </p>
+          </div>
         )}
       </div>
     </main>

@@ -1,12 +1,27 @@
 import { db } from '@/db'
-import { leads, users, tenantMembers } from '@/db/schema'
+import { leads, leadReminders, users, tenantMembers } from '@/db/schema'
 import { eq, count, gte, isNull, and } from 'drizzle-orm'
 import AnalyticsOverviewClient from './AnalyticsOverviewClient'
+import { loadChartSnapshotsByWindow } from '@/lib/analytics-pipeline'
+import { reconcileOverdueRemindersForTenant } from '@/lib/lead-reminders-sync'
 import { requireTenantAdminSession } from '@/lib/tenant-server'
 
 export default async function AdminOverviewPage() {
   const { tenant } = await requireTenantAdminSession()
   const tScope = eq(leads.tenantId, tenant.id)
+
+  await reconcileOverdueRemindersForTenant(tenant.id)
+
+  const [overdueRemindersRow] = await db
+    .select({ c: count(leadReminders.id) })
+    .from(leadReminders)
+    .where(
+      and(
+        eq(leadReminders.tenantId, tenant.id),
+        eq(leadReminders.status, 'overdue'),
+      ),
+    )
+  const overdueRemindersCount = Number(overdueRemindersRow?.c ?? 0)
 
   // Leads by stage
   const byStage = await db
@@ -67,119 +82,25 @@ export default async function AdminOverviewPage() {
     })
   )
 
-  const STAGE_ORDER = [
-    { value: 'new_lead', label: 'New Lead', color: '#3b82f6' },
-    { value: 'unresponsive', label: 'Unresponsive', color: '#6b7280' },
-    { value: 'follow_up', label: 'Follow Up', color: '#eab308' },
-    { value: 'docs_received', label: 'Docs Received', color: '#a855f7' },
-    { value: 'options_sent', label: 'Options Sent', color: '#6366f1' },
-    {
-      value: 'final_decision',
-      label: 'Final Decision',
-      color: '#f97316',
-    },
-    { value: 'walkin_booked', label: 'Walk-in Booked', color: '#14b8a6' },
-    { value: 'walkin_conducted', label: 'Walk-in Done', color: '#06b6d4' },
-    { value: 'cancelled', label: 'Cancelled', color: '#ef4444' },
-    { value: 'paid', label: 'Paid', color: '#10b981' },
-  ] as const
-
-  const stageData = STAGE_ORDER.map((s) => ({
-    value: s.value,
-    label: s.label,
-    count: Number(byStage.find((b) => b.stage === s.value)?.total ?? 0),
-    color: s.color,
-  }))
-
   const paidCount = Number(byStage.find((b) => b.stage === 'paid')?.total ?? 0)
   const cancelledCount = Number(
     byStage.find((b) => b.stage === 'cancelled')?.total ?? 0
   )
   const activeCount = totalLeads - paidCount - cancelledCount
 
-  const funnelSteps = [
-    {
-      label: 'Total imported',
-      count: totalLeads,
-      pct: 100,
-      colorClass: 'bg-blue-500',
-    },
-    {
-      label: 'Contacted (follow up+)',
-      count: stageData
-        .filter((s) =>
-          [
-            'follow_up',
-            'docs_received',
-            'options_sent',
-            'final_decision',
-            'walkin_booked',
-            'walkin_conducted',
-            'paid',
-          ].includes(s.value)
-        )
-        .reduce((sum, s) => sum + s.count, 0),
-      pct:
-        totalLeads > 0
-          ? Math.round(
-              (stageData
-                .filter((s) =>
-                  [
-                    'follow_up',
-                    'docs_received',
-                    'options_sent',
-                    'final_decision',
-                    'walkin_booked',
-                    'walkin_conducted',
-                    'paid',
-                  ].includes(s.value)
-                )
-                .reduce((sum, s) => sum + s.count, 0) /
-                totalLeads) *
-                100
-            )
-          : 0,
-      colorClass: 'bg-purple-500',
-    },
-    {
-      label: 'Walk-in booked',
-      count:
-        (stageData.find((s) => s.value === 'walkin_booked')?.count ?? 0) +
-        (stageData.find((s) => s.value === 'walkin_conducted')?.count ?? 0) +
-        paidCount,
-      pct:
-        totalLeads > 0
-          ? Math.round(
-              (((stageData.find((s) => s.value === 'walkin_booked')?.count ??
-                0) +
-                (stageData.find(
-                  (s) => s.value === 'walkin_conducted'
-                )?.count ?? 0) +
-                paidCount) /
-                totalLeads) *
-                100
-            )
-          : 0,
-      colorClass: 'bg-teal-500',
-    },
-    {
-      label: 'Paid',
-      count: paidCount,
-      pct: totalLeads > 0 ? Math.round((paidCount / totalLeads) * 100) : 0,
-      colorClass: 'bg-emerald-500',
-    },
-  ]
+  const chartByWindow = await loadChartSnapshotsByWindow(tenant.id)
 
   return (
     <AnalyticsOverviewClient
+      tenantSlug={tenant.slug}
+      chartByWindow={chartByWindow}
+      overdueRemindersCount={overdueRemindersCount}
       totalLeads={totalLeads}
       activeCount={activeCount}
       paidCount={paidCount}
       cancelledCount={cancelledCount}
       newLeadsToday={newLeadsToday}
       unassignedCount={unassignedCount}
-      stageData={stageData}
-      funnelSteps={funnelSteps}
       agentStats={agentStats}
     />
   )

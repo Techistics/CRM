@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { eq, and } from 'drizzle-orm'
 
+import { isValidLeadStage } from '@/constants/pipeline-stages'
 import { db } from '@/db'
 import { leads, leadActivities } from '@/db/schema'
 import { requireTenantMemberApi } from '@/lib/tenant-api'
@@ -15,6 +16,9 @@ export async function PATCH(
 
   const { id } = await params
   const { stage } = await req.json()
+  if (!isValidLeadStage(stage)) {
+    return NextResponse.json({ error: 'Invalid stage' }, { status: 400 })
+  }
 
   const lead = await getLeadForMemberAction(
     id,
@@ -24,6 +28,10 @@ export async function PATCH(
   )
   if (!lead) {
     return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
+  }
+
+  if (lead.stage === stage) {
+    return NextResponse.json({ success: true, unchanged: true })
   }
 
   await db

@@ -1,3 +1,5 @@
+import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
+
 export type CountryDocumentTemplate = {
   key: string
   label: string
@@ -15,6 +17,7 @@ export const COUNTRY_DOCUMENT_CHECKLISTS: Record<
   string,
   CountryDocumentTemplate[]
 > = {
+  [DEFAULT_LEAD_COUNTRY]: DEFAULT_TEMPLATE,
   India: DEFAULT_TEMPLATE,
   Canada: [
     ...DEFAULT_TEMPLATE,
@@ -34,6 +37,7 @@ export const COUNTRY_DOCUMENT_CHECKLISTS: Record<
 }
 
 export function getChecklistTemplateForCountry(country: string | null | undefined) {
-  if (!country) return DEFAULT_TEMPLATE
-  return COUNTRY_DOCUMENT_CHECKLISTS[country] ?? DEFAULT_TEMPLATE
+  const key = country?.trim()
+  if (!key) return COUNTRY_DOCUMENT_CHECKLISTS[DEFAULT_LEAD_COUNTRY] ?? DEFAULT_TEMPLATE
+  return COUNTRY_DOCUMENT_CHECKLISTS[key] ?? DEFAULT_TEMPLATE
 }

@@ -17,6 +17,7 @@ import {
   Users,
   Activity,
   UserRoundX,
+  Bell,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -35,37 +36,43 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { tenantPath } from '@/lib/tenant-path'
 
-import type { StageDatum, AgentStat, FunnelStep, ChartWindow } from '@/types/analytics'
+import type { AgentStat, ChartWindow, PipelineChartSnapshot } from '@/types/analytics'
 
 export default function AnalyticsOverviewClient({
+  tenantSlug,
+  chartByWindow,
+  overdueRemindersCount,
   totalLeads,
   activeCount,
   paidCount,
   cancelledCount,
   newLeadsToday,
   unassignedCount,
-  stageData,
-  funnelSteps,
   agentStats,
 }: {
+  tenantSlug: string
+  chartByWindow: Record<ChartWindow, PipelineChartSnapshot>
+  overdueRemindersCount: number
   totalLeads: number
   activeCount: number
   paidCount: number
   cancelledCount: number
   newLeadsToday: number
   unassignedCount: number
-  stageData: StageDatum[]
-  funnelSteps: FunnelStep[]
   agentStats: AgentStat[]
 }) {
   const router = useRouter()
   const [chartWindow, setChartWindow] = useState<ChartWindow>('week')
 
-  /** One series per funnel milestone + aligned pipeline counts + % (right axis). */
+  /** Funnel for leads created in the selected time window (cohort-style). */
   const unifiedChartData = useMemo(() => {
+    const snap = chartByWindow[chartWindow]
+    const { totalLeads: tw, stageData: sd, funnelSteps: fs } = snap
+
     const get = (value: string) =>
-      stageData.find((s) => s.value === value)?.count ?? 0
+      sd.find((s) => s.value === value)?.count ?? 0
 
     const walkin = get('walkin_booked') + get('walkin_conducted')
     const paid = get('paid')
@@ -81,14 +88,9 @@ export default function AnalyticsOverviewClient({
         'paid',
       ].reduce((acc, v) => acc + get(v), 0)
 
-    const pipelineAtMilestone = [
-      totalLeads,
-      contactedLike,
-      walkin,
-      paid,
-    ]
+    const pipelineAtMilestone = [tw, contactedLike, walkin, paid]
 
-    return funnelSteps.map((step, i) => {
+    return fs.map((step, i) => {
       const short =
         step.label.length > 20
           ? `${step.label.slice(0, 18)}…`
@@ -101,7 +103,7 @@ export default function AnalyticsOverviewClient({
         conversion: step.pct,
       }
     })
-  }, [funnelSteps, stageData, totalLeads])
+  }, [chartByWindow, chartWindow])
 
   const activePct =
     totalLeads > 0 ? Math.round((activeCount / totalLeads) * 100) : 0
@@ -140,6 +142,16 @@ export default function AnalyticsOverviewClient({
       trend: unassignedCount > 0 ? ('negative' as const) : ('positive' as const),
       icon: UserRoundX,
     },
+    {
+      title: 'Overdue follow-ups',
+      value: overdueRemindersCount.toLocaleString(),
+      hint:
+        overdueRemindersCount > 0
+          ? 'Reminders past due (all leads)'
+          : 'No overdue reminders',
+      trend: overdueRemindersCount > 0 ? ('negative' as const) : ('positive' as const),
+      icon: Bell,
+    },
   ]
 
   return (
@@ -155,7 +167,7 @@ export default function AnalyticsOverviewClient({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {kpiItems.map((item) => (
           <Card key={item.title} className="border shadow-sm">
             <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
@@ -219,7 +231,7 @@ export default function AnalyticsOverviewClient({
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="h-[380px] w-full">
+            <div className="h-[min(420px,55vh)] w-full min-h-[280px] min-w-0">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                   data={unifiedChartData}
@@ -319,9 +331,17 @@ export default function AnalyticsOverviewClient({
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            <p className="mt-2 text-center text-xs text-muted-foreground">
-              View: {chartWindow === 'week' ? 'Week' : chartWindow === 'month' ? 'Month' : 'Year'} · data is the
-              current pipeline snapshot (time-series breakdown can be wired later).
+            <p className="mt-3 text-center text-xs text-muted-foreground">
+              <span className="font-medium text-foreground/80">
+                {chartWindow === 'week'
+                  ? 'Last 7 days'
+                  : chartWindow === 'month'
+                    ? 'Last 30 days'
+                    : 'Last 12 months'}
+              </span>
+              {' · '}
+              Funnel counts include only leads created in this period. KPI cards above remain
+              all-time for the workspace.
             </p>
           </CardContent>
         </Card>
@@ -371,13 +391,15 @@ export default function AnalyticsOverviewClient({
                       role="link"
                       tabIndex={0}
                       onClick={() =>
-                        router.push(`/admin/leads?assignedTo=${agent.id}`)
+                        router.push(
+                          `${tenantPath(tenantSlug, '/admin/leads')}?assignedTo=${agent.id}`,
+                        )
                       }
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault()
                           router.push(
-                            `/admin/leads?assignedTo=${agent.id}`,
+                            `${tenantPath(tenantSlug, '/admin/leads')}?assignedTo=${agent.id}`,
                           )
                         }
                       }}

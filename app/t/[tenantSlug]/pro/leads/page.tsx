@@ -5,6 +5,7 @@ import SearchInput from '@/components/SearchInput'
 
 import { STAGE_LABELS } from '@/constants/leads'
 import { requireTenantSession } from '@/lib/tenant-server'
+import { tenantPath } from '@/lib/tenant-path'
 
 export default async function ProLeadsPage({
   searchParams,
@@ -115,7 +116,7 @@ export default async function ProLeadsPage({
                     </td>
                     <td className="px-6 py-4">
                       <a
-                        href={`/pro/leads/${lead.id}`}
+                        href={tenantPath(tenant.slug, `/pro/leads/${lead.id}`)}
                         className="text-xs bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-gray-900 font-medium px-3 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1 w-max"
                       >
                         Details

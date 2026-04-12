@@ -7,6 +7,7 @@ import SearchInput from '@/components/SearchInput'
 import PageSizeDropdown from '@/components/PageSizeDropdown'
 import { STAGE_LABELS } from '@/constants/leads'
 import { requireTenantAdminSession } from '@/lib/tenant-server'
+import { tenantPath } from '@/lib/tenant-path'
 
 export default async function LeadsPage({
   searchParams,
@@ -106,7 +107,7 @@ export default async function LeadsPage({
             <SearchInput placeholder="Search phone, name, email..." />
           </div>
           <Link
-            href="/admin/import"
+            href={tenantPath(tenant.slug, '/admin/import')}
             className="flex items-center gap-1 bg-[#223955] hover:bg-[#1a2b40] text-white text-sm font-medium px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -180,7 +181,7 @@ export default async function LeadsPage({
                       </td>
                       <td className="px-6 py-4 text-right">
                         <Link
-                          href={`/admin/leads/${lead.id}`}
+                          href={tenantPath(tenant.slug, `/admin/leads/${lead.id}`)}
                           className="inline-flex items-center justify-center text-sm font-medium text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 border border-blue-100 transition-all rounded-lg px-3 py-1.5 shadow-sm group-hover:shadow"
                         >
                           View <span className="ml-1 transition-transform group-hover:translate-x-0.5">→</span>
@@ -208,7 +209,7 @@ export default async function LeadsPage({
                   if (q) sp.set('q', q)
                   if (pageSize !== 10) sp.set('pageSize', String(pageSize))
                   sp.set('page', String(p))
-                  return `/admin/leads?${sp.toString()}`
+                  return `${tenantPath(tenant.slug, '/admin/leads')}?${sp.toString()}`
                 }}
               />
             )}

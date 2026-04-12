@@ -23,3 +23,9 @@ export type FunnelStep = {
 }
 
 export type ChartWindow = 'week' | 'month' | 'year'
+
+export type PipelineChartSnapshot = {
+  totalLeads: number
+  stageData: StageDatum[]
+  funnelSteps: FunnelStep[]
+}

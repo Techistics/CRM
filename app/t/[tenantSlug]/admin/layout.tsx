@@ -30,10 +30,10 @@ export default async function AdminLayout({
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen bg-muted/50">
-        <RoleSidebar role="admin" badges={{ team: teamBadge }} />
+      <div className="min-h-screen bg-slate-50/90 dark:bg-background">
+        <RoleSidebar role="admin" tenantSlug={tenant.slug} badges={{ team: teamBadge }} />
         <div className="flex min-h-screen flex-col lg:pl-52">
-          <AdminHeader />
+          <AdminHeader tenantSlug={tenant.slug} />
           <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 md:px-8 md:py-8">
             <UiScaleWrapper>{children}</UiScaleWrapper>
           </main>

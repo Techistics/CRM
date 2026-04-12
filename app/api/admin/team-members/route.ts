@@ -5,6 +5,7 @@ import { db } from '@/db'
 import { tenantMembers } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
 import { syncAppUserFromClerk } from '@/lib/app-user'
+import { workspaceOrigin } from '@/lib/public-url'
 
 type TeamRole = 'tenant_admin' | 'agent'
 
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
       inviterUserId,
       emailAddress: email,
       role: clerkRole,
+      redirectUrl: workspaceOrigin(ctx.tenant.slug),
     })
     invitationId = invitation.id ?? null
   } catch (e) {

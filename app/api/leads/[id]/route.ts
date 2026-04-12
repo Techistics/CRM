@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { and, eq } from 'drizzle-orm'
 
+import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'
-import { leadActivities, leadDocumentChecklist, leadReminders, leads } from '@/db/schema'
+import {
+  leadActivities,
+  leadDocumentChecklist,
+  leadReminders,
+  leadUploadedDocuments,
+  leads,
+} from '@/db/schema'
 import { getLeadForMemberAction, getLeadInTenant } from '@/lib/lead-tenant'
 import { requireTenantAdminApi, requireTenantMemberApi } from '@/lib/tenant-api'
+import { leadPatchBodySchema } from '@/lib/validators/lead'
 
 export async function GET(
   _req: NextRequest,
@@ -40,18 +48,80 @@ export async function PATCH(
     return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
   }
 
-  const body = await req.json()
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const parsed = leadPatchBodySchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsed.error.flatten() },
+      { status: 400 },
+    )
+  }
+
+  const patch = parsed.data
+
+  function strOrNull(v: unknown): string | null {
+    if (v == null) return null
+    const s = String(v).trim()
+    return s === '' ? null : s
+  }
+
+  const nextCountryRaw =
+    patch.country !== undefined ? String(patch.country).trim() : undefined
+  const nextCountry =
+    nextCountryRaw === undefined
+      ? (lead.country ?? DEFAULT_LEAD_COUNTRY)
+      : nextCountryRaw === ''
+        ? DEFAULT_LEAD_COUNTRY
+        : nextCountryRaw
+
+  if (patch.fullName !== undefined) {
+    const nextName = String(patch.fullName).trim()
+    if (!nextName) {
+      return NextResponse.json({ error: 'fullName cannot be empty' }, { status: 400 })
+    }
+  }
+
   const updates = {
-    fullName: body?.fullName ? String(body.fullName).trim() : lead.fullName,
-    email: body?.email ? String(body.email).trim().toLowerCase() : null,
-    contactNumber: body?.contactNumber ? String(body.contactNumber).trim() : null,
-    city: body?.city ? String(body.city).trim() : null,
-    country: body?.country ? String(body.country).trim() : 'India',
-    lastQualification: body?.lastQualification
-      ? String(body.lastQualification).trim()
-      : null,
-    grades: body?.grades ? String(body.grades).trim() : null,
+    fullName:
+      patch.fullName !== undefined
+        ? String(patch.fullName).trim()
+        : lead.fullName,
+    email:
+      patch.email !== undefined
+        ? patch.email === '' || patch.email === null
+          ? null
+          : patch.email.toLowerCase()
+        : lead.email,
+    contactNumber:
+      patch.contactNumber !== undefined
+        ? strOrNull(patch.contactNumber)
+        : lead.contactNumber,
+    city: patch.city !== undefined ? strOrNull(patch.city) : lead.city,
+    country: nextCountry,
+    lastQualification:
+      patch.lastQualification !== undefined
+        ? strOrNull(patch.lastQualification)
+        : lead.lastQualification,
+    grades: patch.grades !== undefined ? strOrNull(patch.grades) : lead.grades,
     updatedAt: new Date(),
+  }
+
+  if (
+    nextCountryRaw !== undefined &&
+    (lead.country ?? DEFAULT_LEAD_COUNTRY) !== nextCountry
+  ) {
+    await db.delete(leadDocumentChecklist).where(
+      and(
+        eq(leadDocumentChecklist.tenantId, ctx.tenant.id),
+        eq(leadDocumentChecklist.leadId, id),
+      ),
+    )
   }
 
   const [updated] = await db
@@ -59,6 +129,26 @@ export async function PATCH(
     .set(updates)
     .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenant.id)))
     .returning()
+
+  const changed: string[] = []
+  if (patch.fullName !== undefined && updates.fullName !== lead.fullName)
+    changed.push('name')
+  if (patch.email !== undefined && updates.email !== lead.email) changed.push('email')
+  if (patch.contactNumber !== undefined) changed.push('phone')
+  if (patch.city !== undefined) changed.push('city')
+  if (patch.country !== undefined) changed.push('country')
+  if (patch.lastQualification !== undefined) changed.push('qualification')
+  if (patch.grades !== undefined) changed.push('grades')
+
+  if (changed.length > 0) {
+    await db.insert(leadActivities).values({
+      tenantId: ctx.tenant.id,
+      leadId: id,
+      userId: ctx.dbUserId,
+      type: 'note',
+      note: `Lead details updated (${changed.join(', ')})`,
+    })
+  }
 
   return NextResponse.json({ lead: updated })
 }
@@ -83,6 +173,12 @@ export async function DELETE(
     and(
       eq(leadDocumentChecklist.tenantId, ctx.tenant.id),
       eq(leadDocumentChecklist.leadId, id),
+    ),
+  )
+  await db.delete(leadUploadedDocuments).where(
+    and(
+      eq(leadUploadedDocuments.tenantId, ctx.tenant.id),
+      eq(leadUploadedDocuments.leadId, id),
     ),
   )
   await db.delete(leadReminders).where(

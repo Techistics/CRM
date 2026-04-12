@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server'
-import { eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 
 import { db } from '@/db'
 import { leads, users } from '@/db/schema'
+import { leadsVisibleWhere } from '@/lib/leads-scope'
 import { requireTenantMemberApi } from '@/lib/tenant-api'
 
 export async function GET() {
   const ctx = await requireTenantMemberApi()
   if (!ctx.ok) return ctx.response
+
+  const scope = leadsVisibleWhere(ctx.tenant.id, ctx.role, ctx.dbUserId)
 
   const allLeads = await db
     .select({
@@ -19,10 +22,12 @@ export async function GET() {
       stage: leads.stage,
       lastQualification: leads.lastQualification,
       assigneeName: users.name,
+      assignedTo: leads.assignedTo,
     })
     .from(leads)
     .leftJoin(users, eq(leads.assignedTo, users.id))
-    .where(eq(leads.tenantId, ctx.tenant.id))
+    .where(scope)
+    .orderBy(desc(leads.updatedAt))
 
   return NextResponse.json({ leads: allLeads })
 }

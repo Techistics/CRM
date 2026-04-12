@@ -1,7 +1,11 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
-import { tenantSlugFromHost } from '@/lib/tenant-host'
+import {
+  tenantSlugFromHost,
+  tenantSlugFromPathname,
+  tenantSlugFromReferer,
+} from '@/lib/tenant-host'
 
 const isPublicRoute = createRouteMatcher([
   '/',
@@ -15,19 +19,34 @@ const isPublicRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, req) => {
   const url = req.nextUrl.clone()
   const host = req.headers.get('host') || ''
-  const slug = tenantSlugFromHost(host)
   const pathname = url.pathname
 
+  const hostSlug = tenantSlugFromHost(host)
+  const pathSlug = tenantSlugFromPathname(pathname)
+  let headerSlug = hostSlug ?? pathSlug
+
+  if (!headerSlug && pathname.startsWith('/api')) {
+    headerSlug = tenantSlugFromReferer(req.headers.get('referer'))
+  }
+
   const nextHeaders = new Headers(req.headers)
-  if (slug) {
-    nextHeaders.set('x-tenant-slug', slug)
+  if (headerSlug) {
+    nextHeaders.set('x-tenant-slug', headerSlug)
+  }
+
+  if (
+    url.searchParams.has('__clerk_ticket') &&
+    !pathname.startsWith('/sign-in') &&
+    !pathname.startsWith('/sign-up')
+  ) {
+    const status = url.searchParams.get('__clerk_status')
+    url.pathname = status === 'sign_up' ? '/sign-up' : '/sign-in'
+    return NextResponse.redirect(url)
   }
 
   if (pathname.startsWith('/api')) {
     return NextResponse.next({ request: { headers: nextHeaders } })
   }
-
-  
 
   const shouldSkipTenantRewrite =
     pathname.startsWith('/_next') ||
@@ -41,16 +60,19 @@ export default clerkMiddleware(async (auth, req) => {
     pathname.startsWith('/t/')
 
   if (
-    slug &&
+    hostSlug &&
     !shouldSkipTenantRewrite &&
-    !pathname.startsWith(`/t/${slug}`)
+    !pathname.startsWith(`/t/${hostSlug}`)
   ) {
     url.pathname =
-      pathname === '/' ? `/t/${slug}` : `/t/${slug}${pathname}`
+      pathname === '/' ? `/t/${hostSlug}` : `/t/${hostSlug}${pathname}`
     return NextResponse.rewrite(url, { request: { headers: nextHeaders } })
   }
 
-  if (!slug && (pathname.startsWith('/admin') || pathname.startsWith('/pro'))) {
+  if (
+    !headerSlug &&
+    (pathname.startsWith('/admin') || pathname.startsWith('/pro'))
+  ) {
     return NextResponse.redirect(new URL('/', req.url))
   }
 

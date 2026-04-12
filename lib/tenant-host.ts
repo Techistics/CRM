@@ -46,3 +46,20 @@ export function tenantSlugFromHost(hostHeader: string | null): string | null {
 
   return null
 }
+
+/** Path-based tenancy on the apex host, e.g. `/t/acme/admin/...`. */
+export function tenantSlugFromPathname(pathname: string): string | null {
+  const m = pathname.match(/^\/t\/([^/]+)/)
+  return m?.[1] ?? null
+}
+
+/** Client `fetch('/api/...')` has pathname `/api/...`; use Referer to recover `/t/slug/...`. */
+export function tenantSlugFromReferer(referer: string | null): string | null {
+  if (!referer) return null
+  try {
+    const u = new URL(referer)
+    return tenantSlugFromPathname(u.pathname)
+  } catch {
+    return null
+  }
+}

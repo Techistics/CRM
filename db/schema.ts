@@ -143,6 +143,27 @@ export const leadDocumentChecklist = pgTable('lead_document_checklist', {
   updatedAt: timestamp('updated_at').defaultNow(),
 })
 
+// ─── Lead file uploads (checklist is separate; this is actual files) ─
+export const leadUploadedDocuments = pgTable('lead_uploaded_documents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id')
+    .references(() => tenants.id, { onDelete: 'cascade' })
+    .notNull(),
+  leadId: uuid('lead_id')
+    .references(() => leads.id, { onDelete: 'cascade' })
+    .notNull(),
+  fileName: text('file_name').notNull(),
+  mimeType: text('mime_type'),
+  sizeBytes: integer('size_bytes'),
+  /** Public HTTPS URL (e.g. Vercel Blob, R2, S3). */
+  storageUrl: text('storage_url').notNull(),
+  label: text('label'),
+  uploadedBy: uuid('uploaded_by').references(() => users.id, {
+    onDelete: 'set null',
+  }),
+  createdAt: timestamp('created_at').defaultNow(),
+})
+
 // ─── Notifications ────────────────────────────────────────────
 export const notifications = pgTable('notifications', {
   id: uuid('id').primaryKey().defaultRandom(),

@@ -18,6 +18,7 @@ export default async function KanbanPage() {
       stage: leads.stage,
       lastQualification: leads.lastQualification,
       assigneeName: users.name,
+      assignedTo: leads.assignedTo,
     })
     .from(leads)
     .leftJoin(users, eq(leads.assignedTo, users.id))

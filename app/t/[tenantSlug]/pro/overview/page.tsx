@@ -4,14 +4,8 @@ import { and, eq } from 'drizzle-orm'
 import { UserButton } from '@clerk/nextjs'
 import Link from 'next/link'
 import { requireTenantSession } from '@/lib/tenant-server'
-
-const STAGE_LABELS: Record<string, string> = {
-  new_lead: 'New Lead', unresponsive: 'Unresponsive',
-  follow_up: 'Follow Up', docs_received: 'Docs Received',
-  options_sent: 'Options Sent', final_decision: 'Final Decision',
-  walkin_booked: 'Walk-in Booked', walkin_conducted: 'Walk-in Done',
-  cancelled: 'Cancelled', paid: 'Paid',
-}
+import { tenantPath } from '@/lib/tenant-path'
+import { LEAD_STAGE_LABELS } from '@/lib/lead-stage-labels'
 
 export default async function ProOverviewPage() {
   const { tenant, dbUserId } = await requireTenantSession()
@@ -82,7 +76,7 @@ export default async function ProOverviewPage() {
           </h2>
           
           <Link
-            href="/pro/leads"
+            href={tenantPath(tenant.slug, '/pro/leads')}
             className="text-blue-600 font-medium text-sm hover:text-blue-700 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100"
           >
             View all →
@@ -119,12 +113,12 @@ export default async function ProOverviewPage() {
                     <td className="px-6 py-4 text-gray-600">{lead.city ?? '—'}</td>
                     <td className="px-6 py-4">
                       <span className="text-xs bg-white border border-gray-200 text-gray-700 font-medium px-2.5 py-1.5 rounded-lg shadow-sm">
-                        {STAGE_LABELS[lead.stage ?? 'new_lead']}
+                        {LEAD_STAGE_LABELS[lead.stage ?? 'new_lead']}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <Link
-                        href={`/pro/leads/${lead.id}`}
+                        href={tenantPath(tenant.slug, `/pro/leads/${lead.id}`)}
                         className="text-xs bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-gray-900 font-medium px-3 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1 w-max"
                       >
                         Details

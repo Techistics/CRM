@@ -7,7 +7,7 @@ export default function SignUpPage() {
       <SignUp
         path="/sign-up"
         routing="path"
-        forceRedirectUrl="/"
+        // Do not set forceRedirectUrl — it overrides invitation / OAuth redirect_url
         fallbackRedirectUrl="/"
         signInUrl="/sign-in"
       />

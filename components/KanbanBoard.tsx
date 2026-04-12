@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -19,21 +19,15 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useToast } from '@/hooks/use-toast'
-
-const STAGES = [
-  { value: 'new_lead',         label: 'New Lead',       color: 'border-t-blue-500' },
-  { value: 'unresponsive',     label: 'Unresponsive',   color: 'border-t-gray-500' },
-  { value: 'follow_up',        label: 'Follow Up',      color: 'border-t-yellow-500' },
-  { value: 'docs_received',    label: 'Docs Received',  color: 'border-t-purple-500' },
-  { value: 'options_sent',     label: 'Options Sent',   color: 'border-t-indigo-500' },
-  { value: 'final_decision',   label: 'Final Decision', color: 'border-t-orange-500' },
-  { value: 'walkin_booked',    label: 'Walk-in Booked', color: 'border-t-teal-500' },
-  { value: 'walkin_conducted', label: 'Walk-in Done',   color: 'border-t-cyan-500' },
-  { value: 'cancelled',        label: 'Cancelled',      color: 'border-t-red-500' },
-  { value: 'paid',             label: 'Paid',           color: 'border-t-emerald-500' },
-]
+import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 
 import type { KanbanLead } from '@/types/leads'
+
+const STAGES = PIPELINE_STAGES.map((s) => ({
+  value: s.value,
+  label: s.label,
+  color: s.kanbanBorder,
+}))
 
 function LeadCard({
   lead,
@@ -82,12 +76,14 @@ function LeadCard({
         )}
       </div>
 
-      {lead.assigneeName ? (
+      {lead.assignedTo ? (
         <div className="mt-1.5 flex items-center gap-1">
           <div className="w-3.5 h-3.5 rounded bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold text-[8px] shadow-sm">
-            {lead.assigneeName.charAt(0)}
+            {(lead.assigneeName ?? '?').charAt(0)}
           </div>
-          <span className="text-[9px] text-gray-600 font-medium truncate">{lead.assigneeName}</span>
+          <span className="text-[9px] text-gray-600 font-medium truncate">
+            {lead.assigneeName ?? 'Assignee'}
+          </span>
         </div>
       ) : (
         <div className="mt-1.5 flex items-center gap-1">
@@ -123,6 +119,7 @@ export default function KanbanBoard({
   const [activeId, setActiveId] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
   const [blockedId, setBlockedId] = useState<string | null>(null)
+  const stageAtDragStartRef = useRef<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -139,7 +136,10 @@ export default function KanbanBoard({
   }
 
   function handleDragStart(event: DragStartEvent) {
-    setActiveId(event.active.id as string)
+    const id = event.active.id as string
+    setActiveId(id)
+    const l = leadsState.find((x) => x.id === id)
+    stageAtDragStartRef.current = l?.stage ?? 'new_lead'
   }
 
   function handleDragOver(event: DragOverEvent) {
@@ -150,8 +150,7 @@ export default function KanbanBoard({
     const overId = over.id as string
 
     const activeLead = leadsState.find((l) => l.id === activeLeadId)
-    // block unassigned from drag overs
-    if (!activeLead?.assigneeName) return 
+    if (!activeLead?.assignedTo) return
 
     const overStage = STAGES.find((s) => s.value === overId)
     if (overStage) {
@@ -183,8 +182,7 @@ export default function KanbanBoard({
     const lead = leadsState.find((l) => l.id === leadId)
     if (!lead) return
 
-    // Block unassigned leads from completing drop
-    if (!lead.assigneeName) {
+    if (!lead.assignedTo) {
       setLeadsState((prev) =>
         prev.map((l) =>
           l.id === leadId
@@ -207,8 +205,18 @@ export default function KanbanBoard({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stage: lead.stage }),
     })
-    
-    if (res.ok) {
+
+    if (!res.ok) {
+      const previous = stageAtDragStartRef.current ?? 'new_lead'
+      setLeadsState((prev) =>
+        prev.map((l) => (l.id === leadId ? { ...l, stage: previous } : l)),
+      )
+      toast({
+        variant: 'destructive',
+        title: 'Could not update stage',
+        description: 'Your change was reverted. Try again or refresh the page.',
+      })
+    } else {
       toast({ title: 'Stage Updated', description: `${lead.fullName} moved to section.` })
     }
 

@@ -5,7 +5,7 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { roleRequests } from '@/db/schema'
 import { requireTenantFromApiHeaders } from '@/lib/tenant-api'
-import { syncTenantMembership } from '@/lib/tenant-membership'
+import { resolveTenantAccess } from '@/lib/tenant-access'
 import { normalizeAppRole } from '@/lib/role'
 
 export async function POST(req: Request) {
@@ -17,10 +17,10 @@ export async function POST(req: Request) {
   const t = await requireTenantFromApiHeaders()
   if (!t.ok) return t.response
 
-  const already = await syncTenantMembership(userId, t.tenant)
-  if (already) {
+  const actor = await resolveTenantAccess(userId, t.tenant)
+  if (actor) {
     return NextResponse.json(
-      { error: 'You already belong to this workspace' },
+      { error: 'You already have access to this workspace' },
       { status: 400 },
     )
   }

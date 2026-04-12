@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 
+import { tenantPath } from '@/lib/tenant-path'
+
 type Notification = {
   id: string
   title: string
@@ -12,7 +14,13 @@ type Notification = {
   leadId: string | null
 }
 
-export default function NotificationBell({ portalBase }: { portalBase: 'admin' | 'pro' }) {
+export default function NotificationBell({
+  tenantSlug,
+  portalBase,
+}: {
+  tenantSlug: string
+  portalBase: 'admin' | 'pro'
+}) {
   const [notifs, setNotifs] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -135,7 +143,10 @@ export default function NotificationBell({ portalBase }: { portalBase: 'admin' |
                   onClick={() => {
                     markRead(n.id)
                     if (n.leadId) {
-                      window.location.href = `/${portalBase}/leads/${n.leadId}`
+                      window.location.href = tenantPath(
+                        tenantSlug,
+                        `/${portalBase}/leads/${n.leadId}`,
+                      )
                     }
                   }}
                   className={`flex cursor-pointer gap-3 border-b border-border/50 px-4 py-3 transition-colors hover:bg-accent ${

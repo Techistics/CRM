@@ -24,19 +24,60 @@ export async function PATCH(
     return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
   }
 
+  const [existing] = await db
+    .select()
+    .from(leadReminders)
+    .where(
+      and(
+        eq(leadReminders.id, reminderId),
+        eq(leadReminders.tenantId, ctx.tenant.id),
+        eq(leadReminders.leadId, id),
+      ),
+    )
+    .limit(1)
+
+  if (!existing) {
+    return NextResponse.json({ error: 'Reminder not found' }, { status: 404 })
+  }
+
   const body = await req.json()
-  const nextStatus = body?.status ? String(body.status) : undefined
-  const nextDueAt = body?.dueAt ? new Date(body.dueAt) : undefined
+  const nextStatus =
+    body?.status !== undefined && body?.status !== null
+      ? String(body.status)
+      : undefined
+  const nextDueAt =
+    body?.dueAt !== undefined && body?.dueAt !== null
+      ? new Date(body.dueAt)
+      : undefined
+
+  if (nextDueAt !== undefined && Number.isNaN(nextDueAt.getTime())) {
+    return NextResponse.json({ error: 'Invalid dueAt' }, { status: 400 })
+  }
+
+  let dueAt = existing.dueAt
+  if (nextDueAt !== undefined) dueAt = nextDueAt
+
+  const dueMs =
+    dueAt instanceof Date ? dueAt.getTime() : new Date(dueAt as string).getTime()
+
+  let status = existing.status
+  if (nextStatus === 'completed') status = 'completed'
+  else if (nextStatus === 'pending' || nextStatus === 'overdue') status = nextStatus
+  else if (nextDueAt !== undefined && status !== 'completed') {
+    status = !Number.isNaN(dueMs) && dueMs < Date.now() ? 'overdue' : 'pending'
+  }
+
+  const completedAt =
+    status === 'completed'
+      ? existing.completedAt ?? new Date()
+      : null
 
   const [updated] = await db
     .update(leadReminders)
     .set({
-      status: nextStatus === 'completed' ? 'completed' : nextStatus === 'overdue' ? 'overdue' : 'pending',
-      dueAt:
-        nextDueAt && !Number.isNaN(nextDueAt.getTime())
-          ? nextDueAt
-          : undefined,
-      completedAt: nextStatus === 'completed' ? new Date() : null,
+      status,
+      dueAt,
+      completedAt,
       updatedAt: new Date(),
     })
     .where(
@@ -52,16 +93,22 @@ export async function PATCH(
     return NextResponse.json({ error: 'Reminder not found' }, { status: 404 })
   }
 
-  await db.insert(leadActivities).values({
-    tenantId: ctx.tenant.id,
-    leadId: id,
-    userId: ctx.dbUserId,
-    type: 'note',
-    note:
-      nextStatus === 'completed'
-        ? `Reminder completed: ${updated.title}`
-        : `Reminder updated: ${updated.title}`,
-  })
+  const activityNote =
+    nextStatus === 'completed'
+      ? `Reminder completed: ${updated.title}`
+      : nextDueAt !== undefined || nextStatus !== undefined
+        ? `Reminder updated: ${updated.title}`
+        : null
+
+  if (activityNote) {
+    await db.insert(leadActivities).values({
+      tenantId: ctx.tenant.id,
+      leadId: id,
+      userId: ctx.dbUserId,
+      type: 'note',
+      note: activityNote,
+    })
+  }
 
   return NextResponse.json({ reminder: updated })
 }

@@ -3,6 +3,7 @@ import {
   leads,
   leadActivities,
   leadDocumentChecklist,
+  leadUploadedDocuments,
   leadReminders,
   csvImports,
   notifications,
@@ -18,6 +19,7 @@ export type Lead = typeof leads.$inferSelect
 export type LeadActivity = typeof leadActivities.$inferSelect
 export type LeadReminder = typeof leadReminders.$inferSelect
 export type LeadDocumentChecklistItem = typeof leadDocumentChecklist.$inferSelect
+export type LeadUploadedDocument = typeof leadUploadedDocuments.$inferSelect
 export type CsvImport = typeof csvImports.$inferSelect
 export type LeadStage = Lead['stage']
 export type Notification = typeof notifications.$inferSelect

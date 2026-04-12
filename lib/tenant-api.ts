@@ -7,7 +7,8 @@ import { db } from '@/db'
 import { tenants } from '@/db/schema'
 import type { Tenant } from '@/types/models'
 
-import { syncTenantMembership, type TenantAppRole } from '@/lib/tenant-membership'
+import { resolveTenantAccess } from '@/lib/tenant-access'
+import type { TenantAppRole } from '@/lib/tenant-membership'
 
 export async function requireTenantFromApiHeaders(): Promise<
   | { ok: true; tenant: Tenant }
@@ -19,7 +20,10 @@ export async function requireTenantFromApiHeaders(): Promise<
     return {
       ok: false,
       response: NextResponse.json(
-        { error: 'Open the app from your workspace URL (subdomain).' },
+        {
+          error:
+            'Missing workspace context. Open the app from your workspace URL (e.g. slug.yourdomain.com or /t/your-slug/...).',
+        },
         { status: 400 },
       ),
     }
@@ -47,14 +51,19 @@ export async function requireTenantMemberApi(): Promise<
       response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
     }
   }
-  const synced = await syncTenantMembership(userId, t.tenant)
-  if (!synced) {
+  const actor = await resolveTenantAccess(userId, t.tenant)
+  if (!actor) {
     return {
       ok: false,
       response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
     }
   }
-  return { ok: true, tenant: t.tenant, dbUserId: synced.userId, role: synced.role }
+  return {
+    ok: true,
+    tenant: t.tenant,
+    dbUserId: actor.dbUserId,
+    role: actor.role,
+  }
 }
 
 export async function requireTenantAdminApi(): Promise<

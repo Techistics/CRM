@@ -8,6 +8,7 @@ import { LogOut, Menu } from 'lucide-react'
 import type { AppRole } from '@/types/roles'
 import { useSidebar } from '@/components/sidebar-provider'
 import { cn } from '@/lib/utils'
+import { tenantPath } from '@/lib/tenant-path'
 import { Button } from '@/components/ui/button'
 import {
   adminMainNav,
@@ -22,9 +23,11 @@ function isActive(pathname: string, href: string, matchPrefix?: boolean) {
 
 export function RoleSidebar({
   role,
+  tenantSlug,
   badges,
 }: {
   role: AppRole
+  tenantSlug: string
   badges?: Partial<Record<string, string>>
 }) {
   const pathname = usePathname()
@@ -81,14 +84,15 @@ export function RoleSidebar({
           {/* Main nav */}
           <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
             {mainNav.map((item) => {
-              const active = isActive(pathname, item.href, item.matchPrefix)
+              const href = tenantPath(tenantSlug, item.href)
+              const active = isActive(pathname, href, item.matchPrefix)
               const badge =
                 item.badgeKey && badges ? badges[item.badgeKey] : undefined
 
               return (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  href={href}
                   className={cn(
                     'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                     active
@@ -116,11 +120,12 @@ export function RoleSidebar({
             {settingsLinks.length ? (
               <nav className="space-y-0.5">
                 {settingsLinks.map((item) => {
-                  const active = pathname === item.href.split('#')[0]
+                  const href = tenantPath(tenantSlug, item.href)
+                  const active = pathname === href.split('#')[0]
                   return (
                     <Link
                       key={item.name}
-                      href={item.href}
+                      href={href}
                       className={cn(
                         'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
                         active

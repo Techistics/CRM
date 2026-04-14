@@ -1,8 +1,8 @@
-import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 
 import { resolveTenantAccess } from '@/lib/tenant-access'
 import { getTenantBySlug } from '@/lib/tenant-server'
+import { getSession } from '@/lib/auth'
 
 export default async function TenantHomePage({
   params,
@@ -13,10 +13,10 @@ export default async function TenantHomePage({
   const tenant = await getTenantBySlug(tenantSlug)
   if (!tenant) redirect('/')
 
-  const { userId } = await auth()
-  if (!userId) redirect('/sign-in')
+  const session = await getSession()
+  if (!session) redirect('/sign-in')
 
-  const actor = await resolveTenantAccess(userId, tenant)
+  const actor = await resolveTenantAccess(tenant)
   if (!actor) redirect('/no-access?reason=not-in-org')
 
   const base = `/t/${tenantSlug}`

@@ -1,11 +1,10 @@
-import { auth, clerkClient } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { eq } from 'drizzle-orm'
 
 import { db } from '@/db'
-import { roleRequests } from '@/db/schema'
+import { roleRequests, tenantMembers, users } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
-import { syncAppUserFromClerk } from '@/lib/app-user'
+import { getSession } from '@/lib/auth'
 
 export async function PATCH(
   req: NextRequest,
@@ -14,8 +13,8 @@ export async function PATCH(
   const ctx = await requireTenantAdminApi()
   if (!ctx.ok) return ctx.response
 
-  const { userId: reviewerClerkId } = await auth()
-  if (!reviewerClerkId) {
+  const session = await getSession()
+  if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -35,7 +34,11 @@ export async function PATCH(
     )
   }
 
-  const [row] = await db.select().from(roleRequests).where(eq(roleRequests.id, id))
+  const [row] = await db
+    .select()
+    .from(roleRequests)
+    .where(eq(roleRequests.id, id))
+
   if (!row || row.status !== 'pending') {
     return NextResponse.json(
       { error: 'Request not found or already handled' },
@@ -55,38 +58,40 @@ export async function PATCH(
       .set({
         status: 'rejected',
         reviewedAt: now,
-        reviewedByClerkId: reviewerClerkId,
+        reviewedByUserId: session.userId,
       })
       .where(eq(roleRequests.id, id))
     return NextResponse.json({ ok: true })
   }
 
-  const client = await clerkClient()
-  try {
-    await client.organizations.createOrganizationMembership({
-      organizationId: ctx.tenant.clerkOrgId,
-      userId: row.clerkId,
-      role: row.requestedRole === 'admin' ? 'org:admin' : 'org:member',
-    })
-  } catch (e) {
-    console.error(e)
+  // ── Approve: find the user by email and create membership ──
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, row.email))
+
+  if (!user) {
     return NextResponse.json(
-      {
-        error:
-          'Could not add user to Clerk organization. They may already be a member.',
-      },
+      { error: 'User account not found. They need to sign up first.' },
       { status: 400 },
     )
   }
 
-  await syncAppUserFromClerk(row.clerkId)
+  await db
+    .insert(tenantMembers)
+    .values({
+      tenantId: ctx.tenant.id,
+      userId: user.id,
+      role: row.requestedRole as 'tenant_admin' | 'agent',
+    })
+    .onConflictDoNothing()
 
   await db
     .update(roleRequests)
     .set({
       status: 'approved',
       reviewedAt: now,
-      reviewedByClerkId: reviewerClerkId,
+      reviewedByUserId: session.userId,
       tenantId: row.tenantId ?? ctx.tenant.id,
     })
     .where(eq(roleRequests.id, id))

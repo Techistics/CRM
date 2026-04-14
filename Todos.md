@@ -3,7 +3,6 @@ Which documents are pending?
 Which university deadline is coming?
 Which student hasn't been followed up in 2 weeks?
 Commission tracking per successful admission
-Each student's complete history in one place
 
 Document checklist per student — passport, IELTS, transcripts, SOP, LORs
 Status per document — pending, received, submitted, approved

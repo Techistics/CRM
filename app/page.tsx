@@ -1,39 +1,34 @@
-import { auth, clerkClient } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
-import { asc, inArray } from 'drizzle-orm'
+import { asc } from 'drizzle-orm'
 
 import { db } from '@/db'
-import { tenants } from '@/db/schema'
-import { isPlatformSuperAdmin } from '@/lib/platform-role'
-import { workspaceOrigin } from '@/lib/public-url'
+import { tenants, tenantMembers } from '@/db/schema'
+import { getSession } from '@/lib/auth'
+import { eq } from 'drizzle-orm'
 
 export default async function Home() {
-  const { userId } = await auth()
+  const session = await getSession()
+  if (!session) redirect('/sign-in')
 
-  if (!userId) redirect('/sign-in')
+  const memberships = await db
+    .select({ tenantId: tenantMembers.tenantId })
+    .from(tenantMembers)
+    .where(eq(tenantMembers.userId, session.userId))
 
-  const superAdmin = await isPlatformSuperAdmin()
-  if (superAdmin) {
-    redirect('/platform')
-  }
+  if (memberships.length === 0) redirect('/no-access?reason=no-workspace')
 
-  const client = await clerkClient()
-  const memberships = await client.users.getOrganizationMembershipList({
-    userId,
-  })
-  const orgIds = memberships.data.map((m) => m.organization.id)
-  if (orgIds.length === 0) {
-    redirect('/request-role')
-  }
+  const tenantIds = memberships.map((m) => m.tenantId)
 
   const list = await db
     .select()
     .from(tenants)
-    .where(inArray(tenants.clerkOrgId, orgIds))
+    .where(eq(tenants.status, 'active'))
     .orderBy(asc(tenants.name))
 
-  if (list.length === 1) {
-    redirect(workspaceOrigin(list[0].slug))
+  const userTenants = list.filter((t) => tenantIds.includes(t.id))
+
+  if (userTenants.length === 1) {
+    redirect(`/t/${userTenants[0].slug}`)
   }
 
   return (
@@ -44,10 +39,10 @@ export default async function Home() {
           Click on a workspace to open it.
         </p>
         <ul className="mt-8 space-y-3">
-          {list.map((t) => (
+          {userTenants.map((t) => (
             <li key={t.id}>
-              <a
-                href={workspaceOrigin(t.slug)}
+              <a  // ← was missing the opening `<a`
+                href={`/t/${t.slug}`}
                 className="block rounded-xl border bg-card p-4 text-card-foreground shadow-sm hover:bg-muted/40 transition-colors"
               >
                 <p className="font-medium">{t.brandName ?? t.name}</p>
@@ -56,25 +51,6 @@ export default async function Home() {
             </li>
           ))}
         </ul>
-        {list.length === 0 && (
-          <div className="mt-6 space-y-3 text-sm text-muted-foreground">
-            <p>
-              Your account is in a Clerk organization, but that organization is not
-              registered as a workspace in this app yet (or you used a different Clerk
-              app / environment).
-            </p>
-            <p>
-              If you just accepted an email invite, ask your admin to resend it after
-              the app is updated, or open the invite link again — you should land
-              directly in the workspace.
-            </p>
-            <p>
-              Platform admins: create the workspace from{' '}
-              <span className="font-medium text-foreground">Platform → Workspaces</span>{' '}
-              so the Clerk org id is linked in the database.
-            </p>
-          </div>
-        )}
       </div>
     </main>
   )

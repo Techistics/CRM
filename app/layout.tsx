@@ -1,8 +1,6 @@
 import './globals.css'
-import { ClerkProvider } from '@clerk/nextjs'
 import { Inter } from 'next/font/google'
 import { Toaster } from '@/components/ui/toaster'
-import { AuthToastWrapper } from '@/components/auth-toast-wrapper'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -18,15 +16,8 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className={`${inter.className} min-h-screen antialiased`}>
-        <ClerkProvider
-          signInUrl="/sign-in"
-          signUpUrl="/sign-up"
-          afterSignOutUrl="/sign-in"
-        >
-          <AuthToastWrapper />
-          {children}
-          <Toaster />
-        </ClerkProvider>
+        {children}
+        <Toaster />
       </body>
     </html>
   )

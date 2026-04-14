@@ -43,6 +43,13 @@
       "when": 1776000000000,
       "tag": "0005_lead_uploaded_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776074738707,
+      "tag": "0006_brief_beyonder",
+      "breakpoints": true
     }
   ]
 }

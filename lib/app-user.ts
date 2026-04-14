@@ -1,40 +1,31 @@
-import { clerkClient } from '@clerk/nextjs/server'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { getSession } from '@/lib/auth'
 
-/**
- * Ensures a `users` row exists for this Clerk user (global profile).
- * Workspace roles come from Clerk Organizations + `tenant_members`.
- */
-export async function syncAppUserFromClerk(
-  userId: string,
-): Promise<(typeof users.$inferSelect) | null> {
-  const client = await clerkClient()
-  const cu = await client.users.getUser(userId)
-  const email = cu.emailAddresses[0]?.emailAddress
-  if (!email) return null
+/** Get the current logged-in user's db row from session. */
+export async function getAppUser() {
+  const session = await getSession()
+  if (!session) return null
 
-  const name =
-    [cu.firstName, cu.lastName].filter(Boolean).join(' ') ||
-    email.split('@')[0] ||
-    'User'
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, session.userId))
 
-  await db
-    .insert(users)
-    .values({ clerkId: userId, email, name, role: 'pro' })
-    .onConflictDoUpdate({
-      target: users.clerkId,
-      set: { email, name },
-    })
+  return user ?? null
+}
 
-  const [row] = await db.select().from(users).where(eq(users.clerkId, userId))
+/** @deprecated Use getAppUser() instead */
+export async function getProDbUser(userId: string) {
+  const [row] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, userId))
   return row ?? null
 }
 
-/** @deprecated Prefer syncTenantMembership + tenant-scoped queries */
-export async function getProDbUser(userId: string) {
-  const row = await syncAppUserFromClerk(userId)
-  if (!row) return null
-  return row
+/** @deprecated No longer needed — users are created on sign-up/invite */
+export async function syncAppUserFromClerk() {
+  return null
 }

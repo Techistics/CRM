@@ -39,7 +39,7 @@ export default async function RequestRolePage() {
       <div className="w-full max-w-md rounded-2xl border bg-card p-6 text-card-foreground shadow-sm">
         <h1 className="text-xl font-semibold">Request access</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Submit a request to get access to your team's workspace.
+          Submit a request to get access to your team&apos;s workspace.
         </p>
 
         {pending ? (

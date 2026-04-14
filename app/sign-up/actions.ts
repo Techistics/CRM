@@ -57,7 +57,7 @@ export async function signUpAction(
 
   const [user] = await db
     .insert(users)
-    .values({ name, email, password: hashedPassword, role: 'admin' as any })
+    .values({ name, email, password: hashedPassword, role: 'tenant_admin' })
     .returning()
 
   await db.insert(tenantMembers).values({
@@ -145,7 +145,7 @@ export async function acceptInviteAction(
       name,
       email: invite.email,
       password: hashedPassword,
-      role: invite.role === 'tenant_admin' ? 'admin' as any : 'pro' as any,
+      role: invite.role,
     })
     .returning()
 

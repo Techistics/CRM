@@ -13,13 +13,8 @@ export default function SignUpPage() {
   const emailFromUrl = searchParams.get('email') ?? ''
 
   const [state, formAction, pending] = useActionState(acceptInviteAction, initialState)
-  const [invalidLink, setInvalidLink] = useState(false)
+  const [invalidLink] = useState(() => !token)
 
-  useEffect(() => {
-    if (!token) setInvalidLink(true)
-  }, [token])
-
-  // ── No token in URL ──
   if (invalidLink) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-muted/50 px-4">

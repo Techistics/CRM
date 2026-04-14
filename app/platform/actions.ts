@@ -112,13 +112,6 @@ export async function inviteWorkspaceUserAction(formData: FormData) {
     .where(eq(tenants.id, tenantId))
 
   if (!tenant) throw new Error('Workspace not found')
-
-  // ── Check not already a member ──
-  const existingUser = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email))
-
   // ── Create invitation ──
   const token = randomBytes(32).toString('hex')
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 48) // 48 hours

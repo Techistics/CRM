@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/db'
-import { tenantMembers, invitations } from '@/db/schema'
+import { invitations } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
 import { getSession } from '@/lib/auth'
 import { Resend } from 'resend'

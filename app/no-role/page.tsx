@@ -10,7 +10,7 @@ export default async function NoRolePage() {
     <main className="flex min-h-screen items-center justify-center bg-gray-950 px-6 text-white">
       <div className="w-full max-w-lg rounded-2xl border border-gray-800 bg-gray-900 p-6">
         <h1 className="text-xl font-semibold">Access not configured</h1>
-        <p className="mt-2 text-sm text-gray-300">You're not signed in.</p>
+        <p className="mt-2 text-sm text-gray-300">You&apos;re not signed in.</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href="/sign-in"

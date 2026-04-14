@@ -41,7 +41,7 @@ export async function signInAction(
       name: user.name,
       tenantId: null,
       tenantSlug: null,
-      role: 'super_admin' as any,
+      role: 'super_admin' as 'super_admin',
     })
     redirect('/platform')
   }

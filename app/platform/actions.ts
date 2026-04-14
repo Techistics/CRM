@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/db'
-import { tenants, invitations, users } from '@/db/schema'
+import { tenants, invitations } from '@/db/schema'
 import { getSession } from '@/lib/auth'
 import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'

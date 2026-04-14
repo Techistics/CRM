@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react'
+import { useActionState, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { acceptInviteAction } from '../actions'
 import Link from 'next/link'
@@ -39,7 +39,7 @@ export default function SignUpPage() {
       <div className="w-full max-w-md rounded-xl border bg-background p-8 shadow-sm">
         <h1 className="mb-1 text-2xl font-semibold tracking-tight">Accept your invitation</h1>
         <p className="mb-6 text-sm text-muted-foreground">
-          Create your account to join your team's workspace.
+          Create your account to join your teams&apos; workspace.
         </p>
 
         <form action={formAction} className="space-y-4">

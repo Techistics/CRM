@@ -26,7 +26,7 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   password: text('password'),
   avatarUrl: text('avatar_url'),
-  email: text('email').notNull(),
+  email: text('email').notNull().unique(),
   name: text('name').notNull(),
   /** @deprecated Use tenant_members.role per workspace */
   role: text('role', { enum: ['super_admin', 'tenant_admin', 'agent'] })

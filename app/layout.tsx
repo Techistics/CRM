@@ -1,12 +1,5 @@
 import './globals.css'
-import { Inter } from 'next/font/google'
 import { Toaster } from '@/components/ui/toaster'
-
-const inter = Inter({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-sans',
-})
 
 export default function RootLayout({
   children,
@@ -14,8 +7,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className={`${inter.className} min-h-screen antialiased`}>
+    <html lang="en">
+      <body className="min-h-screen antialiased font-sans">
         {children}
         <Toaster />
       </body>

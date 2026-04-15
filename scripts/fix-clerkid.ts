@@ -10,14 +10,16 @@ const sql = neon(process.env.DATABASE_URL!)
 const db = drizzle(sql, { schema })
 
 async function main() {
-  // Update clerkId using email as the lookup key
+  const email = 'lodhihasnain70@gmail.com'
+  
+  // Update role using email as the lookup key
   await db
     .update(schema.users)
-    .set({ clerkId: 'user_3B5k5pEIvibuQR934nVqUf1c8Ai' })
-    .where(eq(schema.users.email, 'lodhihasnain70@gmail.com'))
+    .set({ role: 'super_admin' })
+    .where(eq(schema.users.email, email))
 
-  const all = await db.select().from(schema.users)
-  console.log('Updated user:', JSON.stringify(all, null, 2))
+  const user = await db.select().from(schema.users).where(eq(schema.users.email, email))
+  console.log('Updated user:', JSON.stringify(user, null, 2))
   process.exit(0)
 }
 

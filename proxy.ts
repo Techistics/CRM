@@ -24,7 +24,7 @@ function isPublic(pathname: string) {
   )
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const url = req.nextUrl.clone()
   const host = req.headers.get('host') || ''
   const pathname = url.pathname

@@ -13,6 +13,11 @@ Which consultant is performing best
 
 Establish email Connection with student about there update
 
+. ⚙️ Claude API
+For developers — plug Claude directly into your own product.
+For your CRM: Add AI features natively inside your CRM (smart search, auto-tagging leads, sentiment analysis on customer messages, AI chat support).
+
+
 Integrate ChatBot 
 Voice Agent ChatBot
 

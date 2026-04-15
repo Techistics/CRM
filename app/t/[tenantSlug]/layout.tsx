@@ -19,14 +19,13 @@ export default async function TenantSlugLayout({
 
   const tenant = await getTenantBySlug(tenantSlug)
   if (!tenant || tenant.status !== 'active') {
-    notFound()
+    notFound()                                                                                                             
   }
 
   const superAdmin = await isPlatformSuperAdmin()
 
   return (
     <>
-      {!superAdmin && <TenantOrgSync clerkOrgId={tenant.clerkOrgId} />}
       {children}
     </>
   )

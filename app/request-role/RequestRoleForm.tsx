@@ -10,7 +10,7 @@ export default function RequestRoleForm({
   lastRejected: boolean
 }) {
   const router = useRouter()
-  const [role, setRole] = useState<AppRole>('pro')
+  const [role, setRole] = useState<AppRole>('agent')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -49,11 +49,11 @@ export default function RequestRoleForm({
           onChange={(e) => setRole(e.target.value as AppRole)}
           className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
         >
-          <option value="pro">Agent — manage assigned leads</option>
-          <option value="admin">Admin — full workspace CRM</option>
+          <option value="agent">Agent — manage assigned leads</option>
+          <option value="tenant_admin">Admin — full workspace CRM</option>
         </select>
         <p className="text-muted-foreground text-xs mt-1.5">
-          A workspace admin must approve you in Clerk (organization membership).
+          A workspace admin must approve your request.
         </p>
       </div>
       {error && (

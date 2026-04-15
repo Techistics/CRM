@@ -1,8 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { SignOutButton } from '@clerk/nextjs'
+import { usePathname, useRouter } from 'next/navigation'
 import { LogOut, Menu } from 'lucide-react'
 
 import type { AppRole } from '@/types/roles'
@@ -31,10 +30,16 @@ export function RoleSidebar({
   badges?: Partial<Record<string, string>>
 }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { isOpen, toggle } = useSidebar()
 
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    router.push('/sign-in')
+  }
+
   const { mainNav, settingsLinks } = (() => {
-    if (role === 'admin') {
+    if (role === 'tenant_admin') {
       return {
         mainNav: adminMainNav.map((i) =>
           i.name === 'Users' ? { ...i, badgeKey: 'team' } : i,
@@ -155,20 +160,19 @@ export function RoleSidebar({
 
           {/* Logout */}
           <div className="border-t px-2 py-3">
-            <SignOutButton signOutOptions={{ redirectUrl: '/sign-in' }}>
-              <button
-                type="button"
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-muted-foreground text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                <LogOut className="h-4 w-4 shrink-0" />
-                <span className="min-w-0">
-                  <span className="block font-medium leading-none">Logout</span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">
-                    Exit the app
-                  </span>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-muted-foreground text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <LogOut className="h-4 w-4 shrink-0" />
+              <span className="min-w-0">
+                <span className="block font-medium leading-none">Logout</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  Exit the app
                 </span>
-              </button>
-            </SignOutButton>
+              </span>
+            </button>
           </div>
         </div>
       </aside>

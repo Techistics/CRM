@@ -4,25 +4,29 @@ dotenv.config({ path: '.env.local' })
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import * as schema from '../db/schema'
+import { eq } from 'drizzle-orm'
 
 const sql = neon(process.env.DATABASE_URL!)
 const db = drizzle(sql, { schema })
 
 async function main() {
-  // First delete any existing record with wrong ID
-  await db.delete(schema.users)
+  const email = 'lodhihasnain70@gmail.com'
 
-  // Insert with the EXACT id from Clerk token logs
   await db.insert(schema.users).values({
-    clerkId: 'user_3B5k5pEIvibuQR934nVqUf1c8Ai',
-    email: 'lodhihasnain70@gmail.com',
+    email,
     name: 'Hassnain Lodhi',
-    role: 'admin',
+    role: 'super_admin',
+    password: 'change-me-admin',
+  }).onConflictDoUpdate({
+    target: schema.users.email,
+    set: {
+      role: 'super_admin',
+    }
   })
 
   // Verify it's there
-  const all = await db.select().from(schema.users)
-  console.log('Users in DB:', JSON.stringify(all, null, 2))
+  const user = await db.select().from(schema.users).where(eq(schema.users.email, email))
+  console.log('User in DB:', JSON.stringify(user, null, 2))
 
   process.exit(0)
 }

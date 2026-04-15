@@ -1,22 +1,12 @@
 'use client'
 
-import { useAuth, useOrganizationList } from '@clerk/nextjs'
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-
-/** Ensures Clerk active organization matches the subdomain workspace. */
-export function TenantOrgSync({ clerkOrgId }: { clerkOrgId: string }) {
-  const { orgId, isLoaded: authLoaded } = useAuth()
-  const { setActive, isLoaded: listLoaded } = useOrganizationList({
-    userMemberships: { infinite: true },
-  })
-  const router = useRouter()
-
-  useEffect(() => {
-    if (!authLoaded || !listLoaded || !setActive) return
-    if (orgId === clerkOrgId) return
-    void setActive({ organization: clerkOrgId }).then(() => router.refresh())
-  }, [authLoaded, listLoaded, setActive, orgId, clerkOrgId, router])
-
+/**
+ * TenantOrgSync — previously used Clerk's useOrganizationList to switch the
+ * active Clerk org when navigating between tenant subdomains. With Clerk
+ * removed, tenant context is now carried in the JWT session cookie instead,
+ * so this component is intentionally a no-op.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function TenantOrgSync(_props: { clerkOrgId: string }) {
   return null
 }

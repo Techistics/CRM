@@ -1,59 +1,60 @@
 'use client'
 
 import { useActionState, useState } from 'react'
-import { signInAction } from '../actions'
+import { useSearchParams } from 'next/navigation'
+import { resetPasswordAction } from './actions'
 import Link from 'next/link'
 
-const initialState = { error: '' }
+const initialState = { error: '', success: '' }
 
-export default function SignInPage() {
+export default function ResetPasswordPage() {
+  const searchParams = useSearchParams()
+  const token = searchParams.get('token')
   const [showPassword, setShowPassword] = useState(false)
-  const [state, formAction, pending] = useActionState(signInAction, initialState)
+  const [state, formAction, pending] = useActionState(resetPasswordAction, initialState)
+
+  if (!token) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center bg-muted/50 px-4">
+        <div className="w-full max-w-md rounded-xl border bg-background p-8 shadow-sm text-center">
+          <h1 className="mb-2 text-xl font-semibold tracking-tight">Invalid reset link</h1>
+          <p className="mb-6 text-sm text-muted-foreground">
+            This link is invalid or has expired. Please request a new password reset link.
+          </p>
+          <Link
+            href="/forgot-password"
+            className="text-sm font-medium text-primary hover:opacity-90"
+          >
+            Go back to forgot password
+          </Link>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-muted/50 px-4">
       <div className="w-full max-w-md rounded-xl border bg-background p-8 shadow-sm">
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight">Welcome back</h1>
+        <h1 className="mb-1 text-2xl font-semibold tracking-tight">Reset password</h1>
         <p className="mb-6 text-sm text-muted-foreground">
-          Sign in to your workspace.
+          Enter your new password below.
         </p>
 
         <form action={formAction} className="space-y-4">
+          <input type="hidden" name="token" value={token} />
+          
           <div className="space-y-1">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email
+            <label htmlFor="password" className="text-sm font-medium">
+              New Password
             </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="ali@acme.com"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
-              <Link
-                href="/forgot-password"
-                className="text-xs text-primary hover:underline"
-              >
-                Forgot password?
-              </Link>
-            </div>
             <div className="relative">
               <input
                 id="password"
                 name="password"
                 type={showPassword ? 'text' : 'password'}
                 required
-                autoComplete="current-password"
-                placeholder="Your password"
+                minLength={8}
+                placeholder="Min. 8 characters"
                 className="w-full rounded-md border bg-background px-3 py-2 pr-10 text-sm outline-none focus:ring-2 focus:ring-primary"
               />
               <button
@@ -101,9 +102,29 @@ export default function SignInPage() {
             </div>
           </div>
 
+          <div className="space-y-1">
+            <label htmlFor="confirmPassword" className="text-sm font-medium">
+              Confirm New Password
+            </label>
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              required
+              placeholder="Confirm your new password"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+
           {state?.error && (
             <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {state.error}
+            </p>
+          )}
+
+          {state?.success && (
+            <p className="rounded-md bg-emerald-100 px-3 py-2 text-sm text-emerald-800">
+              {state.success}
             </p>
           )}
 
@@ -112,14 +133,14 @@ export default function SignInPage() {
             disabled={pending}
             className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
-            {pending ? 'Signing in...' : 'Sign in'}
+            {pending ? 'Resetting...' : 'Reset password'}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          No account?{' '}
-          <Link href="/sign-up" className="font-medium text-primary hover:opacity-90">
-            You need an invitation to sign up.
+          Back to{' '}
+          <Link href="/sign-in" className="font-medium text-primary hover:opacity-90">
+            Sign in
           </Link>
         </p>
       </div>

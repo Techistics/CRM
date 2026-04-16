@@ -116,15 +116,11 @@ export async function acceptInviteAction(
     return { error: 'This invitation has expired. Ask your admin to resend it.' }
   }
 
-  // ── Check email not already taken ──
-  const existing = await db
-    .select({ id: users.id })
+  // ── Check if user exists ──
+  const [existingUser] = await db
+    .select({ id: users.id, name: users.name, email: users.email })
     .from(users)
     .where(eq(users.email, invite.email))
-
-  if (existing.length > 0) {
-    return { error: 'An account with this email already exists. Please sign in instead.' }
-  }
 
   // ── Get tenant ──
   const [tenant] = await db
@@ -136,34 +132,49 @@ export async function acceptInviteAction(
     return { error: 'This workspace is no longer active.' }
   }
 
-  // ── Create user + membership + mark invite used ──
-  const hashedPassword = await bcrypt.hash(password, 12)
+  let finalUser = existingUser
 
-  const [user] = await db
-    .insert(users)
-    .values({
-      name,
-      email: invite.email,
-      password: hashedPassword,
+  if (!existingUser) {
+    // ── Create user if doesn't exist ──
+    const hashedPassword = await bcrypt.hash(password, 12)
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        name,
+        email: invite.email,
+        password: hashedPassword,
+        role: invite.role,
+      })
+      .returning()
+    finalUser = newUser
+  } else {
+    // If user exists, we don't update name/password here for security,
+    // they just get added to the new workspace.
+    console.log(`[Invite] Adding existing user ${finalUser.id} to tenant ${tenant.id}`)
+  }
+
+  // ── Add membership ──
+  // Use a try/catch in case they are already a member (e.g. duplicate invite)
+  try {
+    await db.insert(tenantMembers).values({
+      tenantId: tenant.id,
+      userId: finalUser.id,
       role: invite.role,
     })
-    .returning()
+  } catch (err) {
+    console.log('[Invite] Membership already exists or error:', err)
+  }
 
-  await db.insert(tenantMembers).values({
-    tenantId: tenant.id,
-    userId: user.id,
-    role: invite.role,
-  })
-
+  // ── Mark invite used ──
   await db
     .update(invitations)
     .set({ acceptedAt: new Date() })
     .where(eq(invitations.id, invite.id))
 
   await createSession({
-    userId: user.id,
-    email: user.email,
-    name: user.name,
+    userId: finalUser.id,
+    email: finalUser.email,
+    name: finalUser.name,
     tenantId: tenant.id,
     tenantSlug: tenant.slug,
     role: invite.role,

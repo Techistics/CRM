@@ -15,7 +15,6 @@ const PUBLIC_PATHS = [
   '/sign-up',
   '/no-role',
   '/no-access',
-  '/platform',
 ]
 
 function isPublic(pathname: string) {
@@ -92,9 +91,33 @@ export async function proxy(req: NextRequest) {
   }
 
   try {
-    await jwtVerify(token, SECRET)
+    const { payload } = await jwtVerify(token, SECRET)
+    const session = payload as { 
+      role: string; 
+      tenantSlug: string | null;
+    }
+
+    // 1. Super Admin check
+    if (session.role === 'super_admin') {
+      return NextResponse.next({ request: { headers: nextHeaders } })
+    }
+
+    // 2. Platform protection
+    if (pathname.startsWith('/platform')) {
+      return NextResponse.redirect(new URL('/', req.url))
+    }
+
+    // 3. Tenant cross-access check
+    // If we have a resolved tenant for this request, it MUST match the session.
+    if (headerSlug && session.tenantSlug !== headerSlug) {
+      console.log(`[Proxy] Tenant mismatch: session(${session.tenantSlug}) vs requested(${headerSlug})`)
+      // Redirect to root, where Home/Dashboard will correctly bounce them to their OWN tenant.
+      return NextResponse.redirect(new URL('/', req.url))
+    }
+
     return NextResponse.next({ request: { headers: nextHeaders } })
-  } catch {
+  } catch (error) {
+    console.error('[Proxy] JWT Error:', error)
     return NextResponse.redirect(new URL('/sign-in', req.url))
   }
 }

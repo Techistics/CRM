@@ -9,6 +9,7 @@ import { eq } from 'drizzle-orm'
 export default async function Home() {
   const session = await getSession()
   if (!session) redirect('/sign-in')
+  if (session.role === 'super_admin') redirect('/platform')
 
   const memberships = await db
     .select({ tenantId: tenantMembers.tenantId })

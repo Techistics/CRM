@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/db'
-import { invitations } from '@/db/schema'
+import { users, tenantMembers, invitations } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
 import { getSession } from '@/lib/auth'
+import { and, eq, isNull } from 'drizzle-orm'
 import { Resend } from 'resend'
 import { randomBytes } from 'crypto'
 
@@ -35,6 +36,54 @@ export async function POST(req: NextRequest) {
   }
   if (role !== 'tenant_admin' && role !== 'agent') {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+  }
+
+  // ── 1. Check if already a member ──
+  const [existingUser] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email))
+
+  if (existingUser) {
+    const [membership] = await db
+      .select()
+      .from(tenantMembers)
+      .where(
+        and(
+          eq(tenantMembers.userId, existingUser.id),
+          eq(tenantMembers.tenantId, ctx.tenant.id),
+        ),
+      )
+
+    if (membership) {
+      return NextResponse.json(
+        { error: 'This user is already a member of the workspace' },
+        { status: 400 },
+      )
+    }
+  }
+
+  // ── 2. Check if already invited ──
+  const [existingInvite] = await db
+    .select()
+    .from(invitations)
+    .where(
+      and(
+        eq(invitations.email, email),
+        eq(invitations.tenantId, ctx.tenant.id),
+        isNull(invitations.acceptedAt),
+      ),
+    )
+
+  if (existingInvite) {
+    if (new Date() < new Date(existingInvite.expiresAt)) {
+      return NextResponse.json(
+        { error: 'A pending invitation already exists for this email' },
+        { status: 400 },
+      )
+    }
+    // If expired, we delete it and allow a new one
+    await db.delete(invitations).where(eq(invitations.id, existingInvite.id))
   }
 
   // ── Create invitation ──

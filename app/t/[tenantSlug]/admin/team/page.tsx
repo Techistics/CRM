@@ -1,6 +1,6 @@
 import { db } from '@/db'
 import { users, leads, tenantMembers, invitations } from '@/db/schema'
-import { eq, count, and, isNull } from 'drizzle-orm'
+import { eq, count, and, isNull, ne } from 'drizzle-orm'
 
 import { requireTenantAdminSession } from '@/lib/tenant-server'
 import TeamManagementClient from './TeamManagementClient'
@@ -15,10 +15,16 @@ export default async function TeamPage() {
       name: users.name,
       email: users.email,
       role: tenantMembers.role,
+      globalRole: users.role,
     })
     .from(tenantMembers)
     .innerJoin(users, eq(tenantMembers.userId, users.id))
-    .where(eq(tenantMembers.tenantId, tenant.id))
+    .where(
+      and(
+        eq(tenantMembers.tenantId, tenant.id),
+        ne(users.role, 'super_admin')
+      )
+    )
 
   const leadCounts = await db
     .select({ assignedTo: leads.assignedTo, total: count(leads.id) })

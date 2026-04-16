@@ -2,7 +2,7 @@ import { and, count, eq } from 'drizzle-orm'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/db'
-import { tenantMembers } from '@/db/schema'
+import { tenantMembers, invitations } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
 
 type TeamRole = 'tenant_admin' | 'agent'
@@ -103,17 +103,22 @@ export async function DELETE(
 
   const { userId } = await params
 
+  // 1. Pending invite removal
+  if (userId.startsWith('invite:')) {
+    const inviteId = userId.replace('invite:', '')
+    await db
+      .delete(invitations)
+      .where(and(eq(invitations.id, inviteId), eq(invitations.tenantId, ctx.tenant.id)))
+    return NextResponse.json({ ok: true })
+  }
+
+  // 2. Active member removal
   const lastAdminCheck = await ensureNotLastAdmin(ctx.tenant.id, userId)
   if (lastAdminCheck) return lastAdminCheck
 
   await db
     .delete(tenantMembers)
-    .where(
-      and(
-        eq(tenantMembers.tenantId, ctx.tenant.id),
-        eq(tenantMembers.userId, userId),
-      ),
-    )
+    .where(and(eq(tenantMembers.tenantId, ctx.tenant.id), eq(tenantMembers.userId, userId)))
 
   return NextResponse.json({ ok: true })
 }

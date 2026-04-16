@@ -25,7 +25,7 @@ export async function resetPasswordAction(
     .where(eq(passwordResetTokens.token, token))
 
   if (!resetToken || new Date() > new Date(resetToken.expiresAt)) {
-    return { error: 'Token is invalid or has expired.', success: '' }
+    return { error: 'Token is invalid or has expired', success: '' }
   }
 
   const hashedPassword = await bcrypt.hash(password, 12)

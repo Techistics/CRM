@@ -1,0 +1,76 @@
+You are a senior full-stack engineer. You have full access to this codebase.
+Read every file before starting. Then implement the following fixes in exact order.
+Do not skip ahead. Show every complete file you change — no partial diffs.
+
+CONTEXT: This is a multi-tenant B2B CRM (Next.js, Drizzle ORM, Neon Postgres, 
+Clerk auth, Tailwind, shadcn/ui). It targets education/immigration consultancies.
+
+---
+
+PHASE 1 — CRITICAL FIXES
+
+P1-A: Auth direction — KEEP CLERK, abandon migration
+- Remove any comments or README text describing a migration away from Clerk
+- Set NEXT_PUBLIC_ROOT_DOMAIN in .env.local to match the actual Replit 
+  deployment URL (the .replit.app domain shown in the Replit webview)
+- Files to touch: .env.local, any README or comments only
+
+P1-B: Fix conflicting migration files
+- Files: db/migrations/0001_far_the_initiative.sql, 
+  db/migrations/0001_multi_tenant.sql, db/migrations/_journal.json
+- Check which tables actually exist in the DB
+- Delete the migration file that does NOT match the live DB state
+- Re-seal _journal.json so only one 0001 entry exists
+- Show me the final complete _journal.json
+
+P1-C: Fix boolean-stored-as-text columns
+- db/schema.ts: change these columns from text to boolean:
+  leadDocumentChecklist.required (default false)
+  leadDocumentChecklist.isSubmitted (default false)
+  notifications.read (default false)
+- Write the migration SQL file for these changes
+- Find and update EVERY file that reads or writes these columns,
+  replacing 'true'/'false' strings with true/false booleans
+- List every file changed
+
+P1-D: Add try/catch to req.json() calls
+- app/api/leads/[id]/stage/route.ts — wrap req.json() in try/catch, 
+  return 400 with message "Invalid request body" on parse failure
+- app/api/leads/[id]/assign/route.ts — same fix
+- Show both complete files
+
+P1-E: Replace @vercel/blob with Cloudflare R2
+- Install: @aws-sdk/client-s3 and @aws-sdk/s3-request-presigner
+- Create lib/storage.ts exporting:
+  uploadFile(buffer, filename, mimeType): Promise<string> (returns public URL)
+  deleteFile(key): Promise<void>
+- Use these env vars: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, 
+  R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_URL
+- Replace every @vercel/blob import and call with lib/storage.ts
+- Remove @vercel/blob from package.json dependencies
+- List every file changed
+
+P1-F: Delete dead test page
+- Delete app/dashboard/page.tsx entirely
+- Confirm no other file imports from it
+
+---
+
+VERIFICATION CHECKLIST (do this after all fixes above):
+
+Go through each item and confirm with ✓ or ✗ and a one-line note:
+
+[ ] P1-A: NEXT_PUBLIC_ROOT_DOMAIN is set to the correct Replit URL
+[ ] P1-B: Only one 0001 migration file exists, _journal.json is clean
+[ ] P1-C: All 3 columns are boolean in schema.ts, migration file exists,
+          no 'true'/'false' string comparisons remain in any file
+[ ] P1-D: Both route files have try/catch around req.json()
+[ ] P1-E: lib/storage.ts exists, @vercel/blob is gone from package.json,
+          all upload calls use the new lib
+[ ] P1-F: app/dashboard/page.tsx no longer exists
+
+NEW ENV VARS ADDED THIS PHASE:
+List each one with the format it expects.
+
+FILES CHANGED THIS PHASE:
+List every file path that was created, modified, or deleted.

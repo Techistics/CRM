@@ -1,6 +1,5 @@
 import { notFound } from 'next/navigation'
 
-import { TenantOrgSync } from '@/components/tenant/TenantOrgSync'
 import { isPlatformSuperAdmin } from '@/lib/platform-role'
 import { getTenantBySlug, getTenantSlugFromHeaders } from '@/lib/tenant-server'
 
@@ -21,8 +20,6 @@ export default async function TenantSlugLayout({
   if (!tenant || tenant.status !== 'active') {
     notFound()                                                                                                             
   }
-
-  const superAdmin = await isPlatformSuperAdmin()
 
   return (
     <>

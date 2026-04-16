@@ -2,7 +2,7 @@
 
 import { db } from '@/db'
 import { users, passwordResetTokens } from '@/db/schema'
-import { eq, and } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 
 type State = { error: string; success: string }

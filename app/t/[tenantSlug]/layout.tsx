@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 
-import { isPlatformSuperAdmin } from '@/lib/platform-role'
+
 import { getTenantBySlug, getTenantSlugFromHeaders } from '@/lib/tenant-server'
 
 export default async function TenantSlugLayout({

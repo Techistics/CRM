@@ -1,15 +1,10 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-
-import { isPlatformSuperAdmin } from '@/lib/platform-role'
 
 export default async function PlatformLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const ok = await isPlatformSuperAdmin()
-  if (!ok) redirect('/')
 
   return (
     <div className="min-h-screen bg-muted/40">

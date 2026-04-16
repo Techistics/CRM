@@ -1,11 +1,9 @@
-import { auth } from '@clerk/nextjs/server'
-import { getUserRole } from '@/lib/role'
+import { getSession } from '@/lib/auth'
 
-/** Clerk user id if the signed-in user has admin role in Clerk metadata. */
+/** Returns the db userId if the signed-in user is super_admin, otherwise null. */
 export async function requireAdminClerkId(): Promise<string | null> {
-  const { userId } = await auth()
-  if (!userId) return null
-  const role = await getUserRole()
-  if (role !== 'admin') return null
-  return userId
+  const session = await getSession()
+  if (!session) return null
+  if (session.role !== 'super_admin') return null
+  return session.userId
 }

@@ -15,18 +15,7 @@ export async function PATCH(
   if (!ctx.ok) return ctx.response
 
   const { id } = await params
-
-  let stage: string
-  try {
-    const body = await req.json()
-    stage = body.stage
-  } catch {
-    return NextResponse.json(
-      { error: 'Invalid request body' },
-      { status: 400 },
-    )
-  }
-
+  const { stage } = await req.json()
   if (!isValidLeadStage(stage)) {
     return NextResponse.json({ error: 'Invalid stage' }, { status: 400 })
   }

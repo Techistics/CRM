@@ -229,7 +229,7 @@ export default function TeamManagementClient({
                     <Button
                       size="sm"
                       variant="destructive"
-                      disabled={busyId === m.id || m.status === 'pending_invite'}
+                      disabled={busyId === m.id}
                       onClick={() => removeMember(m.id)}
                     >
                       Remove

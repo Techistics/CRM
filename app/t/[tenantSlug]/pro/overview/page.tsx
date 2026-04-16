@@ -1,7 +1,6 @@
 import { db } from '@/db'
 import { leads, users } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { UserButton } from '@clerk/nextjs'
 import Link from 'next/link'
 import { requireTenantSession } from '@/lib/tenant-server'
 import { tenantPath } from '@/lib/tenant-path'
@@ -45,13 +44,11 @@ export default async function ProOverviewPage() {
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Overview</h1>
           <p className="text-gray-500 text-sm mt-1">Welcome back, {dbUser.name}</p>
         </div>
-        <div className="flex items-center gap-3 bg-white border border-gray-200 shadow-sm rounded-full pl-4 pr-1.5 py-1.5">
+        <div className="flex items-center gap-3 bg-white border border-gray-200 shadow-sm rounded-full pl-4 pr-4 py-1.5">
           <span className="text-sm font-medium text-gray-600">{dbUser.email}</span>
-          <UserButton />
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {[
           { label: 'My Total Leads', value: myLeads.length },
@@ -65,26 +62,18 @@ export default async function ProOverviewPage() {
         ))}
       </div>
 
-      {/* My leads table */}
-      <div className="bg-white border border-gray-200 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1)]">
+      <div className="bg-white border border-gray-200 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] rounded-2xl overflow-hidden">
         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-gray-900 font-semibold text-lg flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-            </div>
-            Recent Leads
-          </h2>
-          
+          <h2 className="text-gray-900 font-semibold text-lg">Recent Leads</h2>
           <Link
             href={tenantPath(tenant.slug, '/pro/leads')}
-            className="text-blue-600 font-medium text-sm hover:text-blue-700 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100"
+            className="text-blue-600 font-medium text-sm hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100"
           >
             View all →
           </Link>
         </div>
         {myLeads.length === 0 ? (
           <div className="px-6 py-16 text-center text-gray-500 text-sm">
-            <div className="text-4xl mb-4 transition-transform hover:scale-110 duration-300 inline-block">📭</div>
             <p className="font-medium text-gray-900 text-lg">No leads found</p>
             <p className="mt-1">You haven&apos;t been assigned any leads yet.</p>
           </div>
@@ -102,27 +91,24 @@ export default async function ProOverviewPage() {
               </thead>
               <tbody>
                 {myLeads.slice(0, 5).map((lead) => (
-                  <tr key={lead.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors">
+                  <tr key={lead.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/80">
                     <td className="px-6 py-4">
                       <p className="text-gray-900 font-medium">{lead.fullName}</p>
-                      {lead.email && (
-                        <p className="text-gray-500 text-xs mt-0.5">{lead.email}</p>
-                      )}
+                      {lead.email && <p className="text-gray-500 text-xs mt-0.5">{lead.email}</p>}
                     </td>
-                    <td className="px-6 py-4 text-gray-600 font-medium">{lead.contactNumber ?? '—'}</td>
+                    <td className="px-6 py-4 text-gray-600">{lead.contactNumber ?? '—'}</td>
                     <td className="px-6 py-4 text-gray-600">{lead.city ?? '—'}</td>
                     <td className="px-6 py-4">
-                      <span className="text-xs bg-white border border-gray-200 text-gray-700 font-medium px-2.5 py-1.5 rounded-lg shadow-sm">
+                      <span className="text-xs bg-white border border-gray-200 text-gray-700 font-medium px-2.5 py-1.5 rounded-lg">
                         {LEAD_STAGE_LABELS[lead.stage ?? 'new_lead']}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <Link
                         href={tenantPath(tenant.slug, `/pro/leads/${lead.id}`)}
-                        className="text-xs bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-gray-900 font-medium px-3 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1 w-max"
+                        className="text-xs bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-medium px-3 py-1.5 rounded-lg"
                       >
-                        Details
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        Details →
                       </Link>
                     </td>
                   </tr>

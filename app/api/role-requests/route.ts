@@ -1,4 +1,3 @@
-import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { and, eq } from 'drizzle-orm'
 
@@ -7,17 +6,18 @@ import { roleRequests } from '@/db/schema'
 import { requireTenantFromApiHeaders } from '@/lib/tenant-api'
 import { resolveTenantAccess } from '@/lib/tenant-access'
 import { normalizeAppRole } from '@/lib/role'
+import { getSession } from '@/lib/auth'
 
 export async function POST(req: Request) {
-  const { userId } = await auth()
-  if (!userId) {
+  const session = await getSession()
+  if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const t = await requireTenantFromApiHeaders()
   if (!t.ok) return t.response
 
-  const actor = await resolveTenantAccess(userId, t.tenant)
+  const actor = await resolveTenantAccess(t.tenant)
   if (actor) {
     return NextResponse.json(
       { error: 'You already have access to this workspace' },
@@ -37,23 +37,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Choose admin or pro' }, { status: 400 })
   }
 
-  const clerkUser = await currentUser()
-  const email = clerkUser?.emailAddresses[0]?.emailAddress
-  if (!email) {
-    return NextResponse.json({ error: 'No email on account' }, { status: 400 })
-  }
-
-  const name =
-    [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(' ') ||
-    email.split('@')[0] ||
-    'User'
-
   const [existingPending] = await db
     .select()
     .from(roleRequests)
     .where(
       and(
-        eq(roleRequests.clerkId, userId),
+        eq(roleRequests.userId, session.userId),
         eq(roleRequests.status, 'pending'),
         eq(roleRequests.tenantId, t.tenant.id),
       ),
@@ -68,13 +57,13 @@ export async function POST(req: Request) {
   }
 
   await db.insert(roleRequests).values({
-    tenantId: t.tenant.id,
-    clerkId: userId,
-    email,
-    name,
-    requestedRole: requested,
-    status: 'pending',
-  })
+  tenantId: t.tenant.id,
+  userId: session.userId,
+  email: session.email,
+  name: session.name,
+  requestedRole: requested as 'tenant_admin' | 'agent',
+  status: 'pending',
+})
 
   return NextResponse.json({ ok: true })
 }

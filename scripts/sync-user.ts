@@ -11,28 +11,31 @@ const db = drizzle(sql, { schema })
 async function main() {
   const usersToSync = [
     {
-      clerkId: 'user_3B7CPFOydNlupdSa2bWAiQC7NWe', // your admin ID
       email: 'hasnainlodhi005@gmail.com',
       name: 'Hassnain',
-      role: 'pro' as const,
+      role: 'agent' as const,
     },
-    // When you create a pro user in Clerk, add them here:
+    // When you create a new user, add them here:
     // {
-    //   clerkId: 'user_xxx',
     //   email: 'agent@gmail.com',
     //   name: 'Agent Name',
-    //   role: 'pro' as const,
+    //   role: 'agent' as const,
     // },
   ]
 
   for (const user of usersToSync) {
     await db
       .insert(schema.users)
-      .values(user)
+      .values({
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        // Using a placeholder password for synced users
+        password: 'change-me-sync',
+      })
       .onConflictDoUpdate({
-        target: schema.users.clerkId,
+        target: schema.users.email,
         set: {
-          email: user.email,
           name: user.name,
           role: user.role,
         },

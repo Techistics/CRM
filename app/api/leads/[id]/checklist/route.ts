@@ -48,7 +48,7 @@ export async function GET(
         country: lead.country ?? DEFAULT_LEAD_COUNTRY,
         documentKey: doc.key,
         documentLabel: doc.label,
-        required: !!doc.required,
+        required: doc.required ? 'true' : 'false',
         updatedBy: ctx.dbUserId,
       })),
     )
@@ -83,7 +83,7 @@ export async function PATCH(
   const [updated] = await db
     .update(leadDocumentChecklist)
     .set({
-      isSubmitted: !!isSubmitted,
+      isSubmitted: isSubmitted ? 'true' : 'false',
       submittedAt: isSubmitted ? new Date() : null,
       updatedBy: ctx.dbUserId,
       verifiedBy: isSubmitted ? ctx.dbUserId : null,

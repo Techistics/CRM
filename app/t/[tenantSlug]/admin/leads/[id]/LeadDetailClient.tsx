@@ -72,7 +72,7 @@ export default function LeadDetailClient({
   const proUsers = allUsers.filter((u) => u.role === 'agent')
   const checklistProgress = useMemo(() => {
     if (checklistItems.length === 0) return { done: 0, total: 0 }
-    const done = checklistItems.filter((item) => item.isSubmitted === true).length
+    const done = checklistItems.filter((item) => item.isSubmitted === 'true').length
     return { done, total: checklistItems.length }
   }, [checklistItems])
 
@@ -409,7 +409,7 @@ export default function LeadDetailClient({
             ) : (
               <div className="space-y-2">
                 {checklistItems.map((item) => {
-                  const isSubmitted = item.isSubmitted === true
+                  const isSubmitted = item.isSubmitted === 'true'
                   return (
                     <button
                       key={item.id}

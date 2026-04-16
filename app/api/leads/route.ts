@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { and, count, desc, eq, ilike, or } from 'drizzle-orm'
+import { and, count, desc, ilike, or } from 'drizzle-orm'
 
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'

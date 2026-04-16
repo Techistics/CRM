@@ -14,17 +14,7 @@ export async function PATCH(
   if (!ctx.ok) return ctx.response
 
   const { id } = await params
-
-  let assignedTo: string | undefined
-  try {
-    const body = await req.json()
-    assignedTo = body.assignedTo
-  } catch {
-    return NextResponse.json(
-      { error: 'Invalid request body' },
-      { status: 400 },
-    )
-  }
+  const { assignedTo } = await req.json()
 
   const lead = await getLeadInTenant(id, ctx.tenant.id)
   if (!lead) {

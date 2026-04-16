@@ -9,7 +9,7 @@ type Notification = {
   title: string
   body: string
   type: string
-  read: boolean
+  read: string
   createdAt: string
   leadId: string | null
 }
@@ -25,7 +25,7 @@ export default function NotificationBell({
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  const unreadCount = notifs.filter((n) => !n.read).length
+  const unreadCount = notifs.filter((n) => n.read === 'false').length
 
   useEffect(() => {
     let cancelled = false
@@ -60,7 +60,7 @@ export default function NotificationBell({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ notificationId: 'all' }),
     })
-    setNotifs((prev) => prev.map((n) => ({ ...n, read: true })))
+    setNotifs((prev) => prev.map((n) => ({ ...n, read: 'true' })))
   }
 
   async function markRead(id: string) {
@@ -70,7 +70,7 @@ export default function NotificationBell({
       body: JSON.stringify({ notificationId: id }),
     })
     setNotifs((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      prev.map((n) => (n.id === id ? { ...n, read: 'true' } : n))
     )
   }
 
@@ -150,7 +150,7 @@ export default function NotificationBell({
                     }
                   }}
                   className={`flex cursor-pointer gap-3 border-b border-border/50 px-4 py-3 transition-colors hover:bg-accent ${
-                    !n.read ? 'bg-muted/40' : ''
+                    n.read === 'false' ? 'bg-muted/40' : ''
                   }`}
                 >
                   <span className="text-base mt-0.5 shrink-0">
@@ -159,7 +159,7 @@ export default function NotificationBell({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-xs font-medium">{n.title}</p>
-                      {!n.read && (
+                      {n.read === 'false' && (
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 mt-1" />
                       )}
                     </div>

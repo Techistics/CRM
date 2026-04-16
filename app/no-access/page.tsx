@@ -6,9 +6,8 @@ export default function NoAccessPage() {
       <div className="w-full max-w-lg rounded-2xl border bg-card p-6 text-card-foreground shadow-sm">
         <h1 className="text-xl font-semibold">No access to this workspace</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Your account is not a member of this organization in Clerk, or the
-          workspace is inactive. Ask your administrator to invite you to the
-          correct organization.
+          Your account is not a member of this workspace, or the
+          workspace is inactive. Ask your administrator to invite you.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link

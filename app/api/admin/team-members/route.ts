@@ -1,24 +1,23 @@
-import { auth, clerkClient } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { db } from '@/db'
-import { tenantMembers } from '@/db/schema'
+import { users, tenantMembers, invitations } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
-import { syncAppUserFromClerk } from '@/lib/app-user'
-import { workspaceOrigin } from '@/lib/public-url'
+import { getSession } from '@/lib/auth'
+import { and, eq, isNull } from 'drizzle-orm'
+import { Resend } from 'resend'
+import { randomBytes } from 'crypto'
+
+const resend = new Resend(process.env.RESEND_API_KEY!)
 
 type TeamRole = 'tenant_admin' | 'agent'
-
-function toClerkRole(role: TeamRole): 'org:admin' | 'org:member' {
-  return role === 'tenant_admin' ? 'org:admin' : 'org:member'
-}
 
 export async function POST(req: NextRequest) {
   const ctx = await requireTenantAdminApi()
   if (!ctx.ok) return ctx.response
 
-  const { userId: inviterUserId } = await auth()
-  if (!inviterUserId) {
+  const session = await getSession()
+  if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -29,9 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const email = String(body.email ?? '')
-    .trim()
-    .toLowerCase()
+  const email = String(body.email ?? '').trim().toLowerCase()
   const role = body.role
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -41,49 +38,87 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
   }
 
-  const client = await clerkClient()
-  const clerkRole = toClerkRole(role)
+  // ── 1. Check if already a member ──
+  const [existingUser] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email))
 
-  let invitationId: string | null = null
-  try {
-    const invitation = await client.organizations.createOrganizationInvitation({
-      organizationId: ctx.tenant.clerkOrgId,
-      inviterUserId,
-      emailAddress: email,
-      role: clerkRole,
-      redirectUrl: workspaceOrigin(ctx.tenant.slug),
-    })
-    invitationId = invitation.id ?? null
-  } catch (e) {
-    const err = e as { errors?: Array<{ message?: string }>; message?: string }
-    const message =
-      err.errors?.[0]?.message ??
-      err.message ??
-      'Could not invite the user to this workspace'
-    return NextResponse.json({ error: message }, { status: 400 })
-  }
+  if (existingUser) {
+    const [membership] = await db
+      .select()
+      .from(tenantMembers)
+      .where(
+        and(
+          eq(tenantMembers.userId, existingUser.id),
+          eq(tenantMembers.tenantId, ctx.tenant.id),
+        ),
+      )
 
-  // If this user already exists in Clerk and app DB, immediately reflect membership in UI.
-  const existing = await client.users.getUserList({ emailAddress: [email], limit: 1 })
-  const existingUserId = existing.data[0]?.id
-  if (existingUserId) {
-    const appUser = await syncAppUserFromClerk(existingUserId)
-    if (appUser) {
-      await db
-        .insert(tenantMembers)
-        .values({ tenantId: ctx.tenant.id, userId: appUser.id, role })
-        .onConflictDoUpdate({
-          target: [tenantMembers.tenantId, tenantMembers.userId],
-          set: { role },
-        })
+    if (membership) {
+      return NextResponse.json(
+        { error: 'This user is already a member of the workspace' },
+        { status: 400 },
+      )
     }
   }
 
-  return NextResponse.json({
-    ok: true,
-    invitationId,
+  // ── 2. Check if already invited ──
+  const [existingInvite] = await db
+    .select()
+    .from(invitations)
+    .where(
+      and(
+        eq(invitations.email, email),
+        eq(invitations.tenantId, ctx.tenant.id),
+        isNull(invitations.acceptedAt),
+      ),
+    )
+
+  if (existingInvite) {
+    if (new Date() < new Date(existingInvite.expiresAt)) {
+      return NextResponse.json(
+        { error: 'A pending invitation already exists for this email' },
+        { status: 400 },
+      )
+    }
+    // If expired, we delete it and allow a new one
+    await db.delete(invitations).where(eq(invitations.id, existingInvite.id))
+  }
+
+  // ── Create invitation ──
+  const token = randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 48)
+
+  await db.insert(invitations).values({
+    tenantId: ctx.tenant.id,
     email,
     role,
-    status: 'pending_invite',
+    token,
+    invitedBy: session.userId,
+    expiresAt,
   })
+
+  // ── Send invite email ──
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const inviteUrl = `${appUrl}/sign-up?token=${token}&email=${encodeURIComponent(email)}`
+  const roleLabel = role === 'tenant_admin' ? 'Admin' : 'Agent'
+
+  await resend.emails.send({
+    from: process.env.RESEND_FROM_EMAIL ?? 'noreply@devclyst.syedbilal.site',
+    to: email,
+    subject: `You're invited to join ${ctx.tenant.name}`,
+    html: `
+      <p>Hi,</p>
+      <p>You've been invited as <strong>${roleLabel}</strong> of <strong>${ctx.tenant.name}</strong>.</p>
+      <p>
+        <a href="${inviteUrl}" style="background:#000;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;">
+          Accept invitation
+        </a>
+      </p>
+      <p>This link expires in 48 hours.</p>
+    `,
+  })
+
+  return NextResponse.json({ ok: true, email, role, status: 'pending_invite' })
 }

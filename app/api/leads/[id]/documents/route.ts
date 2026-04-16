@@ -1,3 +1,4 @@
+import { put } from '@vercel/blob'
 import { NextRequest, NextResponse } from 'next/server'
 import { and, desc, eq } from 'drizzle-orm'
 
@@ -5,7 +6,6 @@ import { db } from '@/db'
 import { leadActivities, leadUploadedDocuments, users } from '@/db/schema'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
 import { requireTenantMemberApi } from '@/lib/tenant-api'
-import { uploadFile } from '@/lib/storage'
 
 const MAX_BYTES = 8 * 1024 * 1024 // 8 MB
 
@@ -58,11 +58,12 @@ export async function POST(
   const ctx = await requireTenantMemberApi()
   if (!ctx.ok) return ctx.response
 
-  if (!process.env.R2_BUCKET_NAME || !process.env.R2_PUBLIC_URL) {
+  const token = process.env.BLOB_READ_WRITE_TOKEN
+  if (!token) {
     return NextResponse.json(
       {
         error:
-          'File storage is not configured. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, and R2_PUBLIC_URL.',
+          'File storage is not configured. Add BLOB_READ_WRITE_TOKEN for Vercel Blob, or use another provider.',
       },
       { status: 503 },
     )
@@ -102,19 +103,13 @@ export async function POST(
     typeof labelRaw === 'string' && labelRaw.trim() ? labelRaw.trim() : null
 
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 180)
-  const key = `crm/${ctx.tenant.id}/leads/${id}/${Date.now()}-${safeName}`
+  const pathname = `crm/${ctx.tenant.id}/leads/${id}/${Date.now()}-${safeName}`
 
-  let storageUrl: string
-  try {
-    const buffer = await file.arrayBuffer()
-    storageUrl = await uploadFile(buffer, key, file.type || 'application/octet-stream')
-  } catch (err) {
-    console.error('File upload failed:', err)
-    return NextResponse.json(
-      { error: 'File upload failed. Check storage configuration.' },
-      { status: 503 },
-    )
-  }
+  const blob = await put(pathname, file, {
+    access: 'public',
+    token,
+    addRandomSuffix: true,
+  })
 
   const [row] = await db
     .insert(leadUploadedDocuments)
@@ -124,7 +119,7 @@ export async function POST(
       fileName: file.name,
       mimeType: file.type || null,
       sizeBytes: file.size,
-      storageUrl,
+      storageUrl: blob.url,
       label,
       uploadedBy: ctx.dbUserId,
     })

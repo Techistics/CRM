@@ -5,8 +5,7 @@ export default function NewWorkspacePage() {
     <div className="max-w-md">
       <h1 className="text-2xl font-semibold">New workspace</h1>
       <p className="text-sm text-muted-foreground mt-2">
-        Creates a Clerk organization, invites the first admin email as org admin,
-        and saves the tenant workspace in your database.
+        Creates a workspace and sends an invitation email to the first admin.
       </p>
       <form action={createWorkspaceAction} className="mt-8 space-y-4">
         <div>
@@ -31,7 +30,7 @@ export default function NewWorkspacePage() {
             className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Becomes <strong>slug.yourdomain</strong> for the CRM app.
+            Becomes <strong>slug.yourdomain.com</strong> — used for workspace routing.
           </p>
         </div>
         <div>
@@ -47,7 +46,7 @@ export default function NewWorkspacePage() {
             className="mt-1 w-full rounded-lg border bg-background px-3 py-2 text-sm"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            This user will get a Clerk invitation as <strong>org:admin</strong>.
+            This person will receive an invite email as workspace admin.
           </p>
         </div>
         <div>

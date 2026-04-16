@@ -6,6 +6,7 @@ import {
   integer,
   jsonb,
   primaryKey,
+  boolean,
 } from 'drizzle-orm/pg-core'
 
 // ─── Tenants (workspaces) ─────────────────────────────────────
@@ -130,8 +131,8 @@ export const leadDocumentChecklist = pgTable('lead_document_checklist', {
   country: text('country').notNull(),
   documentKey: text('document_key').notNull(),
   documentLabel: text('document_label').notNull(),
-  required: text('required').notNull().default('true'),
-  isSubmitted: text('is_submitted').notNull().default('false'),
+  required: boolean('required').notNull().default(false),
+  isSubmitted: boolean('is_submitted').notNull().default(false),
   submittedAt: timestamp('submitted_at'),
   verifiedBy: uuid('verified_by').references(() => users.id, {
     onDelete: 'set null',
@@ -179,7 +180,7 @@ export const notifications = pgTable('notifications', {
     enum: ['lead_assigned', 'stage_changed', 'note_added'],
   }).notNull(),
   leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'cascade' }),
-  read: text('read').default('false'),
+  read: boolean('read').default(false),
   createdAt: timestamp('created_at').defaultNow(),
 })
 

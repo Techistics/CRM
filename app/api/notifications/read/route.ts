@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   if (notificationId === 'all') {
     await db
       .update(notifications)
-      .set({ read: 'true' })
+      .set({ read: true })
       .where(
         and(
           eq(notifications.userId, ctx.dbUserId),
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   } else {
     await db
       .update(notifications)
-      .set({ read: 'true' })
+      .set({ read: true })
       .where(
         and(
           eq(notifications.id, notificationId),

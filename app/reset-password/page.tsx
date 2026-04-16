@@ -1,13 +1,13 @@
 'use client'
 
-import { useActionState, useState } from 'react'
+import { useActionState, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { resetPasswordAction } from './actions'
 import Link from 'next/link'
 
 const initialState = { error: '', success: '' }
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
   const [showPassword, setShowPassword] = useState(false)
@@ -147,3 +147,16 @@ export default function ResetPasswordPage() {
     </main>
   )
 }
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <main className="flex min-h-screen items-center justify-center bg-muted/50">
+        <div className="text-sm text-muted-foreground">Loading...</div>
+      </main>
+    }>
+      <ResetPasswordContent />
+    </Suspense>
+  )
+}
+

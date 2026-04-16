@@ -21,7 +21,10 @@ export async function PATCH(
     const body = await req.json()
     stage = body.stage
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Invalid request body' },
+      { status: 400 },
+    )
   }
 
   if (!isValidLeadStage(stage)) {

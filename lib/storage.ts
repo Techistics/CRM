@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 
 function getClient(): S3Client {
   const accountId = process.env.R2_ACCOUNT_ID
@@ -44,4 +44,19 @@ export async function uploadFile(
   )
 
   return `${publicUrl.replace(/\/$/, '')}/${key}`
+}
+
+export async function deleteFile(key: string): Promise<void> {
+  const bucket = process.env.R2_BUCKET_NAME
+
+  if (!bucket) {
+    throw new Error('Storage is not configured. Set R2_BUCKET_NAME.')
+  }
+
+  await getClient().send(
+    new DeleteObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    }),
+  )
 }

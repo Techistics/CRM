@@ -20,7 +20,10 @@ export async function PATCH(
     const body = await req.json()
     assignedTo = body.assignedTo
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Invalid request body' },
+      { status: 400 },
+    )
   }
 
   const lead = await getLeadInTenant(id, ctx.tenant.id)

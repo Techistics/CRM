@@ -1,28 +1,30 @@
-import { auth, currentUser } from '@clerk/nextjs/server'
+import { getSession } from './auth'
+import { db } from '@/db'
+import { users } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 import type { AppRole } from '@/types/roles'
 export type { AppRole }
 
 export function normalizeAppRole(value: unknown): AppRole | undefined {
   if (typeof value !== 'string') return undefined
-  const v = value.trim().toLowerCase()
-  if (v === 'admin' || v === 'pro') return v
+  const v = value.trim().toUpperCase()
+  if (v === 'SUPER_ADMIN' || v === 'ADMIN' || v === 'PRO') return v as AppRole
   return undefined
 }
 
-/** Role from JWT session claims (if you added `metadata` in Clerk session token) or Clerk user object. */
+/** 
+ * Retrieves the global platform role from the database for the current session.
+ */
 export async function getUserRole(): Promise<AppRole | undefined> {
-  const { sessionClaims } = await auth()
-  const fromClaims = normalizeAppRole(
-    (sessionClaims?.metadata as { role?: unknown } | undefined)?.role
-  )
+  const session = await getSession()
+  if (!session) return undefined
 
-  const user = await currentUser()
-  const fromUser = normalizeAppRole(
-    user?.publicMetadata?.role ?? user?.unsafeMetadata?.role
-  )
+  const [row] = await db
+    .select({ role: users.globalRole })
+    .from(users)
+    .where(eq(users.id, session.userId))
+    .limit(1)
 
-  return fromClaims ?? fromUser
+  return normalizeAppRole(row?.role)
 }
-
-

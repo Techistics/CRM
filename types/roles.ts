@@ -1,1 +1,1 @@
-export type AppRole = 'admin' | 'pro'
+export type AppRole = 'ADMIN' | 'PRO' | 'SUPER_ADMIN'

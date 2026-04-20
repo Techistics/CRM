@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 
-import { TenantOrgSync } from '@/components/tenant/TenantOrgSync'
+
 import { isPlatformSuperAdmin } from '@/lib/platform-role'
 import { getTenantBySlug, getTenantSlugFromHeaders } from '@/lib/tenant-server'
 
@@ -26,7 +26,6 @@ export default async function TenantSlugLayout({
 
   return (
     <>
-      {!superAdmin && <TenantOrgSync clerkOrgId={tenant.clerkOrgId} />}
       {children}
     </>
   )

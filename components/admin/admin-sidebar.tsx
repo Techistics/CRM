@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { SignOutButton } from '@clerk/nextjs'
 import { Menu, LogOut } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 import { useSidebar } from '@/components/sidebar-provider'
 import { cn } from '@/lib/utils'
@@ -21,6 +21,7 @@ function isActive(pathname: string, href: string, matchPrefix?: boolean) {
 }
 
 export function AdminSidebar({ teamBadge }: { teamBadge: string }) {
+  const router = useRouter()
   const pathname = usePathname()
   const { isOpen, toggle } = useSidebar()
 
@@ -118,22 +119,24 @@ export function AdminSidebar({ teamBadge }: { teamBadge: string }) {
             </nav>
           </div>
 
-          {/* Logout */}
           <div className="border-t px-2 py-3">
-            <SignOutButton signOutOptions={{ redirectUrl: '/sign-in' }}>
-              <button
-                type="button"
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-muted-foreground text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                <LogOut className="h-4 w-4 shrink-0" />
-                <span className="min-w-0">
-                  <span className="block font-medium leading-none">Logout</span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">
-                    Exit the app
-                  </span>
+            <button
+              type="button"
+              onClick={async () => {
+                await fetch('/api/auth/logout', { method: 'POST' })
+                router.push('/sign-in')
+                router.refresh()
+              }}
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-muted-foreground text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <LogOut className="h-4 w-4 shrink-0" />
+              <span className="min-w-0">
+                <span className="block font-medium leading-none">Logout</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  Exit the app
                 </span>
-              </button>
-            </SignOutButton>
+              </span>
+            </button>
           </div>
         </div>
       </aside>

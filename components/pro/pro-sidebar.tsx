@@ -2,13 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { SignOutButton } from '@clerk/nextjs'
 import {
   LayoutDashboard,
   Users,
   Kanban,
   LogOut,
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 const proNavItems = [
@@ -22,6 +22,7 @@ function isActive(pathname: string, href: string) {
 }
 
 export function ProSidebar() {
+  const router = useRouter()
   const pathname = usePathname()
 
   return (
@@ -68,15 +69,18 @@ export function ProSidebar() {
         <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
           Pro Access
         </p>
-        <SignOutButton signOutOptions={{ redirectUrl: '/sign-in' }}>
-          <button
-            type="button"
-            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-gray-500 text-sm font-medium transition-colors hover:bg-red-50 hover:text-red-600 border border-transparent hover:border-red-100"
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            <span>Logout</span>
-          </button>
-        </SignOutButton>
+        <button
+          type="button"
+          onClick={async () => {
+            await fetch('/api/auth/logout', { method: 'POST' })
+            router.push('/sign-in')
+            router.refresh()
+          }}
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-gray-500 text-sm font-medium transition-colors hover:bg-red-50 hover:text-red-600 border border-transparent hover:border-red-100"
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          <span>Logout</span>
+        </button>
       </div>
     </aside>
   )

@@ -1,24 +1,27 @@
 import type { Tenant } from '@/types/models'
-
-import { syncAppUserFromClerk } from '@/lib/app-user'
+import { getAppUser } from '@/lib/app-user'
 import { isPlatformSuperAdminUserId } from '@/lib/platform-role'
-import { syncTenantMembership, type TenantAppRole } from '@/lib/tenant-membership'
+import { getTenantMembership, type TenantAppRole } from '@/lib/tenant-membership'
 
 /**
- * Resolves workspace access: org members use Clerk org + tenant_members;
- * platform super admins get tenant_admin in any workspace without org membership.
+ * Resolves workspace access.
+ * Platform super admins have unrestricted access.
+ * Regular users must have a row in tenant_members.
  */
 export async function resolveTenantAccess(
-  clerkUserId: string,
+  userId: string,
   tenant: Tenant,
 ): Promise<{ dbUserId: string; role: TenantAppRole } | null> {
-  if (await isPlatformSuperAdminUserId(clerkUserId)) {
-    const appUser = await syncAppUserFromClerk(clerkUserId)
-    if (!appUser) return null
-    return { dbUserId: appUser.id, role: 'tenant_admin' }
+  // 1. Regular tenant membership check (Explicit roles take priority)
+  const role = await getTenantMembership(userId, tenant.id)
+  if (role) {
+    return { dbUserId: userId, role }
   }
 
-  const synced = await syncTenantMembership(clerkUserId, tenant)
-  if (!synced) return null
-  return { dbUserId: synced.userId, role: synced.role }
+  // 2. Fallback: Check for platform-wide Super Admin role (Ghost Admin)
+  if (await isPlatformSuperAdminUserId(userId)) {
+    return { dbUserId: userId, role: 'ADMIN' }
+  }
+
+  return null
 }

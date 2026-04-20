@@ -1,7 +1,6 @@
 import { db } from '@/db'
-import { users, leads, tenantMembers } from '@/db/schema'
-import { eq, count, and } from 'drizzle-orm'
-import { clerkClient } from '@clerk/nextjs/server'
+import { users, leads, tenantMembers, invitations } from '@/db/schema'
+import { eq, count, and, not, or, isNull, ne } from 'drizzle-orm'
 
 import { requireTenantAdminSession } from '@/lib/tenant-server'
 import TeamManagementClient from './TeamManagementClient'
@@ -19,7 +18,10 @@ export default async function TeamPage() {
     })
     .from(tenantMembers)
     .innerJoin(users, eq(tenantMembers.userId, users.id))
-    .where(and(eq(tenantMembers.tenantId, tenant.id)))
+    .where(and(
+      eq(tenantMembers.tenantId, tenant.id),
+      isNull(tenantMembers.deletedAt)
+    ))
 
   const leadCounts = await db
     .select({
@@ -48,45 +50,38 @@ export default async function TeamPage() {
     .where(and(tScope, eq(leads.stage, 'paid')))
     .groupBy(leads.assignedTo)
 
-  const teamData = members.map((user) => ({
-    ...user,
-    totalLeads: leadCounts.find((l) => l.assignedTo === user.id)?.total ?? 0,
-    activeLeads: activeCounts.find((l) => l.assignedTo === user.id)?.total ?? 0,
-    paidLeads: paidCounts.find((l) => l.assignedTo === user.id)?.total ?? 0,
-    status: 'active' as const,
-    invitationId: null as string | null,
+  const pendingInvites = await db
+    .select()
+    .from(invitations)
+    .where(and(eq(invitations.tenantId, tenant.id), eq(invitations.status, 'PENDING')))
+
+  const inviteData = pendingInvites.map((invite) => ({
+    id: invite.id,
+    name: '—',
+    email: invite.email,
+    role: invite.role,
+    totalLeads: 0,
+    activeLeads: 0,
+    paidLeads: 0,
+    status: 'pending_invite' as const,
+    invitationId: invite.id,
   }))
 
-  const client = await clerkClient()
-  const invites = await client.organizations.getOrganizationInvitationList({
-    organizationId: tenant.clerkOrgId,
-    status: ['pending'],
-    limit: 100,
-  })
-
-  const activeEmails = new Set(teamData.map((m) => m.email.toLowerCase()))
-  const pendingInviteRows = invites.data
-    .filter((inv) => {
-      const email = (inv.emailAddress ?? '').toLowerCase()
-      return email && !activeEmails.has(email)
-    })
-    .map((inv) => ({
-      id: `invite:${inv.id}`,
-      name: inv.emailAddress?.split('@')[0] ?? 'Invited user',
-      email: inv.emailAddress ?? '—',
-      role: (inv.role === 'org:admin' ? 'tenant_admin' : 'agent') as
-        | 'tenant_admin'
-        | 'agent',
-      totalLeads: 0,
-      activeLeads: 0,
-      paidLeads: 0,
-      status: 'pending_invite' as const,
-      invitationId: inv.id ?? null,
-    }))
+  const teamData = [
+    ...members.map((user) => ({
+      ...user,
+      totalLeads: Number(leadCounts.find((l) => l.assignedTo === user.id)?.total ?? 0),
+      activeLeads: Number(activeCounts.find((l) => l.assignedTo === user.id)?.total ?? 0),
+      paidLeads: Number(paidCounts.find((l) => l.assignedTo === user.id)?.total ?? 0),
+      status: 'active' as const,
+      invitationId: null as string | null,
+    })),
+    ...inviteData,
+  ]
 
   return (
     <TeamManagementClient
-      initialMembers={[...teamData, ...pendingInviteRows].map((m) => ({
+      initialMembers={teamData.map((m) => ({
         ...m,
         totalLeads: Number(m.totalLeads),
         activeLeads: Number(m.activeLeads),

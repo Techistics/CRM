@@ -1,11 +1,11 @@
-import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { getSession } from '@/lib/auth'
 
 /** Legacy route: signed-in users without access use `/request-role` instead. */
 export default async function NoRolePage() {
-  const { userId } = await auth()
-  if (userId) redirect('/request-role')
+  const session = await getSession()
+  if (session) redirect('/request-role')
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-gray-950 px-6 text-white">

@@ -69,7 +69,7 @@ export default function LeadDetailClient({
     grades: lead.grades ?? '',
   })
 
-  const proUsers = allUsers.filter((u) => u.role === 'agent')
+  const proUsers = allUsers.filter((u) => u.role === 'PRO')
   const checklistProgress = useMemo(() => {
     if (checklistItems.length === 0) return { done: 0, total: 0 }
     const done = checklistItems.filter((item) => item.isSubmitted === true).length

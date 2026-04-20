@@ -1,4 +1,15 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+
+interface UploadResult {
+  url: string
+  key: string
+}
 
 function getClient(): S3Client {
   const accountId = process.env.R2_ACCOUNT_ID
@@ -19,10 +30,10 @@ function getClient(): S3Client {
 }
 
 export async function uploadFile(
-  data: ArrayBuffer | Buffer,
-  key: string,
+  buffer: Buffer,
+  filename: string,
   mimeType: string,
-): Promise<string> {
+): Promise<UploadResult> {
   const bucket = process.env.R2_BUCKET_NAME
   const publicUrl = process.env.R2_PUBLIC_URL
 
@@ -32,18 +43,19 @@ export async function uploadFile(
     )
   }
 
-  const body = data instanceof ArrayBuffer ? Buffer.from(data) : data
-
   await getClient().send(
     new PutObjectCommand({
       Bucket: bucket,
-      Key: key,
-      Body: body,
+      Key: filename,
+      Body: buffer,
       ContentType: mimeType,
     }),
   )
 
-  return `${publicUrl.replace(/\/$/, '')}/${key}`
+  return {
+    url: `${publicUrl.replace(/\/$/, '')}/${filename}`,
+    key: filename,
+  }
 }
 
 export async function deleteFile(key: string): Promise<void> {
@@ -59,4 +71,23 @@ export async function deleteFile(key: string): Promise<void> {
       Key: key,
     }),
   )
+}
+
+export async function getSignedDownloadUrl(
+  key: string,
+  expiresInSeconds = 3600,
+): Promise<string> {
+  const bucket = process.env.R2_BUCKET_NAME
+
+  if (!bucket) {
+    throw new Error('Storage is not configured. Set R2_BUCKET_NAME.')
+  }
+
+  const client = getClient()
+  const command = new GetObjectCommand({
+    Bucket: bucket,
+    Key: key,
+  })
+
+  return getSignedUrl(client, command, { expiresIn: expiresInSeconds })
 }

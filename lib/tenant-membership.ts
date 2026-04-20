@@ -1,70 +1,12 @@
-import { clerkClient } from '@clerk/nextjs/server'
-import { and, eq } from 'drizzle-orm'
-
+import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '@/db'
-import { tenantMembers, users } from '@/db/schema'
-import type { Tenant } from '@/types/models'
+import { tenantMembers } from '@/db/schema'
 
-export type TenantAppRole = 'tenant_admin' | 'agent'
+export type TenantAppRole = 'ADMIN' | 'PRO'
 
-function mapClerkOrgRole(clerkRole: string): TenantAppRole | null {
-  if (clerkRole === 'org:admin') return 'tenant_admin'
-  if (
-    clerkRole === 'org:member' ||
-    clerkRole === 'org:basic_member' ||
-    clerkRole === 'basic_member'
-  ) {
-    return 'agent'
-  }
-  return null
-}
-
-/** Upsert app user row and tenant_members from Clerk org membership. */
-export async function syncTenantMembership(
-  clerkUserId: string,
-  tenant: Tenant,
-): Promise<{ userId: string; role: TenantAppRole } | null> {
-  const client = await clerkClient()
-  const list = await client.users.getOrganizationMembershipList({
-    userId: clerkUserId,
-  })
-  const m = list.data.find((x) => x.organization.id === tenant.clerkOrgId)
-  if (!m) return null
-
-  const role = mapClerkOrgRole(m.role)
-  if (!role) return null
-
-  const cu = await client.users.getUser(clerkUserId)
-  const email = cu.emailAddresses[0]?.emailAddress
-  if (!email) return null
-
-  const name =
-    [cu.firstName, cu.lastName].filter(Boolean).join(' ') ||
-    email.split('@')[0] ||
-    'User'
-
-  await db
-    .insert(users)
-    .values({ clerkId: clerkUserId, email, name, role: 'pro' })
-    .onConflictDoUpdate({
-      target: users.clerkId,
-      set: { email, name },
-    })
-
-  const [user] = await db.select().from(users).where(eq(users.clerkId, clerkUserId))
-  if (!user) return null
-
-  await db
-    .insert(tenantMembers)
-    .values({ tenantId: tenant.id, userId: user.id, role })
-    .onConflictDoUpdate({
-      target: [tenantMembers.tenantId, tenantMembers.userId],
-      set: { role },
-    })
-
-  return { userId: user.id, role }
-}
-
+/**
+ * Resolves the role for a user in a specific tenant (workspace).
+ */
 export async function getTenantMembership(
   dbUserId: string,
   tenantId: string,
@@ -73,7 +15,24 @@ export async function getTenantMembership(
     .select({ role: tenantMembers.role })
     .from(tenantMembers)
     .where(
-      and(eq(tenantMembers.tenantId, tenantId), eq(tenantMembers.userId, dbUserId)),
+      and(
+        eq(tenantMembers.tenantId, tenantId), 
+        eq(tenantMembers.userId, dbUserId),
+        isNull(tenantMembers.deletedAt)
+      ),
     )
   return (row?.role as TenantAppRole) ?? null
+}
+
+/** 
+ * Mocking legacy sync function to avoid breaking other files immediately.
+ * In a pure custom auth system, membership is managed via our own invite/admin tools.
+ */
+export async function syncTenantMembership(
+  dbUserId: string,
+  tenant: { id: string },
+): Promise<{ userId: string; role: TenantAppRole } | null> {
+  const role = await getTenantMembership(dbUserId, tenant.id)
+  if (!role) return null
+  return { userId: dbUserId, role }
 }

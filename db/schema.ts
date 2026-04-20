@@ -7,30 +7,36 @@ import {
   jsonb,
   primaryKey,
   boolean,
+  unique,
+  index,
 } from 'drizzle-orm/pg-core'
+import { relations } from 'drizzle-orm'
 
 // ─── Tenants (workspaces) ─────────────────────────────────────
 export const tenants = pgTable('tenants', {
   id: uuid('id').primaryKey().defaultRandom(),
   slug: text('slug').notNull().unique(),
   name: text('name').notNull(),
-  brandName: text('brand_name'),
-  clerkOrgId: text('clerk_org_id').notNull().unique(),
   status: text('status', { enum: ['active', 'suspended'] })
     .notNull()
     .default('active'),
   settings: jsonb('settings'),
+  createdBy: uuid('created_by').references(() => users.id, {
+    onDelete: 'set null',
+  }),
+  deletedAt: timestamp('deleted_at'),
   createdAt: timestamp('created_at').defaultNow(),
 })
 
-// ─── Users (synced from Clerk) ───────────────────────────────
+// ─── Users ───────────────────────────────────────────────────
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
-  clerkId: text('clerk_id').notNull().unique(),
-  email: text('email').notNull(),
+  email: text('email').notNull().unique(),
   name: text('name').notNull(),
-  /** @deprecated Use tenant_members.role per workspace */
-  role: text('role', { enum: ['admin', 'pro'] }).notNull().default('pro'),
+  password: text('password'),
+  resetToken: text('reset_token'),
+  resetTokenExpiry: timestamp('reset_token_expiry'),
+  globalRole: text('global_role', { enum: ['SUPER_ADMIN'] }),
   createdAt: timestamp('created_at').defaultNow(),
 })
 
@@ -38,19 +44,87 @@ export const users = pgTable('users', {
 export const tenantMembers = pgTable(
   'tenant_members',
   {
+    id: uuid('id').primaryKey().defaultRandom(),
     tenantId: uuid('tenant_id')
       .references(() => tenants.id, { onDelete: 'cascade' })
       .notNull(),
     userId: uuid('user_id')
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
-    role: text('role', { enum: ['tenant_admin', 'agent'] }).notNull(),
+    role: text('role', { enum: ['ADMIN', 'PRO'] }).notNull(),
+    deletedAt: timestamp('deleted_at'),
     createdAt: timestamp('created_at').defaultNow(),
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.tenantId, t.userId] }),
+    unq: unique().on(t.tenantId, t.userId),
+    idx_userId: index('idx_tenant_members_user_id').on(t.userId),
+    idx_tenantId: index('idx_tenant_members_tenant_id').on(t.tenantId),
   }),
 )
+
+// ─── Invitations ───────────────────────────────────────────
+export const invitations = pgTable(
+  'invitations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .references(() => tenants.id, { onDelete: 'cascade' })
+      .notNull(),
+    email: text('email').notNull(),
+    role: text('role', { enum: ['ADMIN', 'PRO'] }).notNull(),
+    token: text('token').notNull().unique(),
+    status: text('status', { enum: ['PENDING', 'ACCEPTED', 'EXPIRED'] })
+      .notNull()
+      .default('PENDING'),
+    expiresAt: timestamp('expires_at').notNull(),
+    invitedBy: uuid('invited_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => ({
+    idx_token: index('idx_invitations_token').on(t.token),
+  }),
+)
+
+// ─── Audit Logs ──────────────────────────────────────────────
+export const auditLogs = pgTable('audit_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  actorUserId: uuid('actor_user_id').references(() => users.id, {
+    onDelete: 'set null',
+  }),
+  targetUserEmail: text('target_user_email'),
+  tenantId: uuid('tenant_id').references(() => tenants.id, {
+    onDelete: 'set null',
+  }),
+  action: text('action', {
+    enum: [
+      'INVITE_SENT',
+      'INVITE_ACCEPTED',
+      'ROLE_CHANGED',
+      'TENANT_CREATED',
+      'SUPER_ADMIN_ACTION',
+    ],
+  }).notNull(),
+  metadata: jsonb('metadata'),
+  timestamp: timestamp('timestamp').defaultNow().notNull(),
+})
+
+// ─── Relations ───────────────────────────────────────────────
+export const tenantRelations = relations(tenants, ({ many }) => ({
+  members: many(tenantMembers),
+}))
+
+export const tenantMemberRelations = relations(tenantMembers, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [tenantMembers.tenantId],
+    references: [tenants.id],
+  }),
+  user: one(users, {
+    fields: [tenantMembers.userId],
+    references: [users.id],
+  }),
+}))
 
 // ─── Leads ───────────────────────────────────────────────────
 export const leads = pgTable('leads', {
@@ -91,7 +165,10 @@ export const leads = pgTable('leads', {
   createdBy: uuid('created_by').references(() => users.id),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
-})
+}, (t) => ({
+  unq_email: unique('unq_leads_email_tenant').on(t.tenantId, t.email),
+  unq_phone: unique('unq_leads_phone_tenant').on(t.tenantId, t.contactNumber),
+}))
 
 // ─── Lead Reminder Queue ──────────────────────────────────────
 export const leadReminders = pgTable('lead_reminders', {
@@ -211,18 +288,24 @@ export const roleRequests = pgTable('role_requests', {
   tenantId: uuid('tenant_id').references(() => tenants.id, {
     onDelete: 'cascade',
   }),
-  clerkId: text('clerk_id').notNull(),
+  userId: uuid('user_id').references(() => users.id, {
+    onDelete: 'cascade',
+  }),
   email: text('email').notNull(),
   name: text('name').notNull(),
-  requestedRole: text('requested_role', { enum: ['admin', 'pro'] }).notNull(),
+  requestedRole: text('requested_role', {
+    enum: ['ADMIN', 'PRO'],
+  }).notNull(),
   status: text('status', {
-    enum: ['pending', 'approved', 'rejected'],
+    enum: ['PENDING', 'APPROVED', 'REJECTED'],
   })
     .notNull()
-    .default('pending'),
+    .default('PENDING'),
   createdAt: timestamp('created_at').defaultNow(),
   reviewedAt: timestamp('reviewed_at'),
-  reviewedByClerkId: text('reviewed_by_clerk_id'),
+  reviewedBy: uuid('reviewed_by').references(() => users.id, {
+    onDelete: 'set null',
+  }),
 })
 
 // ─── CSV Import Batches ───────────────────────────────────────

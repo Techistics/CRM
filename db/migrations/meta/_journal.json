@@ -5,7 +5,7 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1773833893894,
+      "when": 1713511800000,
       "tag": "0000_purple_clea",
       "breakpoints": true
     },
@@ -19,36 +19,78 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1774386574318,
+      "when": 1773874481491,
       "tag": "0002_role_requests",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "7",
-      "when": 1774900210526,
+      "when": 1773874481492,
       "tag": "0003_multi_tenant",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "7",
-      "when": 1775558868221,
+      "when": 1773874481493,
       "tag": "0004_grey_korvac",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "7",
-      "when": 1776000000000,
+      "when": 1773874481494,
       "tag": "0005_lead_uploaded_documents",
       "breakpoints": true
     },
     {
       "idx": 6,
       "version": "7",
-      "when": 1776325174000,
+      "when": 1773874481495,
       "tag": "0006_boolean_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1773874481496,
+      "tag": "0007_fix_boolean_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1773874481497,
+      "tag": "0008_role_enum_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1776352410000,
+      "tag": "0009_fix_boolean_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1776352410001,
+      "tag": "0010_add_user_passwords",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1776352410002,
+      "tag": "0011_add_reset_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1776352410003,
+      "tag": "0012_remove_legacy_ids",
       "breakpoints": true
     }
   ]

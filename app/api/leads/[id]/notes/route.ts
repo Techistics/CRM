@@ -1,36 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
-// removed unused imports
-
+import { z } from 'zod'
 import { db } from '@/db'
 import { leadActivities } from '@/db/schema'
-import { requireTenantAdminApi } from '@/lib/tenant-api'
-import { getLeadInTenant } from '@/lib/lead-tenant'
+import { requireTenantMemberApi } from '@/lib/tenant-api'
+import { getLeadForMemberAction } from '@/lib/lead-tenant'
+import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
+
+const noteSchema = z.object({
+  note: z.string().min(1, 'Note content is required'),
+  type: z.enum(['stage_change', 'note', 'call', 'message', 'document']).optional().default('note')
+})
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const ctx = await requireTenantAdminApi()
-  if (!ctx.ok) return ctx.response
+  return withApiErrorHandling(async () => {
+    const ctx = await requireTenantMemberApi()
+    if (!ctx.ok) return ctx.response
 
-  const { id } = await params
-  const { note, type } = await req.json()
-  if (!note?.trim()) {
-    return NextResponse.json({ error: 'Note is empty' }, { status: 400 })
-  }
+    const { id } = await params
+    
+    let body: unknown
+    try {
+      body = await req.json()
+    } catch {
+      return errorResponse('Invalid JSON body', 'INVALID_JSON', 400)
+    }
 
-  const lead = await getLeadInTenant(id, ctx.tenant.id)
-  if (!lead) {
-    return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
-  }
+    const parsed = noteSchema.safeParse(body)
+    if (!parsed.success) {
+      return errorResponse(parsed.error.errors[0].message, 'VALIDATION_ERROR', 400)
+    }
 
-  await db.insert(leadActivities).values({
-    tenantId: ctx.tenant.id,
-    leadId: id,
-    userId: ctx.dbUserId,
-    type: type ?? 'note',
-    note: note.trim(),
+    const lead = await getLeadForMemberAction(id, ctx.tenant.id, ctx.role, ctx.dbUserId)
+    if (!lead) {
+      return errorResponse('Lead not found or no access', 'NOT_FOUND', 404)
+    }
+
+    const { note, type } = parsed.data
+
+    await db.insert(leadActivities).values({
+      tenantId: ctx.tenant.id,
+      leadId: id,
+      userId: ctx.dbUserId,
+      type,
+      note: note.trim(),
+    })
+
+    return successResponse({ ok: true })
   })
-
-  return NextResponse.json({ success: true })
 }

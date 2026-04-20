@@ -1,22 +1,23 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
-import { NextResponse } from 'next/server'
-
+import { NextRequest, NextResponse } from 'next/server'
+import { decrypt } from '@/lib/auth'
 import {
   tenantSlugFromHost,
   tenantSlugFromPathname,
   tenantSlugFromReferer,
 } from '@/lib/tenant-host'
 
-const isPublicRoute = createRouteMatcher([
+const PUBLIC_ROUTES = [
   '/',
-  '/sign-in(.*)',
-  '/sign-up(.*)',
+  '/sign-in',
+  '/sign-up',
   '/no-role',
-  '/no-access(.*)',
-  '/platform(.*)',
-])
+  '/no-access',
+  '/api/auth',
+  '/forgot-password',
+  '/reset-password',
+]
 
-export default clerkMiddleware(async (auth, req) => {
+export default async function middleware(req: NextRequest) {
   const url = req.nextUrl.clone()
   const host = req.headers.get('host') || ''
   const pathname = url.pathname
@@ -34,29 +35,31 @@ export default clerkMiddleware(async (auth, req) => {
     nextHeaders.set('x-tenant-slug', headerSlug)
   }
 
-  if (
-    url.searchParams.has('__clerk_ticket') &&
-    !pathname.startsWith('/sign-in') &&
-    !pathname.startsWith('/sign-up')
-  ) {
-    const status = url.searchParams.get('__clerk_status')
-    url.pathname = status === 'sign_up' ? '/sign-up' : '/sign-in'
-    return NextResponse.redirect(url)
+  const isPublicRoute = PUBLIC_ROUTES.some(route => 
+    pathname === route || pathname.startsWith(`${route}/`)
+  )
+
+  // 1. JWT existence check
+  const session = req.cookies.get('session')?.value
+  const payload = session ? await decrypt(session) : null
+
+  // 2. Strict Redirection logic
+  // If NOT public and NO valid JWT -> redirect to /sign-in
+  if (!isPublicRoute && !payload) {
+    return NextResponse.redirect(new URL('/sign-in', req.url))
   }
 
-  if (pathname.startsWith('/api')) {
-    return NextResponse.next({ request: { headers: nextHeaders } })
+  // If public AND signed in -> redirect to dashboard (prevent double sign-in)
+  // ONLY for /sign-in and /sign-up
+  if (payload && (pathname === '/sign-in' || pathname === '/sign-up')) {
+    return NextResponse.redirect(new URL('/', req.url))
   }
 
+  // Tenant rewrites
   const shouldSkipTenantRewrite =
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
-    pathname.startsWith('/sign-in') ||
-    pathname.startsWith('/sign-up') ||
-    pathname.startsWith('/request-role') ||
-    pathname.startsWith('/no-access') ||
-    pathname.startsWith('/no-role') ||
-    pathname.startsWith('/platform') ||
+    isPublicRoute ||
     pathname.startsWith('/t/')
 
   if (
@@ -69,24 +72,8 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.rewrite(url, { request: { headers: nextHeaders } })
   }
 
-  if (
-    !headerSlug &&
-    (pathname.startsWith('/admin') || pathname.startsWith('/pro'))
-  ) {
-    return NextResponse.redirect(new URL('/', req.url))
-  }
-
-  if (isPublicRoute(req)) {
-    return NextResponse.next({ request: { headers: nextHeaders } })
-  }
-
-  const { userId } = await auth()
-  if (!userId) {
-    return NextResponse.redirect(new URL('/sign-in', req.url))
-  }
-
   return NextResponse.next({ request: { headers: nextHeaders } })
-})
+}
 
 export const config = {
   matcher: [

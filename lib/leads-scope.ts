@@ -10,6 +10,6 @@ export function leadsVisibleWhere(
   dbUserId: string,
 ): SQL {
   const inTenant = eq(leads.tenantId, tenantId)
-  if (role === 'tenant_admin') return inTenant
+  if (role === 'ADMIN') return inTenant
   return and(inTenant, eq(leads.assignedTo, dbUserId))!
 }

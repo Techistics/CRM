@@ -1,13 +1,13 @@
 'use server'
 
-import { auth, clerkClient } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
+import { nanoid } from 'nanoid'
 
 import { db } from '@/db'
 import { tenants } from '@/db/schema'
 import { isPlatformSuperAdmin } from '@/lib/platform-role'
-import { workspaceOrigin } from '@/lib/public-url'
+import { getSession } from '@/lib/auth'
 
 function slugify(input: string) {
   return input
@@ -22,71 +22,23 @@ export async function createWorkspaceAction(formData: FormData) {
   const allowed = await isPlatformSuperAdmin()
   if (!allowed) throw new Error('Forbidden')
 
-  const { userId } = await auth()
-  if (!userId) redirect('/sign-in')
+  const session = await getSession()
+  if (!session) redirect('/sign-in')
 
   const name = String(formData.get('name') ?? '').trim()
   const slugRaw = String(formData.get('slug') ?? '').trim()
   const brandName = String(formData.get('brandName') ?? '').trim() || null
-  const firstAdminEmail = String(formData.get('firstAdminEmail') ?? '')
-    .trim()
-    .toLowerCase()
-
+  
   if (!name) throw new Error('Name is required')
   const slug = slugify(slugRaw || name)
   if (!slug) throw new Error('Invalid slug')
-  if (!firstAdminEmail) throw new Error('First admin email is required')
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(firstAdminEmail)) {
-    throw new Error('First admin email is invalid')
-  }
 
   const [exists] = await db.select().from(tenants).where(eq(tenants.slug, slug))
   if (exists) throw new Error('Slug already in use')
 
-  const client = await clerkClient()
-  // We do NOT need Clerk's org `slug` for our subdomain tenancy.
-  // Tenants are routed by `tenants.slug` (DB), and we store Clerk org id separately.
-  let org: { id: string }
-  try {
-    org = await client.organizations.createOrganization({
-      name,
-      createdBy: userId,
-    })
-  } catch (err: unknown) {
-    const e = err as Record<string, unknown> | undefined
-    const errors = e?.errors as Array<{ message?: string }> | undefined
-    const msg =
-      errors?.[0]?.message ||
-      (e && typeof e === 'object' && 'message' in e ? String(e.message) : null) ||
-      'Clerk organization creation failed'
-    throw new Error(`Workspace creation failed: ${msg}`)
-  }
-
-  try {
-    const afterAcceptUrl = workspaceOrigin(slug)
-
-    await client.organizations.createOrganizationInvitation({
-      organizationId: org.id,
-      inviterUserId: userId,
-      emailAddress: firstAdminEmail,
-      role: 'org:admin',
-      redirectUrl: afterAcceptUrl,
-    })
-  } catch (err: unknown) {
-    const e = err as Record<string, unknown> | undefined
-    const errors = e?.errors as Array<{ message?: string }> | undefined
-    const msg =
-      errors?.[0]?.message ||
-      (e && typeof e === 'object' && 'message' in e ? String(e.message) : null) ||
-      'Could not invite first admin'
-    throw new Error(`Workspace created, but invite failed: ${msg}`)
-  }
-
   await db.insert(tenants).values({
     slug,
     name,
-    brandName: brandName ?? name,
-    clerkOrgId: org.id,
     status: 'active',
   })
 
@@ -97,8 +49,8 @@ export async function inviteWorkspaceUserAction(formData: FormData) {
   const allowed = await isPlatformSuperAdmin()
   if (!allowed) throw new Error('Forbidden')
 
-  const { userId } = await auth()
-  if (!userId) redirect('/sign-in')
+  const session = await getSession()
+  if (!session) redirect('/sign-in')
 
   const tenantId = String(formData.get('tenantId') ?? '').trim()
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
@@ -109,39 +61,30 @@ export async function inviteWorkspaceUserAction(formData: FormData) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error('Email is invalid')
   }
-  if (appRole !== 'tenant_admin' && appRole !== 'agent') {
+  if (appRole !== 'ADMIN' && appRole !== 'PRO') {
     throw new Error('Invalid role')
   }
 
-  const [tenant] = await db
-    .select()
-    .from(tenants)
+  // Implementation of invitation logic:
+  // For now, we'll return a message that they should use the /sign-up flow 
+  // and the admin should add them via the team management UI which we've refactored.
+  throw new Error('Invitations are temporarily disabled. Please add users directly via Team Management.')
+}
+
+export async function deleteWorkspaceAction(formData: FormData) {
+  const allowed = await isPlatformSuperAdmin()
+  if (!allowed) throw new Error('Forbidden')
+
+  const session = await getSession()
+  if (!session) redirect('/sign-in')
+
+  const tenantId = String(formData.get('tenantId') ?? '').trim()
+  if (!tenantId) throw new Error('Tenant ID is required')
+
+  await db
+    .update(tenants)
+    .set({ deletedAt: new Date() })
     .where(eq(tenants.id, tenantId))
-
-  if (!tenant) throw new Error('Workspace not found')
-
-  const clerkRole = appRole === 'tenant_admin' ? 'org:admin' : 'org:member'
-  const client = await clerkClient()
-
-  try {
-    const afterAcceptUrl = workspaceOrigin(tenant.slug)
-
-    await client.organizations.createOrganizationInvitation({
-      organizationId: tenant.clerkOrgId,
-      inviterUserId: userId,
-      emailAddress: email,
-      role: clerkRole,
-      redirectUrl: afterAcceptUrl,
-    })
-  } catch (err: unknown) {
-    const e = err as Record<string, unknown> | undefined
-    const errors = e?.errors as Array<{ message?: string }> | undefined
-    const msg =
-      errors?.[0]?.message ||
-      (e && typeof e === 'object' && 'message' in e ? String(e.message) : null) ||
-      'Could not send invitation'
-    throw new Error(`Invite failed: ${msg}`)
-  }
 
   redirect('/platform/tenants')
 }

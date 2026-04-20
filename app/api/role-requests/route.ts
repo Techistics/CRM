@@ -1,80 +1,82 @@
-import { auth, currentUser } from '@clerk/nextjs/server'
-import { NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { and, eq } from 'drizzle-orm'
+import { z } from 'zod'
 
 import { db } from '@/db'
 import { roleRequests } from '@/db/schema'
 import { requireTenantFromApiHeaders } from '@/lib/tenant-api'
 import { resolveTenantAccess } from '@/lib/tenant-access'
-import { normalizeAppRole } from '@/lib/role'
+import { getSession } from '@/lib/auth'
+import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
-export async function POST(req: Request) {
-  const { userId } = await auth()
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+const roleRequestSchema = z.object({
+  requestedRole: z.enum(['ADMIN', 'PRO'])
+})
 
-  const t = await requireTenantFromApiHeaders()
-  if (!t.ok) return t.response
+export async function POST(req: NextRequest) {
+  return withApiErrorHandling(async () => {
+    const session = await getSession()
+    if (!session) {
+      return errorResponse('Unauthorized', 'UNAUTHORIZED', 401)
+    }
 
-  const actor = await resolveTenantAccess(userId, t.tenant)
-  if (actor) {
-    return NextResponse.json(
-      { error: 'You already have access to this workspace' },
-      { status: 400 },
-    )
-  }
+    const { userId } = session
 
-  let body: { requestedRole?: unknown }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+    const t = await requireTenantFromApiHeaders()
+    if (!t.ok) return t.response
 
-  const requested = normalizeAppRole(body.requestedRole)
-  if (!requested) {
-    return NextResponse.json({ error: 'Choose admin or pro' }, { status: 400 })
-  }
+    const actor = await resolveTenantAccess(userId, t.tenant)
+    if (actor) {
+      return errorResponse('You already have access to this workspace', 'ALREADY_MEMBER', 400)
+    }
 
-  const clerkUser = await currentUser()
-  const email = clerkUser?.emailAddresses[0]?.emailAddress
-  if (!email) {
-    return NextResponse.json({ error: 'No email on account' }, { status: 400 })
-  }
+    let body: unknown
+    try {
+      body = await req.json()
+    } catch {
+      return errorResponse('Invalid JSON body', 'INVALID_JSON', 400)
+    }
 
-  const name =
-    [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(' ') ||
-    email.split('@')[0] ||
-    'User'
+    const parsed = roleRequestSchema.safeParse(body)
+    if (!parsed.success) {
+      return errorResponse('Invalid role requested', 'VALIDATION_ERROR', 400)
+    }
 
-  const [existingPending] = await db
-    .select()
-    .from(roleRequests)
-    .where(
-      and(
-        eq(roleRequests.clerkId, userId),
-        eq(roleRequests.status, 'pending'),
-        eq(roleRequests.tenantId, t.tenant.id),
-      ),
-    )
-    .limit(1)
+    const { requestedRole } = parsed.data
 
-  if (existingPending) {
-    return NextResponse.json(
-      { error: 'You already have a pending request' },
-      { status: 400 },
-    )
-  }
+    const user = await db.query.users.findFirst({
+      where: (u, { eq }) => eq(u.id, userId),
+    })
 
-  await db.insert(roleRequests).values({
-    tenantId: t.tenant.id,
-    clerkId: userId,
-    email,
-    name,
-    requestedRole: requested,
-    status: 'pending',
+    if (!user) {
+      return errorResponse('User profile not found', 'NOT_FOUND', 404)
+    }
+
+    const [existingPending] = await db
+      .select()
+      .from(roleRequests)
+      .where(
+        and(
+          eq(roleRequests.userId, userId),
+          eq(roleRequests.status, 'PENDING'),
+          eq(roleRequests.tenantId, t.tenant.id),
+        ),
+      )
+      .limit(1)
+
+    if (existingPending) {
+      return errorResponse('You already have a pending request', 'PENDING_EXISTS', 400)
+    }
+
+    await db.insert(roleRequests).values({
+      tenantId: t.tenant.id,
+      userId: userId,
+      email: user.email,
+      name: user.name,
+      requestedRole: requestedRole,
+      status: 'PENDING',
+    })
+
+    return successResponse({ ok: true })
   })
-
-  return NextResponse.json({ ok: true })
 }

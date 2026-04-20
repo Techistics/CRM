@@ -13,7 +13,7 @@ export default async function AdminRoleRequestsPage() {
     .from(roleRequests)
     .where(
       and(
-        eq(roleRequests.status, 'pending'),
+        eq(roleRequests.status, 'PENDING'),
         eq(roleRequests.tenantId, tenant.id),
       ),
     )
@@ -23,7 +23,7 @@ export default async function AdminRoleRequestsPage() {
     <div className="p-8 max-w-5xl">
       <h1 className="text-2xl font-semibold text-foreground">Access requests</h1>
       <p className="text-muted-foreground text-sm mt-1">
-        Approve to add the user to this workspace&apos;s Clerk organization with the requested role.
+        Approve to add the user to this workspace with the requested role.
       </p>
 
       {pending.length === 0 ? (
@@ -52,7 +52,7 @@ export default async function AdminRoleRequestsPage() {
                   <td className="px-4 py-3">
                     <span
                       className={`text-xs font-medium px-2 py-1 rounded-md ${
-                        r.requestedRole === 'admin'
+                        r.requestedRole === 'ADMIN'
                           ? 'bg-amber-500/15 text-amber-700'
                           : 'bg-purple-500/15 text-purple-700'
                       }`}

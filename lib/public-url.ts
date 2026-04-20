@@ -1,16 +1,16 @@
 /** E.g. `localhost:3000` or `devclystcrm.vercel.app` (no protocol). Used for workspace URLs. */
-export function getRootDomain(): string {
-  return process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost:3000'
+/** E.g. `localhost:5000` or `devclystcrm.vercel.app`. Used for absolute URLs in emails etc. */
+export function getRootOrigin(): string {
+  if (process.env.NODE_ENV === 'development') {
+    return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5000'
+  }
+  return `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'devclystcrm.vercel.app'}`
 }
 
+/** 
+ * Returns a relative path for workspace navigation to stay on the current origin.
+ * Path-based tenancy on the apex host ensures this works in all environments.
+ */
 export function workspaceOrigin(tenantSlug: string): string {
-  let root = getRootDomain()
-  
-  // Remove protocol if it exists (handle if env var includes https://)
-  root = root.replace(/^https?:\/\//, '')
-  
-  const isLocalhost = root.includes('localhost')
-  const protocol = isLocalhost ? 'http' : 'https'
-  
-  return `${protocol}://${root}/t/${tenantSlug}`
+  return `/t/${tenantSlug}`
 }

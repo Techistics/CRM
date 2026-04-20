@@ -1,20 +1,20 @@
-import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { tenants } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
+import { successResponse, withApiErrorHandling } from '@/lib/api-response'
 
 export async function POST() {
-  try {
+  return withApiErrorHandling(async () => {
     console.log('Creating tenant with slug "0"...')
 
     // Check if tenant already exists
-    const existing = await db.select().from(tenants).where(eq(tenants.slug, '0')).limit(1)
+    const [existing] = await db.select().from(tenants).where(eq(tenants.slug, '0')).limit(1)
     
-    if (existing.length > 0) {
-      return NextResponse.json({ 
+    if (existing) {
+      return successResponse({ 
         message: 'Tenant with slug "0" already exists', 
-        tenant: existing[0] 
+        tenant: existing 
       })
     }
 
@@ -23,22 +23,15 @@ export async function POST() {
       id: randomUUID(),
       slug: '0',
       name: 'Zero Tenant',
-      clerkOrgId: `org_${randomUUID()}`, // You'll need to update this with actual Clerk Org ID
       status: 'active' as const,
       settings: {},
     }
 
-    const result = await db.insert(tenants).values(newTenant).returning()
+    const [created] = await db.insert(tenants).values(newTenant).returning()
     
-    return NextResponse.json({ 
+    return successResponse({ 
       message: 'Successfully created tenant', 
-      tenant: result[0] 
-    })
-  } catch (error) {
-    console.error('Error creating tenant:', error)
-    return NextResponse.json({ 
-      error: 'Failed to create tenant', 
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
-  }
+      tenant: created 
+    }, 201)
+  })
 }

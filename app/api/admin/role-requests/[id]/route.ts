@@ -1,95 +1,105 @@
-import { auth, clerkClient } from '@clerk/nextjs/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { eq } from 'drizzle-orm'
+import { z } from 'zod'
 
 import { db } from '@/db'
-import { roleRequests } from '@/db/schema'
+import { roleRequests, tenantMembers } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
-import { syncAppUserFromClerk } from '@/lib/app-user'
+import { getSession } from '@/lib/auth'
+import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
+
+const roleDecisionSchema = z.object({
+  decision: z.enum(['approve', 'reject'])
+})
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const ctx = await requireTenantAdminApi()
-  if (!ctx.ok) return ctx.response
+  return withApiErrorHandling(async () => {
+    const ctx = await requireTenantAdminApi()
+    if (!ctx.ok) return ctx.response
 
-  const { userId: reviewerClerkId } = await auth()
-  if (!reviewerClerkId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+    const session = await getSession()
+    if (!session) {
+      return errorResponse('Unauthorized', 'UNAUTHORIZED', 401)
+    }
 
-  const { id } = await params
-  let body: { decision?: string }
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+    const { id } = await params
+    let rawBody: unknown
+    try {
+      rawBody = await req.json()
+    } catch {
+      return errorResponse('Invalid JSON', 'INVALID_JSON', 400)
+    }
 
-  const decision = body.decision
-  if (decision !== 'approve' && decision !== 'reject') {
-    return NextResponse.json(
-      { error: 'decision must be approve or reject' },
-      { status: 400 },
-    )
-  }
+    const parsed = roleDecisionSchema.safeParse(rawBody)
+    if (!parsed.success) {
+      return errorResponse('Decision must be approve or reject', 'VALIDATION_ERROR', 400)
+    }
 
-  const [row] = await db.select().from(roleRequests).where(eq(roleRequests.id, id))
-  if (!row || row.status !== 'pending') {
-    return NextResponse.json(
-      { error: 'Request not found or already handled' },
-      { status: 404 },
-    )
-  }
+    const { decision } = parsed.data
 
-  if (row.tenantId && row.tenantId !== ctx.tenant.id) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+    const [row] = await db
+      .select()
+      .from(roleRequests)
+      .where(eq(roleRequests.id, id))
+    
+    if (!row || row.status !== 'PENDING') {
+      return errorResponse('Request not found or already handled', 'NOT_FOUND', 404)
+    }
 
-  const now = new Date()
+    if (row.tenantId && row.tenantId !== ctx.tenant.id) {
+      return errorResponse('Forbidden', 'FORBIDDEN', 403)
+    }
 
-  if (decision === 'reject') {
+    const now = new Date()
+
+    if (decision === 'reject') {
+      await db
+        .update(roleRequests)
+        .set({
+          status: 'REJECTED',
+          reviewedAt: now,
+          reviewedBy: session.userId,
+        })
+        .where(eq(roleRequests.id, id))
+      return successResponse({ ok: true })
+    }
+
+    // Approval logic
+    const user = await db.query.users.findFirst({
+      where: (u, { eq }) => eq(u.id, row.userId as string), 
+    })
+
+    if (!user) {
+      return errorResponse('User not found', 'USER_NOT_FOUND', 404)
+    }
+
+    try {
+      await db.insert(tenantMembers).values({
+        tenantId: ctx.tenant.id,
+        userId: user.id,
+        role: row.requestedRole as 'ADMIN' | 'PRO',
+      })
+    } catch (e) {
+      console.error('[ROLE_APPROVAL_INSERT_ERROR]', e)
+      return errorResponse(
+        'Could not add user to workspace. They may already be a member.',
+        'SUBMISSION_ERROR'
+      )
+    }
+
     await db
       .update(roleRequests)
       .set({
-        status: 'rejected',
+        status: 'APPROVED',
         reviewedAt: now,
-        reviewedByClerkId: reviewerClerkId,
+        reviewedBy: session.userId,
+        tenantId: row.tenantId ?? ctx.tenant.id,
       })
       .where(eq(roleRequests.id, id))
-    return NextResponse.json({ ok: true })
-  }
 
-  const client = await clerkClient()
-  try {
-    await client.organizations.createOrganizationMembership({
-      organizationId: ctx.tenant.clerkOrgId,
-      userId: row.clerkId,
-      role: row.requestedRole === 'admin' ? 'org:admin' : 'org:member',
-    })
-  } catch (e) {
-    console.error(e)
-    return NextResponse.json(
-      {
-        error:
-          'Could not add user to Clerk organization. They may already be a member.',
-      },
-      { status: 400 },
-    )
-  }
-
-  await syncAppUserFromClerk(row.clerkId)
-
-  await db
-    .update(roleRequests)
-    .set({
-      status: 'approved',
-      reviewedAt: now,
-      reviewedByClerkId: reviewerClerkId,
-      tenantId: row.tenantId ?? ctx.tenant.id,
-    })
-    .where(eq(roleRequests.id, id))
-
-  return NextResponse.json({ ok: true })
+    return successResponse({ ok: true })
+  })
 }

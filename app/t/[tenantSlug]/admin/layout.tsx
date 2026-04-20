@@ -1,4 +1,4 @@
-import { count, eq, and } from 'drizzle-orm'
+import { count, eq, and, isNull } from 'drizzle-orm'
 
 import { db } from '@/db'
 import { tenantMembers } from '@/db/schema'
@@ -21,7 +21,8 @@ export default async function AdminLayout({
     .where(
       and(
         eq(tenantMembers.tenantId, tenant.id),
-        eq(tenantMembers.role, 'agent'),
+        eq(tenantMembers.role, 'PRO'),
+        isNull(tenantMembers.deletedAt)
       ),
     )
 
@@ -31,7 +32,7 @@ export default async function AdminLayout({
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-slate-50/90 dark:bg-background">
-        <RoleSidebar role="admin" tenantSlug={tenant.slug} badges={{ team: teamBadge }} />
+        <RoleSidebar role="ADMIN" tenantSlug={tenant.slug} badges={{ team: teamBadge }} />
         <div className="flex min-h-screen flex-col lg:pl-52">
           <AdminHeader tenantSlug={tenant.slug} />
           <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 md:px-8 md:py-8">

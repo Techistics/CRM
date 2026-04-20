@@ -6,8 +6,7 @@ import { db } from '@/db'
 import { tenants } from '@/db/schema'
 import type { Tenant } from '@/types/models'
 
-import { auth } from '@clerk/nextjs/server'
-
+import { getSession } from '@/lib/auth'
 import { resolveTenantAccess } from '@/lib/tenant-access'
 import type { TenantAppRole } from '@/lib/tenant-membership'
 
@@ -33,17 +32,20 @@ export async function requireTenantFromHeaders(): Promise<Tenant> {
   return tenant
 }
 
-/** Server guard: signed-in user with workspace context (org member or platform super admin). */
+/** Server guard: signed-in user with workspace context. */
 export async function requireTenantSession(): Promise<{
   tenant: Tenant
   dbUserId: string
   role: TenantAppRole
 }> {
   const tenant = await requireTenantFromHeaders()
-  const { userId } = await auth()
-  if (!userId) redirect('/sign-in')
+  const session = await getSession()
+  
+  if (!session) {
+    redirect('/sign-in')
+  }
 
-  const actor = await resolveTenantAccess(userId, tenant)
+  const actor = await resolveTenantAccess(session.userId, tenant)
   if (!actor) {
     redirect('/no-access?reason=not-in-org')
   }
@@ -53,7 +55,7 @@ export async function requireTenantSession(): Promise<{
 
 export async function requireTenantAdminSession() {
   const ctx = await requireTenantSession()
-  if (ctx.role !== 'tenant_admin') {
+  if (ctx.role !== 'ADMIN') {
     redirect(`/t/${ctx.tenant.slug}/pro/overview`)
   }
   return ctx

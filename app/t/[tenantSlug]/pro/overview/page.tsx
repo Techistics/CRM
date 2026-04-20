@@ -1,7 +1,7 @@
 import { db } from '@/db'
 import { leads, users } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { UserButton } from '@clerk/nextjs'
+import { UserMenu } from '@/components/shared/UserMenu'
 import Link from 'next/link'
 import { requireTenantSession } from '@/lib/tenant-server'
 import { tenantPath } from '@/lib/tenant-path'
@@ -47,7 +47,7 @@ export default async function ProOverviewPage() {
         </div>
         <div className="flex items-center gap-3 bg-white border border-gray-200 shadow-sm rounded-full pl-4 pr-1.5 py-1.5">
           <span className="text-sm font-medium text-gray-600">{dbUser.email}</span>
-          <UserButton />
+          <UserMenu />
         </div>
       </div>
 

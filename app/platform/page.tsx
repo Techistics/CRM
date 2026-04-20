@@ -5,8 +5,8 @@ export default function PlatformHomePage() {
     <div>
       <h1 className="text-2xl font-semibold">Platform admin</h1>
       <p className="text-muted-foreground text-sm mt-2 max-w-xl">
-        Create and manage customer workspaces. Each workspace maps to a Clerk
-        Organization and a subdomain (e.g.{' '}
+        Create and manage customer workspaces. Each workspace maps to a unique identification
+        and a subdomain (e.g.{' '}
         <code className="text-xs bg-muted px-1 rounded">slug.yourdomain.com</code>).
       </p>
       <Link

@@ -57,7 +57,7 @@ export default async function AdminOverviewPage() {
     .where(
       and(
         eq(tenantMembers.tenantId, tenant.id),
-        eq(tenantMembers.role, 'agent'),
+        eq(tenantMembers.role, 'PRO'),
       ),
     )
 

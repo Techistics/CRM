@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { AppRole } from '@/lib/role'
 
 export default function RequestRoleForm({
   lastRejected,
@@ -10,7 +9,7 @@ export default function RequestRoleForm({
   lastRejected: boolean
 }) {
   const router = useRouter()
-  const [role, setRole] = useState<AppRole>('pro')
+  const [role, setRole] = useState<'PRO' | 'ADMIN'>('PRO')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,7 +25,9 @@ export default function RequestRoleForm({
     const data = await res.json().catch(() => ({}))
     setLoading(false)
     if (!res.ok) {
-      setError(typeof data.error === 'string' ? data.error : 'Something went wrong')
+      setError(
+        typeof data.error === 'string' ? data.error : 'Something went wrong',
+      )
       return
     }
     router.refresh()
@@ -40,20 +41,26 @@ export default function RequestRoleForm({
         </p>
       )}
       <div>
-        <label htmlFor="requested-role" className="block text-sm text-muted-foreground mb-1.5">
+        <label
+          htmlFor="requested-role"
+          className="block text-sm text-muted-foreground mb-1.5"
+        >
           Requested role
         </label>
         <select
           id="requested-role"
           value={role}
-          onChange={(e) => setRole(e.target.value as AppRole)}
+          onChange={(e) =>
+            setRole(e.target.value as 'PRO' | 'ADMIN')
+          }
           className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
         >
-          <option value="pro">Agent — manage assigned leads</option>
-          <option value="admin">Admin — full workspace CRM</option>
+          <option value="PRO">Pro (Agent)</option>
+          <option value="ADMIN">Admin (Owner)</option>
         </select>
         <p className="text-muted-foreground text-xs mt-1.5">
-          A workspace admin must approve you in Clerk (organization membership).
+          A workspace administrator must approve your request before you gain
+          access.
         </p>
       </div>
       {error && (

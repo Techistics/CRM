@@ -21,7 +21,7 @@ export async function getLeadForMemberAction(
 ) {
   const lead = await getLeadInTenant(leadId, tenantId)
   if (!lead) return null
-  if (role === 'tenant_admin') return lead
+  if (role === 'ADMIN') return lead
   if (lead.assignedTo === dbUserId) return lead
   return null
 }

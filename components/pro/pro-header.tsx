@@ -1,6 +1,6 @@
 'use client'
 
-import { UserButton } from '@clerk/nextjs'
+import { UserMenu } from '@/components/shared/UserMenu'
 import { Menu, Search } from 'lucide-react'
 import NotificationBell from '@/app/components/NotificationBell'
 import { useSidebar } from '@/components/sidebar-provider'
@@ -38,13 +38,7 @@ export function ProHeader({ tenantSlug }: { tenantSlug: string }) {
 
         <div className="flex shrink-0 items-center gap-1">
           <NotificationBell tenantSlug={tenantSlug} portalBase="pro" />
-          <UserButton
-            appearance={{
-              elements: {
-                avatarBox: 'h-8 w-8',
-              },
-            }}
-          />
+          <UserMenu />
         </div>
       </div>
     </header>

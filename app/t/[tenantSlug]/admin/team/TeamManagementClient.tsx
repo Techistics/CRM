@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-type TeamRole = 'tenant_admin' | 'agent'
+type TeamRole = 'ADMIN' | 'PRO'
 
 type TeamMember = {
   id: string
@@ -47,15 +47,19 @@ export default function TeamManagementClient({
 
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<TeamRole>('agent')
+  const [inviteRole, setInviteRole] = useState<TeamRole>('PRO')
 
   const [editOpen, setEditOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
-  const [editRole, setEditRole] = useState<TeamRole>('agent')
+  const [editRole, setEditRole] = useState<TeamRole>('PRO')
+  
+  const [resendOpen, setResendOpen] = useState(false)
+  const [resendEmail, setResendEmail] = useState('')
+  const [resendRole, setResendRole] = useState<TeamRole>('PRO')
 
   const stats = useMemo(() => {
-    const admins = members.filter((m) => m.role === 'tenant_admin').length
-    const pros = members.filter((m) => m.role === 'agent').length
+    const admins = members.filter((m) => m.role === 'ADMIN').length
+    const pros = members.filter((m) => m.role === 'PRO').length
     return { admins, pros }
   }, [members])
 
@@ -93,7 +97,7 @@ export default function TeamManagementClient({
 
     setInviteOpen(false)
     setInviteEmail('')
-    setInviteRole('agent')
+    setInviteRole('PRO')
     router.refresh()
   }
 
@@ -127,6 +131,37 @@ export default function TeamManagementClient({
       prev.map((m) => (m.id === editId ? { ...m, role: editRole } : m)),
     )
     setEditOpen(false)
+    router.refresh()
+  }
+
+  function startResend(member: TeamMember) {
+    if (!member.email) return
+    setError(null)
+    setResendEmail(member.email)
+    setResendRole(member.role)
+    setResendOpen(true)
+  }
+
+  async function resendInvite() {
+    if (!resendEmail) return
+    setError(null)
+    setBusyId('resend')
+
+    const res = await fetch('/api/admin/team-members', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: resendEmail, role: resendRole }),
+    })
+
+    setBusyId(null)
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setError(typeof data.error === 'string' ? data.error : 'Resend failed')
+      return
+    }
+
+    setResendOpen(false)
     router.refresh()
   }
 
@@ -199,7 +234,7 @@ export default function TeamManagementClient({
                 <td className="px-4 py-3 text-muted-foreground">{m.email}</td>
                 <td className="px-4 py-3">
                   <span className="rounded-md bg-muted px-2 py-1 text-xs">
-                    {m.role === 'tenant_admin' ? 'Admin' : 'Pro'}
+                    {m.role === 'ADMIN' ? 'Admin' : 'Pro'}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
@@ -218,18 +253,29 @@ export default function TeamManagementClient({
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busyId === m.id || m.status === 'pending_invite'}
-                      onClick={() => startEdit(m)}
-                    >
-                      Edit
-                    </Button>
+                    {m.status === 'pending_invite' ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={busyId === m.id || busyId === 'resend'}
+                        onClick={() => startResend(m)}
+                      >
+                        Resend
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busyId === m.id}
+                        onClick={() => startEdit(m)}
+                      >
+                        Edit
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="destructive"
-                      disabled={busyId === m.id || m.status === 'pending_invite'}
+                      disabled={busyId === m.id}
                       onClick={() => removeMember(m.id)}
                     >
                       Remove
@@ -269,8 +315,8 @@ export default function TeamManagementClient({
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="agent">Pro</SelectItem>
-                <SelectItem value="tenant_admin">Admin</SelectItem>
+                <SelectItem value="PRO">Pro</SelectItem>
+                <SelectItem value="ADMIN">Admin</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -296,8 +342,8 @@ export default function TeamManagementClient({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="agent">Pro</SelectItem>
-              <SelectItem value="tenant_admin">Admin</SelectItem>
+              <SelectItem value="PRO">Pro</SelectItem>
+              <SelectItem value="ADMIN">Admin</SelectItem>
             </SelectContent>
           </Select>
           <DialogFooter>
@@ -306,6 +352,34 @@ export default function TeamManagementClient({
             </Button>
             <Button disabled={!editId || busyId === editId} onClick={saveEdit}>
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={resendOpen} onOpenChange={setResendOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resend Invitation</DialogTitle>
+            <DialogDescription>
+              Update role and resend the invite link to <strong>{resendEmail}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <Select value={resendRole} onValueChange={(v) => setResendRole(v as TeamRole)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="PRO">Pro</SelectItem>
+              <SelectItem value="ADMIN">Admin</SelectItem>
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResendOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={busyId === 'resend'} onClick={resendInvite}>
+              {busyId === 'resend' ? 'Sending…' : 'Resend Email'}
             </Button>
           </DialogFooter>
         </DialogContent>

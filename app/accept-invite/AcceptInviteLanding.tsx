@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { acceptInviteAction } from '@/app/actions/invitations'
 import { Check, Loader2, LogOut, CheckCircle2, Building2, ShieldCheck } from 'lucide-react'
@@ -18,6 +19,7 @@ export function AcceptInviteLanding({
   email,
   role
 }: AcceptInviteLandingProps) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -26,8 +28,13 @@ export function AcceptInviteLanding({
     setError(null)
     startTransition(async () => {
       try {
-        await acceptInviteAction(invitationId)
-        setSuccess(true)
+        const res = await acceptInviteAction(invitationId)
+        if (res.success) {
+          setSuccess(true)
+          setTimeout(() => {
+            router.push(res.redirectPath)
+          }, 2000)
+        }
       } catch (err: any) {
         setError(err.message || 'Failed to accept invitation')
       }

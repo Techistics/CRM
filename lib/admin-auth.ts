@@ -6,6 +6,6 @@ export async function requireAdminUserId(): Promise<string | null> {
   const session = await getSession()
   if (!session) return null
   const role = await getUserRole()
-  if (role !== 'admin') return null
+  if (role !== 'SUPER_ADMIN') return null
   return session.userId
 }

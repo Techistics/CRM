@@ -54,5 +54,8 @@ export async function acceptInviteAction(invitationId: string) {
   if (!tenant) throw new Error('Tenant not found')
 
   const targetPath = invite.role === 'ADMIN' ? 'admin/overview' : 'pro/overview'
-  redirect(`/t/${tenant.slug}/${targetPath}`)
+  return {
+    success: true,
+    redirectPath: `/t/${tenant.slug}/${targetPath}`,
+  }
 }

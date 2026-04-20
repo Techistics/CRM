@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { acceptInviteAction } from '@/app/actions/invitations'
-import { useTransition } from 'react'
 import { Check, Loader2 } from 'lucide-react'
 
 export function AcceptInviteButton({ invitationId }: { invitationId: string }) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -15,9 +16,13 @@ export function AcceptInviteButton({ invitationId }: { invitationId: string }) {
     setError(null)
     startTransition(async () => {
       try {
-        const result = await acceptInviteAction(invitationId)
-        if (result.success) {
+        const res = await acceptInviteAction(invitationId)
+        if (res.success) {
           setSuccess(true)
+          // Brief delay to show success state before redirecting
+          setTimeout(() => {
+            router.push(res.redirectPath)
+          }, 1000)
         }
       } catch (err: any) {
         setError(err.message || 'Failed to accept invitation')

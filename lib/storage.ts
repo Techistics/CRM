@@ -67,7 +67,7 @@ function getClient(): S3Client {
     region: config.region,
     endpoint: config.endpoint,
     credentials: config.credentials,
-    forcePathStyle: (config as any).forcePathStyle,
+    forcePathStyle: (config as { forcePathStyle?: boolean }).forcePathStyle,
   })
 }
 

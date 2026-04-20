@@ -53,7 +53,7 @@ export default function LeadDetailClient({
   const [addingNote, setAddingNote] = useState(false)
   const [editingLead, setEditingLead] = useState(false)
   const [checklistItems, setChecklistItems] = useState<LeadDocumentChecklistItem[]>([])
-  const [loadingChecklist, setLoadingChecklist] = useState(true)
+  const [, setLoadingChecklist] = useState(true)
   const [reminders, setReminders] = useState<LeadReminder[]>([])
   const [loadingReminders, setLoadingReminders] = useState(true)
   const [reminderTitle, setReminderTitle] = useState('')
@@ -70,11 +70,6 @@ export default function LeadDetailClient({
   })
 
   const proUsers = allUsers.filter((u) => u.role === 'PRO')
-  const checklistProgress = useMemo(() => {
-    if (checklistItems.length === 0) return { done: 0, total: 0 }
-    const done = checklistItems.filter((item) => item.isSubmitted === true).length
-    return { done, total: checklistItems.length }
-  }, [checklistItems])
 
   useEffect(() => {
     async function loadChecklist() {

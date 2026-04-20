@@ -86,7 +86,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
   // Edit/Delete state
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editLabel, setEditLabel] = useState('')
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [, setDeletingId] = useState<string | null>(null)
 
   const loadDocuments = useCallback(async () => {
     try {
@@ -157,12 +157,12 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
       })
       // Force immediate re-fetch
       await loadDocuments()
-    } catch (err) {
+    } catch (_err) {
       toast({
         variant: 'destructive',
         title: 'Upload failed',
         description:
-          err instanceof Error ? err.message : 'Check storage configuration.',
+          _err instanceof Error ? _err.message : 'Check storage configuration.',
       })
     } finally {
       setUploading(false)
@@ -178,7 +178,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
       if (!res.ok) throw new Error('Delete failed')
       toast({ title: 'Deleted', description: 'Document removed successfully.' })
       await loadDocuments()
-    } catch (err) {
+    } catch (_err) {
       toast({
         variant: 'destructive',
         title: 'Delete failed',
@@ -200,7 +200,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
       toast({ title: 'Updated', description: 'Document label saved.' })
       await loadDocuments()
       setEditingId(null)
-    } catch (err) {
+    } catch (_err) {
       toast({
         variant: 'destructive',
         title: 'Rename failed',

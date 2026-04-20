@@ -53,7 +53,7 @@ export default function LeadDetailClient({
   const [addingNote, setAddingNote] = useState(false)
   const [editingLead, setEditingLead] = useState(false)
   const [checklistItems, setChecklistItems] = useState<LeadDocumentChecklistItem[]>([])
-  const [loadingChecklist, setLoadingChecklist] = useState(true)
+  const [, setLoadingChecklist] = useState(true)
   const [reminders, setReminders] = useState<LeadReminder[]>([])
   const [loadingReminders, setLoadingReminders] = useState(true)
   const [reminderTitle, setReminderTitle] = useState('')
@@ -70,11 +70,6 @@ export default function LeadDetailClient({
   })
 
   const proUsers = allUsers.filter((u) => u.role === 'PRO')
-  const checklistProgress = useMemo(() => {
-    if (checklistItems.length === 0) return { done: 0, total: 0 }
-    const done = checklistItems.filter((item) => item.isSubmitted === true).length
-    return { done, total: checklistItems.length }
-  }, [checklistItems])
 
   useEffect(() => {
     async function loadChecklist() {
@@ -399,34 +394,6 @@ export default function LeadDetailClient({
             <LeadActivityTimeline activities={initialActivities} />
           </div>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-white font-medium mb-2">Country Document Checklist</h2>
-            <p className="text-xs text-gray-500 mb-4">
-              {checklistProgress.done}/{checklistProgress.total} documents submitted
-            </p>
-            {loadingChecklist ? (
-              <p className="text-sm text-gray-500">Loading checklist...</p>
-            ) : (
-              <div className="space-y-2">
-                {checklistItems.map((item) => {
-                  const isSubmitted = item.isSubmitted === true
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => toggleChecklistItem(item.id, !isSubmitted)}
-                      className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${
-                        isSubmitted
-                          ? 'border-emerald-600 bg-emerald-600/10 text-emerald-300'
-                          : 'border-gray-700 text-gray-300'
-                      }`}
-                    >
-                      {isSubmitted ? '✓' : '○'} {item.documentLabel}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
 
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <h2 className="text-white font-medium mb-4">Follow-up Reminders</h2>

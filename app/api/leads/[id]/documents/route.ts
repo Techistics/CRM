@@ -10,6 +10,8 @@ import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-
 
 const MAX_BYTES = 10 * 1024 * 1024 // 10 MB
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -44,7 +46,7 @@ export async function GET(
       .leftJoin(users, eq(leadUploadedDocuments.uploadedBy, users.id))
       .where(
         and(
-          eq(leadUploadedDocuments.tenantId, ctx.tenant.id),
+          eq(leadUploadedDocuments.tenantId, lead.tenantId),
           eq(leadUploadedDocuments.leadId, id),
         ),
       )

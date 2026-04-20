@@ -15,6 +15,8 @@ const checklistPatchSchema = z.object({
   isSubmitted: z.boolean(),
 })
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -39,7 +41,7 @@ export async function GET(
       .from(leadDocumentChecklist)
       .where(
         and(
-          eq(leadDocumentChecklist.tenantId, ctx.tenant.id),
+          eq(leadDocumentChecklist.tenantId, lead.tenantId),
           eq(leadDocumentChecklist.leadId, id),
         ),
       )
@@ -47,6 +49,7 @@ export async function GET(
     if (existing.length > 0) return successResponse({ items: existing })
 
     const template = getChecklistTemplateForCountry(lead.country)
+
     const seeded = await db
       .insert(leadDocumentChecklist)
       .values(

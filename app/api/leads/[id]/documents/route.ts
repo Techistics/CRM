@@ -6,8 +6,6 @@ import { leadActivities, leadUploadedDocuments, users } from '@/db/schema'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
 import { requireTenantMemberApi } from '@/lib/tenant-api'
 import { uploadFile } from '@/lib/storage'
-import { requireTenantMemberApi } from '@/lib/tenant-api'
-import { uploadFile } from '@/lib/storage'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
 const MAX_BYTES = 10 * 1024 * 1024 // 10 MB

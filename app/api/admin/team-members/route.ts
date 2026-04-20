@@ -5,7 +5,6 @@ import { users, tenantMembers, invitations, auditLogs } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
 import { sendInviteEmail } from '@/lib/mail'
 import crypto from 'crypto'
-import { cleanupExpiredInvitations } from '@/lib/invitation-cleanup'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { teamInviteSchema, teamResendSchema } from '@/lib/validators/auth'
 import { getRootOrigin } from '@/lib/public-url'
@@ -19,9 +18,6 @@ export async function GET(req: NextRequest) {
   return withApiErrorHandling(async () => {
     const ctx = await requireTenantAdminApi()
     if (!ctx.ok) return ctx.response
-
-    // Trigger Cleanup
-    await cleanupExpiredInvitations()
 
     // Fetch Members
     const members = await db

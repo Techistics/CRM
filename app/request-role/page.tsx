@@ -3,7 +3,7 @@ import { db } from '@/db'
 import { roleRequests } from '@/db/schema'
 import { desc, eq } from 'drizzle-orm'
 import RequestRoleForm from './RequestRoleForm'
-import { getRootDomain } from '@/lib/public-url'
+import { getRootOrigin } from '@/lib/public-url'
 import { getSession } from '@/lib/auth'
 import Link from 'next/link'
 
@@ -30,7 +30,7 @@ export default async function RequestRolePage() {
         <p className="mt-2 text-sm text-muted-foreground">
           Submit a request from your team&apos;s workspace URL (e.g.{' '}
           <code className="text-xs bg-muted px-1 rounded">
-            https://yourteam.{getRootDomain()}/request-role
+            https://yourteam.{getRootOrigin().replace(/^https?:\/\//, '')}/request-role
           </code>
           ) so it is tied to the correct organization.
         </p>

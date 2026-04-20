@@ -6,8 +6,11 @@ import {
   integer,
   jsonb,
   boolean,
+  decimal,
+  varchar,
   unique,
   index,
+  primaryKey,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -162,6 +165,8 @@ export const leads = pgTable('leads', {
     onDelete: 'set null',
   }),
   createdBy: uuid('created_by').references(() => users.id),
+  dealValue: decimal('deal_value', { precision: 12, scale: 2 }),
+  dealCurrency: varchar('deal_currency', { length: 3 }).default('USD').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 }, (t) => ({
@@ -323,3 +328,59 @@ export const csvImports = pgTable('csv_imports', {
   }).default('processing'),
   createdAt: timestamp('created_at').defaultNow(),
 })
+
+// ─── Lead Tags ──────────────────────────────────────────────
+export const leadTags = pgTable(
+  'lead_tags',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .references(() => tenants.id, { onDelete: 'cascade' })
+      .notNull(),
+    name: text('name').notNull(),
+    color: text('color').notNull().default('#3b82f6'),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => ({
+    unq: unique().on(t.tenantId, t.name),
+    idx_tenant: index('idx_lead_tags_tenant').on(t.tenantId),
+  }),
+)
+
+export const leadTagAssignments = pgTable(
+  'lead_tag_assignments',
+  {
+    leadId: uuid('lead_id')
+      .references(() => leads.id, { onDelete: 'cascade' })
+      .notNull(),
+    tagId: uuid('tag_id')
+      .references(() => leadTags.id, { onDelete: 'cascade' })
+      .notNull(),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.leadId, t.tagId] }),
+    idx_lead: index('idx_tag_assignments_lead').on(t.leadId),
+    idx_tag: index('idx_tag_assignments_tag').on(t.tagId),
+  }),
+)
+
+// ─── Relations (cont.) ────────────────────────────────────────
+export const leadRelations = relations(leads, ({ many }) => ({
+  tagAssignments: many(leadTagAssignments),
+}))
+
+export const leadTagRelations = relations(leadTags, ({ many }) => ({
+  assignments: many(leadTagAssignments),
+}))
+
+export const leadTagAssignmentRelations = relations(leadTagAssignments, ({ one }) => ({
+  lead: one(leads, {
+    fields: [leadTagAssignments.leadId],
+    references: [leads.id],
+  }),
+  tag: one(leadTags, {
+    fields: [leadTagAssignments.tagId],
+    references: [leadTags.id],
+  }),
+}))

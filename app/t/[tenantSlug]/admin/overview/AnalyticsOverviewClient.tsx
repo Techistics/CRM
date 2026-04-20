@@ -18,6 +18,8 @@ import {
   Activity,
   UserRoundX,
   Bell,
+  DollarSign,
+  TrendingUp,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -51,6 +53,9 @@ export default function AnalyticsOverviewClient({
   newLeadsToday,
   unassignedCount,
   agentStats,
+  pipelineValue,
+  wonRevenue,
+  conversionRate,
 }: {
   tenantSlug: string
   chartByWindow: Record<ChartWindow, PipelineChartSnapshot>
@@ -62,6 +67,9 @@ export default function AnalyticsOverviewClient({
   newLeadsToday: number
   unassignedCount: number
   agentStats: AgentStat[]
+  pipelineValue: number
+  wonRevenue: number
+  conversionRate: number
 }) {
   const router = useRouter()
   const [chartWindow, setChartWindow] = useState<ChartWindow>('week')
@@ -112,25 +120,32 @@ export default function AnalyticsOverviewClient({
 
   const kpiItems = [
     {
+      title: 'Won Revenue',
+      value: `USD ${wonRevenue.toLocaleString()}`,
+      hint: `${paidCount} leads won all-time`,
+      trend: 'positive' as const,
+      icon: DollarSign,
+    },
+    {
+      title: 'Pipeline Value',
+      value: `USD ${pipelineValue.toLocaleString()}`,
+      hint: `${activeCount} leads in progress`,
+      trend: 'neutral' as const,
+      icon: Activity,
+    },
+    {
+      title: 'Conversion Rate',
+      value: `${conversionRate}%`,
+      hint: 'Leads won vs total leads',
+      trend: conversionRate > 20 ? ('positive' as const) : ('neutral' as const),
+      icon: TrendingUp,
+    },
+    {
       title: 'New leads today',
       value: newLeadsToday,
       hint: 'Created since midnight',
       trend: 'neutral' as const,
       icon: UserPlus,
-    },
-    {
-      title: 'Total leads',
-      value: totalLeads.toLocaleString(),
-      hint: `${paidCount.toLocaleString()} paid · ${cancelledCount.toLocaleString()} cancelled`,
-      trend: 'positive' as const,
-      icon: Users,
-    },
-    {
-      title: 'Active pipeline',
-      value: activeCount.toLocaleString(),
-      hint: `${activePct}% of all leads`,
-      trend: 'positive' as const,
-      icon: Activity,
     },
     {
       title: 'Unassigned',
@@ -141,16 +156,6 @@ export default function AnalyticsOverviewClient({
           : 'All leads assigned',
       trend: unassignedCount > 0 ? ('negative' as const) : ('positive' as const),
       icon: UserRoundX,
-    },
-    {
-      title: 'Overdue follow-ups',
-      value: overdueRemindersCount.toLocaleString(),
-      hint:
-        overdueRemindersCount > 0
-          ? 'Reminders past due (all leads)'
-          : 'No overdue reminders',
-      trend: overdueRemindersCount > 0 ? ('negative' as const) : ('positive' as const),
-      icon: Bell,
     },
   ]
 
@@ -373,7 +378,7 @@ export default function AnalyticsOverviewClient({
                   <TableHead>Total Leads</TableHead>
                   <TableHead>Active</TableHead>
                   <TableHead>Paid</TableHead>
-                  <TableHead>Cancelled</TableHead>
+                  <TableHead>Total Value</TableHead>
                   <TableHead>Conversion</TableHead>
                 </TableRow>
               </TableHeader>
@@ -421,7 +426,9 @@ export default function AnalyticsOverviewClient({
                       <TableCell className="font-medium">{agent.total}</TableCell>
                       <TableCell className="text-blue-600">{agent.active}</TableCell>
                       <TableCell className="text-emerald-600">{agent.paid}</TableCell>
-                      <TableCell className="text-red-600">{agent.cancelled}</TableCell>
+                      <TableCell className="font-medium">
+                        USD {Number(agent.totalValue || 0).toLocaleString()}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">

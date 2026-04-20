@@ -110,6 +110,11 @@ export async function PATCH(
           ? strOrNull(patch.lastQualification)
           : lead.lastQualification,
       grades: patch.grades !== undefined ? strOrNull(patch.grades) : lead.grades,
+      dealValue:
+        patch.dealValue !== undefined
+          ? patch.dealValue?.toString() ?? null
+          : lead.dealValue,
+      dealCurrency: patch.dealCurrency ?? lead.dealCurrency,
       updatedAt: new Date(),
     }
 
@@ -140,6 +145,8 @@ export async function PATCH(
     if (patch.country !== undefined) changed.push('country')
     if (patch.lastQualification !== undefined) changed.push('qualification')
     if (patch.grades !== undefined) changed.push('grades')
+    if (patch.dealValue !== undefined) changed.push('deal value')
+    if (patch.dealCurrency !== undefined) changed.push('currency')
 
     if (changed.length > 0) {
       await db.insert(leadActivities).values({

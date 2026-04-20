@@ -1,6 +1,6 @@
 import { db } from '@/db'
 import { leads, leadReminders, users, tenantMembers } from '@/db/schema'
-import { eq, count, gte, isNull, and } from 'drizzle-orm'
+import { eq, count, gte, isNull, and, sql } from 'drizzle-orm'
 import AnalyticsOverviewClient from './AnalyticsOverviewClient'
 import { loadChartSnapshotsByWindow } from '@/lib/analytics-pipeline'
 import { reconcileOverdueRemindersForTenant } from '@/lib/lead-reminders-sync'
@@ -61,32 +61,50 @@ export default async function AdminOverviewPage() {
       ),
     )
 
-  const agentStats = await Promise.all(
-    proUsers.map(async (agent) => {
-      const agentLeads = await db
-        .select({ stage: leads.stage, total: count(leads.id) })
-        .from(leads)
-        .where(
-          and(tScope, eq(leads.assignedTo, agent.id)),
-        )
-        .groupBy(leads.stage)
-
-      const total = agentLeads.reduce((s, l) => s + Number(l.total), 0)
-      const paid = Number(agentLeads.find((l) => l.stage === 'paid')?.total ?? 0)
-      const cancelled = Number(
-        agentLeads.find((l) => l.stage === 'cancelled')?.total ?? 0
-      )
-      const active = total - paid - cancelled
-
-      return { ...agent, total, paid, cancelled, active }
+  // Grouped Query for Agent Stats (Efficiency)
+  const agentStatsRaw = await db
+    .select({
+      assignedTo: leads.assignedTo,
+      total: sql<number>`COUNT(*)::int`,
+      paid: sql<number>`COUNT(*) FILTER (WHERE ${leads.stage} = 'paid')::int`,
+      cancelled: sql<number>`COUNT(*) FILTER (WHERE ${leads.stage} = 'cancelled')::int`,
+      active: sql<number>`COUNT(*) FILTER (WHERE ${leads.stage} NOT IN ('paid', 'cancelled'))::int`,
+      totalValue: sql<number>`COALESCE(SUM(${leads.dealValue}), 0)::int`,
     })
-  )
+    .from(leads)
+    .where(tScope)
+    .groupBy(leads.assignedTo)
+
+  const agentStats = proUsers.map(agent => {
+    const stats = agentStatsRaw.find(s => s.assignedTo === agent.id)
+    return {
+      ...agent,
+      total: stats?.total ?? 0,
+      paid: stats?.paid ?? 0,
+      cancelled: stats?.cancelled ?? 0,
+      active: stats?.active ?? 0,
+      totalValue: stats?.totalValue ?? 0,
+    }
+  })
+
+  // Value aggregates
+  const [valueAggs] = await db
+    .select({
+      pipelineValue: sql<number>`COALESCE(SUM(${leads.dealValue}) FILTER (WHERE ${leads.stage} NOT IN ('paid', 'cancelled')), 0)::int`,
+      wonRevenue: sql<number>`COALESCE(SUM(${leads.dealValue}) FILTER (WHERE ${leads.stage} = 'paid'), 0)::int`,
+    })
+    .from(leads)
+    .where(tScope)
 
   const paidCount = Number(byStage.find((b) => b.stage === 'paid')?.total ?? 0)
   const cancelledCount = Number(
     byStage.find((b) => b.stage === 'cancelled')?.total ?? 0
   )
   const activeCount = totalLeads - paidCount - cancelledCount
+
+  const conversionRate = totalLeads > 0 
+    ? Math.round((paidCount / totalLeads) * 100) 
+    : 0
 
   const chartByWindow = await loadChartSnapshotsByWindow(tenant.id)
 
@@ -102,6 +120,9 @@ export default async function AdminOverviewPage() {
       newLeadsToday={newLeadsToday}
       unassignedCount={unassignedCount}
       agentStats={agentStats}
+      pipelineValue={Number(valueAggs?.pipelineValue ?? 0)}
+      wonRevenue={Number(valueAggs?.wonRevenue ?? 0)}
+      conversionRate={conversionRate}
     />
   )
-}
+}

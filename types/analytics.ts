@@ -13,6 +13,7 @@ export type AgentStat = {
   active: number
   paid: number
   cancelled: number
+  totalValue: number
 }
 
 export type FunnelStep = {

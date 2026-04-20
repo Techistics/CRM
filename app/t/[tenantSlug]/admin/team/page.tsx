@@ -1,6 +1,6 @@
 import { db } from '@/db'
 import { users, leads, tenantMembers, invitations } from '@/db/schema'
-import { eq, count, and, not, or, isNull, ne } from 'drizzle-orm'
+import { eq, count, and, isNull } from 'drizzle-orm'
 
 import { requireTenantAdminSession } from '@/lib/tenant-server'
 import TeamManagementClient from './TeamManagementClient'

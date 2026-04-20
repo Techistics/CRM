@@ -1,6 +1,6 @@
 'use server'
 
-import { eq, and } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { nanoid } from 'nanoid'

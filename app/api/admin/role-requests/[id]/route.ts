@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { db } from '@/db'
-import { roleRequests, tenantMembers, users } from '@/db/schema'
+import { roleRequests, tenantMembers } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
 import { getSession } from '@/lib/auth'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'

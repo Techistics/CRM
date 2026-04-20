@@ -1,9 +1,8 @@
-import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { tenants } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { randomUUID } from 'crypto'
-import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
+import { successResponse, withApiErrorHandling } from '@/lib/api-response'
 
 export async function POST() {
   return withApiErrorHandling(async () => {

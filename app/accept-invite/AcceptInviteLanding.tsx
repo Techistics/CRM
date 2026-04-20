@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { acceptInviteAction } from '@/app/actions/invitations'
-import { Check, Loader2, LogOut, CheckCircle2, Building2, ShieldCheck } from 'lucide-react'
+import { Loader2, CheckCircle2, Building2, ShieldCheck } from 'lucide-react'
 
 type AcceptInviteLandingProps = {
   invitationId: string
@@ -35,8 +35,8 @@ export function AcceptInviteLanding({
             router.push(res.redirectPath)
           }, 2000)
         }
-      } catch (err: any) {
-        setError(err.message || 'Failed to accept invitation')
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to accept invitation')
       }
     })
   }

@@ -24,8 +24,8 @@ export function AcceptInviteButton({ invitationId }: { invitationId: string }) {
             router.push(res.redirectPath)
           }, 1000)
         }
-      } catch (err: any) {
-        setError(err.message || 'Failed to accept invitation')
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to accept invitation')
       }
     })
   }

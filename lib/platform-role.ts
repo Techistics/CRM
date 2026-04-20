@@ -1,7 +1,5 @@
 import { getSession } from './auth'
 import { db } from '@/db'
-import { users } from '@/db/schema'
-import { eq } from 'drizzle-orm'
 
 /** True when this database user has `role: super_admin`. */
 export async function isPlatformSuperAdmin(): Promise<boolean> {

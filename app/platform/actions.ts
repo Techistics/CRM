@@ -2,7 +2,6 @@
 
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
-import { nanoid } from 'nanoid'
 
 import { db } from '@/db'
 import { tenants } from '@/db/schema'
@@ -27,7 +26,6 @@ export async function createWorkspaceAction(formData: FormData) {
 
   const name = String(formData.get('name') ?? '').trim()
   const slugRaw = String(formData.get('slug') ?? '').trim()
-  const brandName = String(formData.get('brandName') ?? '').trim() || null
   
   if (!name) throw new Error('Name is required')
   const slug = slugify(slugRaw || name)

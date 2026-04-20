@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { db } from '@/db'
 import { leads, csvImports } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
 
       const totalRows = rows.length
       let skippedRows = 0
-      const leadsToInsert: any[] = []
+      const leadsToInsert: (typeof leads.$inferInsert)[] = []
 
       for (const row of rows) {
         const mapped = mapRow(row)
@@ -172,7 +172,7 @@ export async function POST(req: NextRequest) {
       let importedRows = 0
       if (leadsToInsert.length > 0) {
         // Perform Batch Insert
-        const result = await db
+        await db
           .insert(leads)
           .values(leadsToInsert)
           .onConflictDoNothing()

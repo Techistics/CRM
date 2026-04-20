@@ -32,7 +32,7 @@ export async function decrypt(input: string): Promise<SessionPayload | null> {
     }
 
     return session
-  } catch (error) {
+  } catch {
     return null
   }
 }

@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server'
 import { desc, and, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { notifications } from '@/db/schema'

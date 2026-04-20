@@ -54,7 +54,6 @@ export default function TeamManagementClient({
   const [editRole, setEditRole] = useState<TeamRole>('PRO')
   
   const [resendOpen, setResendOpen] = useState(false)
-  const [resendId, setResendId] = useState<string | null>(null)
   const [resendEmail, setResendEmail] = useState('')
   const [resendRole, setResendRole] = useState<TeamRole>('PRO')
 
@@ -138,7 +137,6 @@ export default function TeamManagementClient({
   function startResend(member: TeamMember) {
     if (!member.email) return
     setError(null)
-    setResendId(member.id)
     setResendEmail(member.email)
     setResendRole(member.role)
     setResendOpen(true)

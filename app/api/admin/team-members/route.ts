@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { users, tenantMembers, invitations, auditLogs } from '@/db/schema'
@@ -9,12 +9,9 @@ import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-
 import { teamInviteSchema, teamResendSchema } from '@/lib/validators/auth'
 import { getRootOrigin } from '@/lib/public-url'
 
-/**
- * 5 requests per minute per user (Rate Limiting)
- */
 const rateLimitMap = new Map<string, { count: number; lastReset: number }>()
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   return withApiErrorHandling(async () => {
     const ctx = await requireTenantAdminApi()
     if (!ctx.ok) return ctx.response

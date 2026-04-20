@@ -1,8 +1,6 @@
 'use server'
 
-import { redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 import { db } from '@/db'
 import { invitations, tenantMembers, tenants } from '@/db/schema'
 import { getSession } from '@/lib/auth'

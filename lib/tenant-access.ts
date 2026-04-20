@@ -1,5 +1,4 @@
 import type { Tenant } from '@/types/models'
-import { getAppUser } from '@/lib/app-user'
 import { isPlatformSuperAdminUserId } from '@/lib/platform-role'
 import { getTenantMembership, type TenantAppRole } from '@/lib/tenant-membership'
 

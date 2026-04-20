@@ -1,10 +1,11 @@
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { db } from '@/db'
-import { invitations, tenantMembers, auditLogs, users, tenants } from '@/db/schema'
+import { invitations, users, tenants } from '@/db/schema'
 import { getSession } from '@/lib/auth'
-import { eq, and, isNull } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { AcceptInviteLanding } from './AcceptInviteLanding'
+import Link from 'next/link'
 
 export const metadata: Metadata = {
   title: 'Accept Invitation | Edu CRM',
@@ -60,9 +61,9 @@ export default async function AcceptInvitePage(props: {
               ? 'This invitation has already been accepted.' 
               : 'This invitation has expired. Please ask the administrator to resend it.'}
           </p>
-          <a href="/sign-in" className="mt-6 inline-block text-blue-600 hover:underline">
+          <Link href="/sign-in" className="mt-6 inline-block text-blue-600 hover:underline">
             Go to Login
-          </a>
+          </Link>
         </div>
       </div>
     )

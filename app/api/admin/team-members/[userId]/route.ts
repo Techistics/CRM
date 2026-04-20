@@ -1,8 +1,8 @@
 import { and, count, eq, isNull } from 'drizzle-orm'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 
 import { db } from '@/db'
-import { tenantMembers, auditLogs, users } from '@/db/schema'
+import { tenantMembers, auditLogs } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { roleUpdateSchema } from '@/lib/validators/auth'

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { and, asc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 

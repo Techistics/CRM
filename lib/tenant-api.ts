@@ -9,7 +9,6 @@ import type { Tenant } from '@/types/models'
 import { getSession } from '@/lib/auth'
 import { resolveTenantAccess } from '@/lib/tenant-access'
 import type { TenantAppRole } from '@/lib/tenant-membership'
-import { isPlatformSuperAdminUserId } from './platform-role'
 
 export async function requireTenantFromApiHeaders(): Promise<
   | { ok: true; tenant: Tenant }

@@ -1,5 +1,5 @@
 import { db } from '@/db'
-import { leadActivities, users, tenantMembers } from '@/db/schema'
+import { leadActivities, users, tenantMembers, leadTags, leadTagAssignments } from '@/db/schema'
 import { eq, desc, and } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import LeadDetailClient from './LeadDetailClient'
@@ -48,7 +48,24 @@ export default async function LeadDetailPage({
     .innerJoin(users, eq(tenantMembers.userId, users.id))
     .where(eq(tenantMembers.tenantId, tenant.id))
 
+  const tags = await db
+    .select({
+      id: leadTags.id,
+      name: leadTags.name,
+      color: leadTags.color,
+    })
+    .from(leadTagAssignments)
+    .innerJoin(leadTags, eq(leadTagAssignments.tagId, leadTags.id))
+    .where(
+      eq(leadTagAssignments.leadId, id)
+    )
+
   return (
-    <LeadDetailClient lead={lead} activities={activities} allUsers={allUsers} />
+    <LeadDetailClient 
+      lead={lead} 
+      activities={activities} 
+      allUsers={allUsers} 
+      tags={tags} 
+    />
   )
 }

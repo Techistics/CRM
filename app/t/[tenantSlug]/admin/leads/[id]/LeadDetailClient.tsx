@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
+import { DollarSign } from 'lucide-react'
 import type { Lead, LeadStage } from '@/types/models'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
 import { useToast } from '@/hooks/use-toast'
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
+import { TagSelector } from '@/components/lead/TagSelector'
 
 const STAGES: { value: LeadStage; label: string }[] = PIPELINE_STAGES.map(
   (s) => ({ value: s.value, label: s.label }),
@@ -36,10 +38,12 @@ export default function LeadDetailClient({
   lead,
   activities: initialActivities,
   allUsers,
+  tags,
 }: {
   lead: Lead
   activities: ActivityRow[]
   allUsers: UserRow[]
+  tags: { id: string; name: string; color: string }[]
 }) {
   const { toast } = useToast()
   const router = useRouter()
@@ -65,6 +69,8 @@ export default function LeadDetailClient({
     country: lead.country ?? DEFAULT_LEAD_COUNTRY,
     lastQualification: lead.lastQualification ?? '',
     grades: lead.grades ?? '',
+    dealValue: lead.dealValue ?? '',
+    dealCurrency: lead.dealCurrency ?? 'USD',
   })
 
   const proUsers = allUsers.filter((u) => u.role === 'PRO')
@@ -134,7 +140,10 @@ export default function LeadDetailClient({
     const res = await fetch(`/api/leads/${lead.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(profileForm),
+      body: JSON.stringify({
+        ...profileForm,
+        dealValue: profileForm.dealValue === '' ? null : Number(profileForm.dealValue)
+      }),
     })
     setEditingLead(false)
     if (!res.ok) {
@@ -195,10 +204,21 @@ export default function LeadDetailClient({
           >
             ← Back to Leads
           </Link>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-            {lead.fullName}
-          </h1>
-          <div className="mt-2 flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-4 mt-2">
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+              {lead.fullName}
+            </h1>
+            {lead.dealValue && (
+              <div className="flex items-center gap-1.5 text-sm font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2.5 py-1 rounded-md">
+                <DollarSign className="h-3.5 w-3.5" />
+                <span>{lead.dealCurrency} {Number(lead.dealValue).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+              </div>
+            )}
+          </div>
+          <div className="mt-4">
+            <TagSelector leadId={lead.id} initialTags={tags} />
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
             <span className={`rounded-md border px-2 py-1 text-xs ${STAGE_COLORS[stage]}`}>
               {stageLabel}
             </span>
@@ -234,6 +254,7 @@ export default function LeadDetailClient({
                 { label: 'Qualification', value: lead.lastQualification },
                 { label: 'Grades', value: lead.grades },
                 { label: 'Source', value: lead.source },
+                { label: 'Deal Value', value: lead.dealValue ? `${lead.dealCurrency} ${Number(lead.dealValue).toLocaleString()}` : '—' },
               ].map(({ label, value }) => (
                 <div key={label}>
                   <p className="text-gray-500">{label}</p>
@@ -268,6 +289,37 @@ export default function LeadDetailClient({
                   />
                 </label>
               ))}
+              
+              <div className="col-span-2 grid grid-cols-3 gap-3">
+                <label className="col-span-1 flex flex-col gap-1">
+                  <span className="text-xs text-gray-400">Currency</span>
+                  <select
+                    value={profileForm.dealCurrency}
+                    onChange={(e) =>
+                      setProfileForm((prev) => ({ ...prev, dealCurrency: e.target.value }))
+                    }
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white flex-1"
+                  >
+                    {['USD', 'GBP', 'EUR', 'PKR', 'AED', 'CAD', 'AUD'].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="col-span-2 flex flex-col gap-1">
+                  <span className="text-xs text-gray-400">Deal Value <span className="text-muted-foreground">(optional)</span></span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={profileForm.dealValue}
+                    onChange={(e) =>
+                      setProfileForm((prev) => ({ ...prev, dealValue: e.target.value }))
+                    }
+                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  />
+                </label>
+              </div>
             </div>
             <button
               onClick={handleSaveLeadProfile}

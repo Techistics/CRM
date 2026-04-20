@@ -92,6 +92,41 @@
       "when": 1776352410003,
       "tag": "0012_remove_legacy_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1776352410004,
+      "tag": "0013_final_boolean_norm",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1776352410005,
+      "tag": "0014_final_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1776352410006,
+      "tag": "0015_add_deal_value",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1776352410007,
+      "tag": "0016_add_lead_tags",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1776352410008,
+      "tag": "0017_fix_tag_assignments_pk",
+      "breakpoints": true
     }
   ]
 }

@@ -21,6 +21,10 @@ export const leadCreateBodySchema = z.object({
   grades: z.string().trim().max(200).optional().nullable(),
   source: z.string().trim().max(120).optional().nullable(),
   assignedTo: z.string().uuid().optional().nullable(),
+  dealValue: z.coerce.number().positive().optional().nullable(),
+  dealCurrency: z.enum(['USD', 'GBP', 'EUR', 'PKR', 'AED', 'CAD', 'AUD']).default('USD'),
+  force: z.boolean().optional(),
+  notes: z.string().optional(),
 }).strict()
 
 export const leadPatchBodySchema = z
@@ -32,6 +36,8 @@ export const leadPatchBodySchema = z
     country: z.string().trim().max(120).optional().nullable(),
     lastQualification: z.string().trim().max(500).optional().nullable(),
     grades: z.string().trim().max(200).optional().nullable(),
+    dealValue: z.coerce.number().positive().optional().nullable(),
+    dealCurrency: z.enum(['USD', 'GBP', 'EUR', 'PKR', 'AED', 'CAD', 'AUD']).optional(),
   })
   .refine((o) => Object.keys(o).length > 0, {
     message: 'At least one field is required',

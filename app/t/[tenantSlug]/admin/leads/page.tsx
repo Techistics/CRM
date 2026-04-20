@@ -1,6 +1,6 @@
 import { db } from '@/db'
-import { leads, users } from '@/db/schema'
-import { count, eq, or, ilike, and } from 'drizzle-orm'
+import { leads, users, leadTags, leadTagAssignments } from '@/db/schema'
+import { count, eq, or, ilike, and, inArray, sql, desc } from 'drizzle-orm'
 import Link from 'next/link'
 import Pagination from '@/components/Pagination'
 import SearchInput from '@/components/SearchInput'
@@ -8,16 +8,24 @@ import PageSizeDropdown from '@/components/PageSizeDropdown'
 import { STAGE_LABELS } from '@/constants/leads'
 import { requireTenantAdminSession } from '@/lib/tenant-server'
 import { tenantPath } from '@/lib/tenant-path'
+import { TagFilter } from '@/components/lead/TagFilter'
+import { CreateLeadDialog } from '@/components/leads/CreateLeadDialog'
 
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ assignedTo?: string; page?: string; q?: string; pageSize?: string }>
+  searchParams: Promise<{ 
+    assignedTo?: string; 
+    page?: string; 
+    q?: string; 
+    pageSize?: string;
+    tags?: string; 
+  }>
 }) {
   const { tenant } = await requireTenantAdminSession()
   const tScope = eq(leads.tenantId, tenant.id)
 
-  const { assignedTo, page, q, pageSize: pageSizeParam } = await searchParams
+  const { assignedTo, page, q, pageSize: pageSizeParam, tags: tagsParam } = await searchParams
 
   const pageSize = Number(pageSizeParam) || 10
   const currentPage = (() => {
@@ -27,7 +35,39 @@ export default async function LeadsPage({
   })()
   const offset = (currentPage - 1) * pageSize
 
-  const baseSelect = db
+  // Build the dynamic WHERE clause
+  const conditions = [tScope]
+  
+  if (q) {
+    conditions.push(or(
+      ilike(leads.fullName, `%${q}%`),
+      ilike(leads.contactNumber, `%${q}%`),
+      ilike(leads.email, `%${q}%`)
+    )!)
+  }
+
+  if (assignedTo) {
+    conditions.push(eq(leads.assignedTo, assignedTo))
+  }
+
+  if (tagsParam) {
+    const tagIds = tagsParam.split(',')
+    if (tagIds.length > 0) {
+      // AND logic: lead must have ALL selected tags
+      const subquery = db
+        .select({ id: leadTagAssignments.leadId })
+        .from(leadTagAssignments)
+        .where(inArray(leadTagAssignments.tagId, tagIds))
+        .groupBy(leadTagAssignments.leadId)
+        .having(sql`count(distinct ${leadTagAssignments.tagId}) = ${tagIds.length}`)
+
+      conditions.push(inArray(leads.id, subquery))
+    }
+  }
+
+  const finalWhere = and(...conditions)
+
+  const pageLeads = await db
     .select({
       id: leads.id,
       fullName: leads.fullName,
@@ -41,57 +81,40 @@ export default async function LeadsPage({
     })
     .from(leads)
     .leftJoin(users, eq(leads.assignedTo, users.id))
+    .where(finalWhere)
+    .orderBy(desc(leads.createdAt))
+    .limit(pageSize)
+    .offset(offset)
 
-  const queryFilter = q ? or(
-    ilike(leads.fullName, `%${q}%`),
-    ilike(leads.contactNumber, `%${q}%`),
-    ilike(leads.email, `%${q}%`)
-  ) : undefined
-
-  // When coming from "View assigned leads" we only show leads assigned to that agent.
-  const pageLeads = assignedTo
-    ? await baseSelect
-        .where(
-          queryFilter
-            ? and(tScope, eq(leads.assignedTo, assignedTo), queryFilter)
-            : and(tScope, eq(leads.assignedTo, assignedTo)),
-        )
-        .orderBy(leads.createdAt)
-        .limit(pageSize)
-        .offset(offset)
-    : queryFilter
-      ? await baseSelect
-          .where(and(tScope, queryFilter))
-          .orderBy(leads.createdAt)
-          .limit(pageSize)
-          .offset(offset)
-      : await baseSelect
-          .where(tScope)
-          .orderBy(leads.createdAt)
-          .limit(pageSize)
-          .offset(offset)
-
-  const countResult = assignedTo
-    ? await db
-        .select({ total: count(leads.id) })
-        .from(leads)
-        .where(
-          queryFilter
-            ? and(tScope, eq(leads.assignedTo, assignedTo), queryFilter)
-            : and(tScope, eq(leads.assignedTo, assignedTo)),
-        )
-    : queryFilter
-      ? await db
-          .select({ total: count(leads.id) })
-          .from(leads)
-          .where(and(tScope, queryFilter))
-      : await db
-          .select({ total: count(leads.id) })
-          .from(leads)
-          .where(tScope)
+  const countResult = await db
+    .select({ total: count(leads.id) })
+    .from(leads)
+    .where(finalWhere)
 
   const totalLeads = Number(countResult[0]?.total ?? 0)
   const totalPages = Math.ceil(totalLeads / pageSize)
+
+  // Batch fetch tags for the leads on this page
+  const leadIds = pageLeads.map(l => l.id)
+  const allLeadTags = leadIds.length > 0 
+    ? await db
+        .select({
+          leadId: leadTagAssignments.leadId,
+          id: leadTags.id,
+          name: leadTags.name,
+          color: leadTags.color,
+        })
+        .from(leadTagAssignments)
+        .innerJoin(leadTags, eq(leadTagAssignments.tagId, leadTags.id))
+        .where(inArray(leadTagAssignments.leadId, leadIds))
+    : []
+
+  // Group tags by leadId
+  const tagsByLeadId = allLeadTags.reduce((acc, tag) => {
+    if (!acc[tag.leadId]) acc[tag.leadId] = []
+    acc[tag.leadId].push(tag)
+    return acc
+  }, {} as Record<string, typeof allLeadTags>)
 
   return (
     <div className="p-8">
@@ -103,6 +126,8 @@ export default async function LeadsPage({
           </p>
         </div>
         <div className="flex items-center gap-4">
+          <TagFilter />
+          <CreateLeadDialog tenantSlug={tenant.slug} />
           <div className="w-64">
             <SearchInput placeholder="Search phone, name, email..." />
           </div>
@@ -142,6 +167,8 @@ export default async function LeadsPage({
               <tbody className="divide-y divide-gray-100">
                 {pageLeads.map((lead) => {
                   const stage = STAGE_LABELS[lead.stage ?? 'new_lead']
+                  const tags = tagsByLeadId[lead.id] || []
+                  
                   return (
                     <tr
                       key={lead.id}
@@ -149,7 +176,26 @@ export default async function LeadsPage({
                     >
                       <td className="px-6 py-4">
                         <p className="text-gray-900 font-semibold">{lead.fullName}</p>
-                        {lead.email && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {tags.map(tag => (
+                            <span 
+                              key={tag.id}
+                              className="inline-flex items-center gap-1.5 text-[10px] px-1.5 py-0.5 rounded-md border font-medium"
+                              style={{ 
+                                backgroundColor: `${tag.color}15`, 
+                                color: tag.color,
+                                borderColor: `${tag.color}30`
+                              }}
+                            >
+                              <span 
+                                className="h-2 w-2 rounded-full flex-shrink-0 inline-block"
+                                style={{ backgroundColor: tag.color }}
+                              />
+                              {tag.name}
+                            </span>
+                          ))}
+                        </div>
+                        {tags.length === 0 && lead.email && (
                           <p className="text-gray-500 text-xs mt-1">{lead.email}</p>
                         )}
                       </td>
@@ -207,6 +253,7 @@ export default async function LeadsPage({
                   const sp = new URLSearchParams()
                   if (assignedTo) sp.set('assignedTo', assignedTo)
                   if (q) sp.set('q', q)
+                  if (tagsParam) sp.set('tags', tagsParam)
                   if (pageSize !== 10) sp.set('pageSize', String(pageSize))
                   sp.set('page', String(p))
                   return `${tenantPath(tenant.slug, '/admin/leads')}?${sp.toString()}`

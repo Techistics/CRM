@@ -76,7 +76,7 @@ export async function POST(
 
     const parsed = reminderSchema.safeParse(body)
     if (!parsed.success) {
-      return errorResponse(parsed.error.errors[0].message, 'VALIDATION_ERROR', 400)
+      return errorResponse(parsed.error.issues[0].message, 'VALIDATION_ERROR', 400)
     }
 
     const { title, dueAt: dueAtStr, note } = parsed.data

@@ -30,7 +30,7 @@ export async function POST(
 
     const parsed = noteSchema.safeParse(body)
     if (!parsed.success) {
-      return errorResponse(parsed.error.errors[0].message, 'VALIDATION_ERROR', 400)
+      return errorResponse(parsed.error.issues[0].message, 'VALIDATION_ERROR', 400)
     }
 
     const lead = await getLeadForMemberAction(id, ctx.tenant.id, ctx.role, ctx.dbUserId)

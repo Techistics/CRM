@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { eq, and } from 'zod'
 import { z } from 'zod'
 import { eq as dbEq, and as dbAnd } from 'drizzle-orm'
 
@@ -33,7 +32,7 @@ export async function PATCH(
 
     const parsed = stageSchema.safeParse(body)
     if (!parsed.success) {
-      return errorResponse(parsed.error.errors[0].message, 'VALIDATION_ERROR', 400)
+      return errorResponse(parsed.error.issues[0].message, 'VALIDATION_ERROR', 400)
     }
 
     const { stage } = parsed.data

@@ -57,7 +57,7 @@ export async function PATCH(
 
     const parsed = reminderPatchSchema.safeParse(body)
     if (!parsed.success) {
-      return errorResponse(parsed.error.errors[0].message, 'VALIDATION_ERROR', 400)
+      return errorResponse(parsed.error.issues[0].message, 'VALIDATION_ERROR', 400)
     }
 
     const { status: nextStatus, dueAt: nextDueAtStr } = parsed.data

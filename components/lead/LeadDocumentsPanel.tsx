@@ -157,12 +157,11 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
       })
       // Force immediate re-fetch
       await loadDocuments()
-    } catch (_err) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Upload failed',
-        description:
-          _err instanceof Error ? _err.message : 'Check storage configuration.',
+        description: 'Check storage configuration.',
       })
     } finally {
       setUploading(false)
@@ -178,7 +177,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
       if (!res.ok) throw new Error('Delete failed')
       toast({ title: 'Deleted', description: 'Document removed successfully.' })
       await loadDocuments()
-    } catch (_err) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Delete failed',
@@ -200,7 +199,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
       toast({ title: 'Updated', description: 'Document label saved.' })
       await loadDocuments()
       setEditingId(null)
-    } catch (_err) {
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Rename failed',

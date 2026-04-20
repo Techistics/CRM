@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import type { Lead, LeadStage } from '@/types/models'
@@ -28,7 +28,7 @@ const STAGE_COLORS: Record<string, string> = {
 
 import type { ActivityRow, UserRow } from '@/types/leads'
 import { tenantPath } from '@/lib/tenant-path'
-import type { LeadDocumentChecklistItem, LeadReminder } from '@/types/models'
+import type { LeadReminder } from '@/types/models'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LeadDocumentsPanel } from '@/components/lead/LeadDocumentsPanel'
 
@@ -52,8 +52,6 @@ export default function LeadDetailClient({
   const [saving, setSaving] = useState(false)
   const [addingNote, setAddingNote] = useState(false)
   const [editingLead, setEditingLead] = useState(false)
-  const [checklistItems, setChecklistItems] = useState<LeadDocumentChecklistItem[]>([])
-  const [, setLoadingChecklist] = useState(true)
   const [reminders, setReminders] = useState<LeadReminder[]>([])
   const [loadingReminders, setLoadingReminders] = useState(true)
   const [reminderTitle, setReminderTitle] = useState('')
@@ -72,14 +70,6 @@ export default function LeadDetailClient({
   const proUsers = allUsers.filter((u) => u.role === 'PRO')
 
   useEffect(() => {
-    async function loadChecklist() {
-      setLoadingChecklist(true)
-      const res = await fetch(`/api/leads/${lead.id}/checklist`)
-      const data = await res.json()
-      setChecklistItems(data.items ?? [])
-      setLoadingChecklist(false)
-    }
-
     async function loadReminders() {
       setLoadingReminders(true)
       const res = await fetch(`/api/leads/${lead.id}/reminders`)
@@ -88,7 +78,6 @@ export default function LeadDetailClient({
       setLoadingReminders(false)
     }
 
-    loadChecklist()
     loadReminders()
   }, [lead.id])
 
@@ -156,21 +145,6 @@ export default function LeadDetailClient({
     router.refresh()
   }
 
-  async function toggleChecklistItem(itemId: string, nextSubmitted: boolean) {
-    const res = await fetch(`/api/leads/${lead.id}/checklist`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemId, isSubmitted: nextSubmitted }),
-    })
-    if (!res.ok) {
-      toast({ variant: 'destructive', title: 'Checklist Update Failed', description: 'Unable to update checklist item.' })
-      return
-    }
-    const data = await res.json()
-    setChecklistItems((prev) =>
-      prev.map((it) => (it.id === itemId ? data.item : it)),
-    )
-  }
 
   async function createReminder() {
     if (!reminderTitle.trim() || !reminderDueAt) return

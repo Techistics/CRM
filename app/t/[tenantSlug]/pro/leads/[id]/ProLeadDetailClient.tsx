@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import type { Lead } from '@/types/models'
@@ -37,23 +37,25 @@ export default function ProLeadDetailClient({
     const previous = stage
     setStage(newStage)
     setSaving(true)
-    const res = await fetch(`/api/pro/leads/${lead.id}/stage`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stage: newStage }),
-    })
-    setSaving(false)
-    if (!res.ok) {
+    try {
+      const res = await fetch(`/api/pro/leads/${lead.id}/stage`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: newStage }),
+      })
+      if (!res.ok) throw new Error('Failed to update')
+      toast({ title: 'Stage Updated', description: 'Lead stage has been successfully updated.' })
+      router.refresh()
+    } catch {
       setStage(previous)
       toast({
         variant: 'destructive',
         title: 'Stage update failed',
         description: 'Could not save the new stage.',
       })
-      return
+    } finally {
+      setSaving(false)
     }
-    toast({ title: 'Stage Updated', description: 'Lead stage has been successfully updated.' })
-    router.refresh()
   }
 
   async function handleAddNote() {

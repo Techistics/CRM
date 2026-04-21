@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
         email: emailNorm,
         city: data.city?.trim() || null,
         country: data.country?.trim() || DEFAULT_LEAD_COUNTRY,
-        lastQualification: (data as any).notes || data.lastQualification?.trim() || null,
+        lastQualification: data.notes || data.lastQualification?.trim() || null,
         grades: data.grades?.trim() || null,
         source: data.source?.trim() || 'manual',
         assignedTo: data.assignedTo ?? null,

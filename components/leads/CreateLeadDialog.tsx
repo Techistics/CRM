@@ -159,7 +159,7 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
       <DialogContent className="max-w-2xl overflow-y-auto max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-[#223955]">Add New Lead</DialogTitle>
-          <DialogDescription>Fill in the lead's details below.</DialogDescription>
+          <DialogDescription>Fill in the lead&apos;s details below.</DialogDescription>
         </DialogHeader>
 
         {conflict && (

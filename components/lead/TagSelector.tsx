@@ -171,7 +171,7 @@ export function TagSelector({ leadId, initialTags }: TagSelectorProps) {
                   disabled={loading}
                 >
                   <Plus className="mr-2 h-3 w-3" />
-                  Create "{inputValue}"
+                  Create &quot;{inputValue}&quot;
                 </Button>
               </CommandEmpty>
               <CommandGroup>

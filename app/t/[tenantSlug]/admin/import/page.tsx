@@ -1,195 +1,419 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { useToast } from '@/hooks/use-toast'
+import { useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { CheckCircle2, ChevronDown, FileUp, Loader2 } from 'lucide-react'
 
-import type { ImportResult } from '@/types/leads'
+import { useToast } from '@/hooks/use-toast'
+import { tenantPath } from '@/lib/tenant-path'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+
+type ImportState = 'idle' | 'parsing' | 'preview' | 'confirming' | 'done'
+
+type Agent = {
+  userId: string
+  name: string
+  email: string
+  role: string
+  activeLeadCount: number
+}
+
+type ParseResponse = {
+  fileName: string
+  totalRows: number
+  validRows: number
+  duplicateRows: number
+  errorRows: number
+  preview: Array<{
+    fullName: string
+    contactNumber: string
+    email?: string | null
+    city?: string | null
+    country?: string | null
+    stage: string
+    dealValue?: number | null
+  }>
+  errors: Array<{ row: number; field: string; message: string }>
+  duplicates: Array<{ row: number; name: string; matchedOn: string }>
+  parsedData: Array<{
+    fullName: string
+    contactNumber: string
+    email?: string | null
+    city?: string | null
+    country?: string | null
+    stage: string
+    source?: string | null
+    dealValue?: number | null
+    notes?: string | null
+  }>
+}
+
+type ConfirmResponse = {
+  imported: number
+  assigned: number
+  skipped: number
+  agentBreakdown: Array<{ agentId: string; agentName: string; leadsAssigned: number }>
+}
 
 export default function ImportPage() {
+  const routeParams = useParams<{ tenantSlug: string }>()
+  const tenantSlug = routeParams.tenantSlug
   const { toast } = useToast()
+  const [state, setState] = useState<ImportState>('idle')
   const [file, setFile] = useState<File | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<ImportResult | null>(null)
+  const [parseResult, setParseResult] = useState<ParseResponse | null>(null)
+  const [confirmResult, setConfirmResult] = useState<ConfirmResponse | null>(null)
+  const [agents, setAgents] = useState<Agent[]>([])
+  const [selectedAgentIds, setSelectedAgentIds] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
+  const [expectedOpen, setExpectedOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const selectedCount = selectedAgentIds.size
+  const distributionCount = useMemo(() => {
+    if (!parseResult || selectedCount === 0) return 0
+    return Math.ceil(parseResult.validRows / selectedCount)
+  }, [parseResult, selectedCount])
+
+  async function readAsBase64(inputFile: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const value = reader.result
+        if (typeof value !== 'string') {
+          reject(new Error('Failed to read file'))
+          return
+        }
+        const base64 = value.split(',')[1]
+        resolve(base64 ?? '')
+      }
+      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.readAsDataURL(inputFile)
+    })
+  }
+
+  async function fetchAgents() {
+    const res = await fetch('/api/admin/team-members')
+    if (!res.ok) {
+      throw new Error('Failed to load agents')
+    }
+    const data = await res.json()
+    const members: Agent[] = data.data?.members ?? []
+    setAgents(members)
+    setSelectedAgentIds(new Set(members.map((member) => member.userId)))
+  }
 
   function handleFile(f: File) {
     setFile(f)
-    setResult(null)
+    setParseResult(null)
+    setConfirmResult(null)
+    setState('idle')
     setError(null)
   }
 
-  async function handleImport() {
+  async function handleParse() {
     if (!file) return
-    setLoading(true)
+    setState('parsing')
     setError(null)
-    setResult(null)
-
-    const formData = new FormData()
-    formData.append('file', file)
+    setParseResult(null)
+    setConfirmResult(null)
 
     try {
-      const res = await fetch('/api/leads/import', {
+      const base64 = await readAsBase64(file)
+      const payload = {
+        action: 'parse',
+        fileData: base64,
+        fileName: file.name,
+        tenantSlug,
+      }
+      const parseRes = await fetch('/api/leads/import', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       })
-      const data = await res.json()
+      const data = await parseRes.json()
 
-      if (!res.ok) {
+      if (!parseRes.ok) {
         setError(data.error ?? 'Import failed')
         toast({ variant: 'destructive', title: 'Import Failed', description: data.error ?? 'Invalid file data.' })
       } else {
-        setResult(data)
-        setFile(null)
-        toast({ title: 'Import Successful', description: `Imported ${data.importedRows} leads.` })
+        setParseResult(data.data)
+        setState('preview')
+        await fetchAgents()
       }
     } catch {
       setError('Something went wrong. Try again.')
       toast({ variant: 'destructive', title: 'Network Error', description: 'Could not connect to server.' })
+      setState('idle')
     } finally {
-      setLoading(false)
+      setState((current) => (current === 'parsing' ? 'idle' : current))
+    }
+  }
+
+  async function handleConfirm() {
+    if (!parseResult) return
+    setState('confirming')
+    try {
+      const res = await fetch('/api/leads/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'confirm',
+          parsedData: parseResult.parsedData,
+          assignToAgentIds: Array.from(selectedAgentIds),
+          tenantSlug,
+          fileName: parseResult.fileName,
+          totalRows: parseResult.totalRows,
+          duplicateRows: parseResult.duplicateRows,
+          errorRows: parseResult.errorRows,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error ?? 'Import failed')
+      }
+      setConfirmResult(data.data)
+      setState('done')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Import failed')
+      setState('preview')
     }
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
+    <div className="p-8 space-y-6">
+      <div>
         <h1 className="text-2xl font-semibold text-[#223955]">Import Leads</h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Upload a CSV or Excel file to bulk-import student leads
-        </p>
       </div>
 
-      {/* Drop zone */}
-      <div
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault()
-          setDragOver(false)
-          const f = e.dataTransfer.files[0]
-          if (f) handleFile(f)
-        }}
-        className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-300 bg-white shadow-sm hover:shadow-md hover:-translate-y-1 ${
-          dragOver
-            ? 'border-blue-500 bg-blue-50/50'
-            : 'border-gray-300 hover:border-blue-400'
-        }`}
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".csv,.xlsx,.xls"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) handleFile(f)
-          }}
-        />
+      {state === 'idle' && (
+        <>
+          <Card
+            className={`rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-colors cursor-pointer ${
+              dragOver ? 'border-primary/60 bg-primary/5' : ''
+            }`}
+            onClick={() => inputRef.current?.click()}
+            onDragOver={(event) => {
+              event.preventDefault()
+              setDragOver(true)
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(event) => {
+              event.preventDefault()
+              setDragOver(false)
+              const droppedFile = event.dataTransfer.files[0]
+              if (droppedFile) handleFile(droppedFile)
+            }}
+          >
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <FileUp className="h-8 w-8 text-primary" />
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-semibold">Upload leads file</p>
+                <p className="text-sm text-muted-foreground mt-1">Drag and drop or click to browse</p>
+                <p className="text-xs text-muted-foreground mt-1">Supports CSV and XLSX · Max 10MB</p>
+              </div>
+              <Button variant="outline" size="sm">Browse files</Button>
+              {file && <p className="text-xs text-muted-foreground">Selected: {file.name}</p>}
+            </div>
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".csv,.xlsx"
+              className="hidden"
+              onChange={(event) => {
+                const selected = event.target.files?.[0]
+                if (selected) handleFile(selected)
+              }}
+            />
+          </Card>
+          <Button onClick={handleParse} disabled={!file}>Parse File</Button>
 
-        <div className="text-5xl mb-4 transition-transform duration-300 hover:scale-110">📂</div>
-        <p className="text-[#223955] font-semibold text-lg">
-          {file ? file.name : 'Drop your file here or click to browse'}
-        </p>
-        <p className="text-gray-500 text-sm mt-2">
-          Supports .csv, .xlsx, .xls
-        </p>
-      </div>
+          <Collapsible open={expectedOpen} onOpenChange={setExpectedOpen}>
+            <CollapsibleTrigger className="flex items-center text-sm font-medium">
+              Expected format <ChevronDown className="h-4 w-4 ml-1" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2">
+              <div className="rounded-md border text-sm">
+                <div className="grid grid-cols-2 border-b p-2 font-medium">
+                  <span>Field</span>
+                  <span>Accepted columns</span>
+                </div>
+                {[
+                  ['fullName', 'full name, fullname, name'],
+                  ['contactNumber', 'contact, phone, contactnumber, contact_number'],
+                  ['email', 'email'],
+                  ['dealValue', 'deal value, dealvalue, deal_value'],
+                ].map(([field, aliases]) => (
+                  <div key={field} className="grid grid-cols-2 p-2 border-b last:border-b-0">
+                    <span>{field}</span>
+                    <span className="text-muted-foreground">{aliases}</span>
+                  </div>
+                ))}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </>
+      )}
 
-      {/* Column hint */}
-      <div className="mt-8 bg-white border border-gray-200 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] rounded-2xl p-6 transition-all duration-300 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1)]">
-        <div className="flex items-center gap-2 mb-4">
-          <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-gray-700 font-medium">
-            Recognized columns (any order, any case):
-          </p>
+      {state === 'parsing' && (
+        <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Parsing your file...</span>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {['Name', 'Email', 'Phone / Mobile', 'City', 'Qualification', 'Grades'].map((col) => (
-            <span
-              key={col}
-              className="text-xs bg-gray-50 border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg shadow-sm font-medium"
-            >
-              {col}
-            </span>
-          ))}
-        </div>
-      </div>
+      )}
 
-      {/* Import button */}
-      {file && (
-        <button
-          onClick={handleImport}
-          disabled={loading}
-          className="mt-8 w-full bg-[#223955] hover:bg-[#1a2b40] disabled:bg-gray-100 disabled:text-gray-400 text-white font-semibold py-3.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-center gap-2 hover:-translate-y-0.5"
-        >
-          {loading ? (
-            <>
-              <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Importing...
-            </>
-          ) : (
-             <>
-               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-               </svg>
-               Import &ldquo;{file.name}&rdquo;
-             </>
+      {state === 'preview' && parseResult && (
+        <div className="space-y-6">
+          <Card className="p-4">
+            <div className="grid grid-cols-4 gap-3">
+              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Total Rows</p><p className="font-semibold">{parseResult.totalRows}</p></div>
+              <div className="rounded border p-3 bg-emerald-50"><p className="text-xs text-emerald-700">Valid Leads</p><p className="font-semibold text-emerald-700">{parseResult.validRows}</p></div>
+              <div className="rounded border p-3 bg-amber-50"><p className="text-xs text-amber-700">Duplicates</p><p className="font-semibold text-amber-700">{parseResult.duplicateRows}</p></div>
+              <div className="rounded border p-3 bg-red-50"><p className="text-xs text-red-700">Errors</p><p className="font-semibold text-red-700">{parseResult.errorRows}</p></div>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <p className="font-medium mb-3">Preview</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left border-b">
+                  <tr>
+                    <th className="py-2">Name</th><th className="py-2">Contact</th><th className="py-2">Email</th><th className="py-2">City</th><th className="py-2">Country</th><th className="py-2">Stage</th><th className="py-2">Deal Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {parseResult.preview.map((row) => (
+                    <tr key={`${row.fullName}-${row.contactNumber}`} className="border-b">
+                      <td className="py-2">{row.fullName}</td><td>{row.contactNumber}</td><td>{row.email ?? '—'}</td><td>{row.city ?? '—'}</td><td>{row.country ?? '—'}</td><td>{row.stage}</td><td>{row.dealValue ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          <Card className="p-4 space-y-3">
+            <p className="font-medium">Agent assignment</p>
+            {agents.map((agent) => {
+              const checked = selectedAgentIds.has(agent.userId)
+              return (
+                <div key={agent.userId} className="flex items-center justify-between rounded border p-3">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(value) => {
+                        setSelectedAgentIds((prev) => {
+                          const next = new Set(prev)
+                          if (value) next.add(agent.userId)
+                          else next.delete(agent.userId)
+                          return next
+                        })
+                      }}
+                    />
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback>{agent.name.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{agent.name}</p>
+                      <p className="text-xs text-muted-foreground">{agent.email}</p>
+                    </div>
+                  </div>
+                  <span className="text-xs rounded bg-muted px-2 py-1">Active: {agent.activeLeadCount}</span>
+                </div>
+              )
+            })}
+            {selectedCount > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Distribution preview: each selected agent will receive ~{distributionCount} leads
+              </p>
+            ) : (
+              <p className="text-sm text-amber-600">All leads will be imported as Unassigned</p>
+            )}
+          </Card>
+
+          {(parseResult.errors.length > 0 || parseResult.duplicates.length > 0) && (
+            <Card className="p-4 space-y-3">
+              <p className="font-medium">Errors and duplicates</p>
+              {parseResult.errors.slice(0, 20).map((item) => (
+                <p key={`${item.row}-${item.field}`} className="text-sm text-red-600">
+                  Row {item.row}: {item.field} - {item.message}
+                </p>
+              ))}
+              {parseResult.duplicates.slice(0, 20).map((item) => (
+                <p key={`${item.row}-${item.matchedOn}`} className="text-sm text-amber-600">
+                  Row {item.row}: {item.name} matched on {item.matchedOn}
+                </p>
+              ))}
+            </Card>
           )}
-        </button>
-      )}
 
-      {/* Result */}
-      {result && (
-        <div className="mt-8 bg-white border border-emerald-100 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] rounded-2xl p-6 relative overflow-hidden transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
-          <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-full">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <p className="text-emerald-700 font-semibold text-lg">Import Complete</p>
-          </div>
-          
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-center">
-              <p className="text-gray-900 text-2xl font-bold">{result.totalRows}</p>
-              <p className="text-gray-500 text-xs font-medium uppercase tracking-wide mt-1">Total Rows</p>
-            </div>
-            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
-              <p className="text-emerald-600 text-2xl font-bold">{result.importedRows}</p>
-              <p className="text-emerald-700 text-xs font-medium uppercase tracking-wide mt-1">Imported</p>
-            </div>
-            <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center">
-              <p className="text-orange-600 text-2xl font-bold">{result.skippedRows}</p>
-              <p className="text-orange-700 text-xs font-medium uppercase tracking-wide mt-1">Skipped</p>
-            </div>
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" onClick={() => { setState('idle'); setFile(null); setParseResult(null) }}>
+              Cancel Import
+            </Button>
+            <Button onClick={handleConfirm}>Confirm Import ({parseResult.validRows} leads)</Button>
           </div>
         </div>
       )}
 
-      {/* Error */}
-      {error && (
-        <div className="mt-8 bg-red-50 border border-red-200 shadow-sm rounded-2xl p-5 flex items-start gap-3 transition-all duration-300 animate-in fade-in slide-in-from-bottom-4">
-          <div className="p-1.5 bg-red-100 text-red-600 rounded-full shrink-0">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <div>
-            <h3 className="text-red-800 font-semibold">Import Failed</h3>
-            <p className="text-red-600 text-sm mt-1">{error}</p>
-          </div>
+      {state === 'confirming' && parseResult && (
+        <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Importing {parseResult.validRows} leads...</span>
         </div>
       )}
+
+      {state === 'done' && confirmResult && (
+        <Card className="p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
+              <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-xl font-semibold">Import Complete</p>
+              <p className="text-sm text-muted-foreground">{confirmResult.imported} leads imported successfully</p>
+            </div>
+          </div>
+          <div className="rounded-md border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/40">
+                <tr><th className="p-2 text-left">Agent</th><th className="p-2 text-left">Assigned</th></tr>
+              </thead>
+              <tbody>
+                {confirmResult.agentBreakdown.map((item) => (
+                  <tr key={item.agentId} className="border-b last:border-b-0">
+                    <td className="p-2">{item.agentName}</td>
+                    <td className="p-2">{item.leadsAssigned}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => { setState('idle'); setFile(null); setParseResult(null); setConfirmResult(null) }}>
+              Import Another File
+            </Button>
+            <Button asChild>
+              <Link href={tenantPath(tenantSlug, '/admin/leads')}>View Leads →</Link>
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { PasswordInput } from '@/components/ui/PasswordInput'
 import { resetPassword } from '@/app/actions/auth'
 import { ShieldCheck, Loader2 } from 'lucide-react'
+import { apiCall } from '@/lib/utils/api-handler'
 
 function ResetPasswordForm() {
   const router = useRouter()
@@ -48,19 +49,18 @@ function ResetPasswordForm() {
     setLoading(true)
     setError(null)
 
-    try {
-      const result = await resetPassword(token, password)
-      if (result.success) {
-        setSuccess(true)
-        setTimeout(() => {
-          router.push('/sign-in')
-        }, 3000)
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to reset password')
-    } finally {
-      setLoading(false)
+    const result = await apiCall(async () => resetPassword(token, password), {
+      successMsg: 'Password reset successful',
+      errorMsg: 'Failed to reset password',
+      onError: (err) => setError(err instanceof Error ? err.message : 'Failed to reset password'),
+    })
+    if (result?.success) {
+      setSuccess(true)
+      setTimeout(() => {
+        router.push('/sign-in')
+      }, 3000)
     }
+    setLoading(false)
   }
 
   if (success) {
@@ -115,17 +115,12 @@ function ResetPasswordForm() {
         </div>
 
         {error && (
-          <div className="rounded-lg bg-destructive/10 p-3">
-            <p className="text-sm font-medium text-destructive">{error}</p>
-          </div>
+          <p className="mt-1 text-[12px] font-medium text-[var(--danger)]">{error}</p>
         )}
 
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Resetting...
-            </>
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             'Reset Password'
           )}
@@ -139,7 +134,7 @@ export default function ResetPasswordPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-muted/50 px-4">
       <div className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm">
-        <Suspense fallback={<div className="text-center py-8 text-sm text-muted-foreground">Loading...</div>}>
+        <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}>
           <ResetPasswordForm />
         </Suspense>
       </div>

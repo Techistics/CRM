@@ -19,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
   AlertDialog,
@@ -33,6 +33,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import type { LeadDocumentChecklistItem } from '@/types/models'
+import { apiCall } from '@/lib/utils/api-handler'
 
 type DocRow = {
   id: string
@@ -74,7 +75,6 @@ function FileThumb({
 }
 
 export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
-  const { toast } = useToast()
   const [documents, setDocuments] = useState<DocRow[]>([])
   const [checklistItems, setChecklistItems] = useState<LeadDocumentChecklistItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -95,13 +95,9 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to load documents')
-      setDocuments(data.documents ?? [])
+      setDocuments(data.data?.documents ?? [])
     } catch (e) {
-      toast({
-        variant: 'destructive',
-        title: 'Documents Load Error',
-        description: e instanceof Error ? e.message : 'Storage sync failed.',
-      })
+      toast.error(e instanceof Error ? e.message : 'Storage sync failed.')
     }
   }, [leadId, toast])
 
@@ -112,7 +108,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to load checklist')
-      setChecklistItems(data.items ?? [])
+      setChecklistItems(data.data?.items ?? [])
     } catch (e) {
       console.error('Checklist Load Error:', e)
     }
@@ -133,11 +129,11 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
   async function onUpload(e: React.FormEvent) {
     e.preventDefault()
     if (!file) {
-      toast({ variant: 'destructive', title: 'Choose a file first' })
+      toast.error('Choose a file first')
       return
     }
     setUploading(true)
-    try {
+    const data = await apiCall(async () => {
       const fd = new FormData()
       fd.append('file', file)
       if (label.trim()) fd.append('label', label.trim())
@@ -145,66 +141,43 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
         method: 'POST',
         body: fd,
       })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.error ?? 'Upload failed')
-      }
+      return res.json()
+    }, { successMsg: 'File uploaded', errorMsg: 'Upload failed' })
+    if (data) {
       setFile(null)
       setLabel('')
-      toast({
-        title: 'File uploaded',
-        description: data.document?.fileName ?? 'Saved.',
-      })
       // Force immediate re-fetch
       await loadDocuments()
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Upload failed',
-        description: 'Check storage configuration.',
-      })
-    } finally {
-      setUploading(false)
     }
+    setUploading(false)
   }
 
   async function onDelete(docId: string) {
     setDeletingId(docId)
-    try {
+    const data = await apiCall(async () => {
       const res = await fetch(`/api/leads/${leadId}/documents/${docId}`, {
         method: 'DELETE',
       })
-      if (!res.ok) throw new Error('Delete failed')
-      toast({ title: 'Deleted', description: 'Document removed successfully.' })
+      return res.json()
+    }, { successMsg: 'Document deleted', errorMsg: 'Delete failed' })
+    if (data) {
       await loadDocuments()
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Delete failed',
-        description: 'Please try again.',
-      })
-    } finally {
-      setDeletingId(null)
     }
+    setDeletingId(null)
   }
 
   async function onRename(docId: string) {
-    try {
+    const data = await apiCall(async () => {
       const res = await fetch(`/api/leads/${leadId}/documents/${docId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ label: editLabel }),
       })
-      if (!res.ok) throw new Error('Rename failed')
-      toast({ title: 'Updated', description: 'Document label saved.' })
+      return res.json()
+    }, { successMsg: 'Document label updated', errorMsg: 'Rename failed' })
+    if (data) {
       await loadDocuments()
       setEditingId(null)
-    } catch {
-      toast({
-        variant: 'destructive',
-        title: 'Rename failed',
-        description: 'Please try again.',
-      })
     }
   }
 
@@ -215,7 +188,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
       body: JSON.stringify({ itemId, isSubmitted: nextSubmitted }),
     })
     if (!res.ok) {
-      toast({ variant: 'destructive', title: 'Update Failed', description: 'Unable to update checklist.' })
+      toast.error('Unable to update checklist.')
       return
     }
     await loadChecklist()

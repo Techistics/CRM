@@ -46,6 +46,34 @@
     --sidebar-border: 222 24% 91%;
     --sidebar-ring: 258 90% 66%;
     --ui-scale: 0.67;
+    --accent: #CBEF7F;
+    --accent-text: #2C5000;
+    --accent-hover: #b8e05a;
+    --font-app: 'Inter', sans-serif;
+    --radius-card: 10px;
+    --sidebar-width: 180px;
+    --topbar-height: 52px;
+    --card-border: 0.5px solid rgba(0,0,0,0.08);
+    --card-padding: 14px 16px;
+    --gap: 10px;
+    --sidebar-bg: #ffffff;
+    --main-bg: #f5f6f7;
+    --card-bg: #ffffff;
+    --card-border-color: rgba(0,0,0,0.08);
+    --divider-color: rgba(0,0,0,0.06);
+    --positive: #3B6D11;
+    --negative: #A32D2D;
+    --danger: #E24B4A;
+    --muted-text: rgba(0,0,0,0.45);
+    --line-primary: #639922;
+    --chart-primary: #CBEF7F;
+    --chart-primary-soft: rgba(203,239,127,0.18);
+    --chart-secondary: #5DCAA5;
+    --chart-tertiary: #85B7EB;
+    --chart-quaternary: #D3D1C7;
+    --text-strong: rgba(0,0,0,0.88);
+    --text-inverse: #ffffff;
+    --overlay: rgba(0,0,0,0.15);
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -80,6 +108,14 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-bg: #0f1117;
+    --main-bg: #0a0c10;
+    --card-bg: #161b22;
+    --card-border-color: rgba(255,255,255,0.07);
+    --divider-color: rgba(255,255,255,0.07);
+    --muted-text: rgba(255,255,255,0.45);
+    --text-strong: rgba(255,255,255,0.92);
+    --overlay: rgba(0,0,0,0.4);
   }
 }
 
@@ -90,6 +126,8 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    font-family: var(--font-app);
+    font-size: 13px;
   }
 }
 
@@ -103,4 +141,30 @@
     transform-origin: top left;
     width: calc(100% / var(--ui-scale));
   }
+
+  .skeleton {
+    background: var(--bg-hover, rgba(127, 127, 127, 0.14));
+    border-radius: var(--radius-badge, 10px);
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { opacity: 1; }
+    50% { opacity: 0.4; }
+    100% { opacity: 1; }
+  }
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--card-border-color);
+  border-radius: 3px;
 }

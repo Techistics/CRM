@@ -1,0 +1,32 @@
+export const crmConfig = {
+  brand: {
+    name: 'CRM Pro',
+    logo: '/logo.svg',
+  },
+  colors: {
+    accent: '#CBEF7F',
+    accentText: '#2C5000',
+    accentHover: '#b8e05a',
+    sidebarBg: '#ffffff',
+    mainBg: '#f5f6f7',
+    cardBg: '#ffffff',
+    cardBorder: 'rgba(0,0,0,0.08)',
+    divider: 'rgba(0,0,0,0.06)',
+    positive: '#3B6D11',
+    negative: '#A32D2D',
+    danger: '#E24B4A',
+    mutedText: 'rgba(0,0,0,0.45)',
+    linePrimary: '#639922',
+    chartPrimary: '#CBEF7F',
+    chartPrimarySoft: 'rgba(203,239,127,0.18)',
+    chartSecondary: '#5DCAA5',
+    chartTertiary: '#85B7EB',
+    chartQuaternary: '#D3D1C7',
+    textStrong: 'rgba(0,0,0,0.88)',
+    textInverse: '#ffffff',
+    overlay: 'rgba(0,0,0,0.15)',
+  },
+  font: {
+    family: "'Inter', sans-serif",
+  },
+} as const

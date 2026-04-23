@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { LogOut, Menu } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -10,6 +11,7 @@ import { useSidebar } from '@/components/sidebar-provider'
 import { cn } from '@/lib/utils'
 import { tenantPath } from '@/lib/tenant-path'
 import { Button } from '@/components/ui/button'
+import { crmConfig } from '@/lib/config/theme'
 import {
   adminMainNav,
   adminSettingsLinks,
@@ -49,10 +51,9 @@ export function RoleSidebar({
 
   return (
     <>
-      {/* Mobile overlay */}
       <div
         className={cn(
-          'fixed inset-0 z-50 bg-background/80 backdrop-blur-sm lg:hidden',
+          'fixed inset-0 z-40 bg-[var(--overlay)] lg:hidden',
           isOpen ? 'block' : 'hidden',
         )}
         onClick={toggle}
@@ -61,19 +62,20 @@ export function RoleSidebar({
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-52 flex-col border-r bg-background',
-          'transition-transform duration-300 ease-in-out',
+          'fixed inset-y-0 left-0 z-50 flex w-[var(--sidebar-width)] flex-col',
+          'border-r-[0.5px] border-r-[var(--card-border-color)] bg-[var(--sidebar-bg)]',
+          'transition-transform duration-200 ease-out',
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
         data-role={role}
       >
-        {/* Brand header (centered like admin) */}
-        <div className="flex h-14 shrink-0 items-center justify-center border-b px-4">
-          <span className="text-base font-semibold tracking-tight">Edu CRM</span>
+        <div className="flex h-[var(--topbar-height)] shrink-0 items-center gap-2 px-3">
+          <Image src={crmConfig.brand.logo} alt={crmConfig.brand.name} width={26} height={26} />
+          <span className="text-[14px] font-medium text-[var(--text-strong)]">{crmConfig.brand.name}</span>
           <Button
             variant="ghost"
             size="icon"
-            className="ml-auto lg:hidden"
+            className="ml-auto h-8 w-8 rounded-[8px] p-0 lg:hidden"
             onClick={toggle}
             type="button"
           >
@@ -83,8 +85,10 @@ export function RoleSidebar({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          {/* Main nav */}
-          <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
+          <div className="px-3 pb-2 pt-1 text-[10px] font-normal uppercase tracking-[0.08em] text-[var(--muted-text)]">
+            Main
+          </div>
+          <nav className="flex-1 space-y-1 overflow-y-auto px-2 pb-3">
             {mainNav.map((item) => {
               const href = tenantPath(tenantSlug, item.href)
               const active = isActive(pathname, href, item.matchPrefix)
@@ -96,16 +100,18 @@ export function RoleSidebar({
                   key={item.href}
                   href={href}
                   className={cn(
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                    'flex items-center gap-2 rounded-[8px] px-2 py-[7px] text-[13px] font-normal',
                     active
-                      ? 'bg-accent text-accent-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                      ? 'bg-[var(--accent)] text-[var(--accent-text)]'
+                      : 'text-[var(--muted-text)] hover:bg-[var(--main-bg)]',
                   )}
                 >
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  <span>{item.name}</span>
+                  <item.icon
+                    className={cn('h-[15px] w-[15px] shrink-0', active ? 'opacity-100' : 'opacity-70')}
+                  />
+                  <span className={cn(active ? 'font-medium' : 'font-normal')}>{item.name}</span>
                   {badge ? (
-                    <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[0.625rem] font-medium text-primary-foreground">
+                    <span className="ml-auto flex min-w-[22px] items-center justify-center rounded-[999px] bg-[var(--danger)] px-[6px] py-[1px] text-[10px] font-normal text-[var(--text-inverse)]">
                       {badge}
                     </span>
                   ) : null}
@@ -114,13 +120,12 @@ export function RoleSidebar({
             })}
           </nav>
 
-          {/* Settings section (kept for consistent shell) */}
-          <div className="border-t px-2 py-3">
-            <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="border-t-[0.5px] border-t-[var(--divider-color)] px-2 py-2">
+            <p className="px-1 pb-2 text-[10px] font-normal uppercase tracking-[0.08em] text-[var(--muted-text)]">
               Settings
             </p>
             {settingsLinks.length ? (
-              <nav className="space-y-0.5">
+              <nav className="space-y-1">
                 {settingsLinks.map((item) => {
                   const href = tenantPath(tenantSlug, item.href)
                   const active = pathname === href.split('#')[0]
@@ -129,18 +134,23 @@ export function RoleSidebar({
                       key={item.name}
                       href={href}
                       className={cn(
-                        'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                        'flex items-center gap-2 rounded-[8px] px-2 py-[7px] text-[13px] font-normal',
                         active
-                          ? 'bg-accent text-accent-foreground'
-                          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                          ? 'bg-[var(--accent)] text-[var(--accent-text)]'
+                          : 'text-[var(--muted-text)] hover:bg-[var(--main-bg)]',
                       )}
                     >
-                      <item.icon className="h-4 w-4 shrink-0" />
-                      <span className="min-w-0">
-                        <span className="block font-medium leading-none">
+                      <item.icon
+                        className={cn(
+                          'h-[15px] w-[15px] shrink-0',
+                          active ? 'opacity-100' : 'opacity-70',
+                        )}
+                      />
+                      <span className="block min-w-0">
+                        <span className={cn('block leading-none', active ? 'font-medium' : 'font-normal')}>
                           {item.name}
                         </span>
-                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                        <span className="mt-0.5 block text-[11px] font-normal text-[var(--muted-text)]">
                           {item.description}
                         </span>
                       </span>
@@ -149,13 +159,13 @@ export function RoleSidebar({
                 })}
               </nav>
             ) : (
-              <div className="px-3 py-2 text-xs text-muted-foreground">
+              <div className="px-2 py-[7px] text-[11px] text-[var(--muted-text)]">
                 —
               </div>
             )}
           </div>
 
-          <div className="border-t px-2 py-3">
+          <div className="border-t-[0.5px] border-t-[var(--divider-color)] px-2 py-2">
             <button
               type="button"
               onClick={async () => {
@@ -163,12 +173,12 @@ export function RoleSidebar({
                 router.push('/sign-in')
                 router.refresh()
               }}
-              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-muted-foreground text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="flex w-full items-center gap-2 rounded-[8px] px-2 py-[7px] text-left text-[13px] font-normal text-[var(--muted-text)] hover:bg-[var(--main-bg)]"
             >
-              <LogOut className="h-4 w-4 shrink-0" />
+              <LogOut className="h-[15px] w-[15px] shrink-0 opacity-70" />
               <span className="min-w-0">
-                <span className="block font-medium leading-none">Logout</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
+                <span className="block leading-none">Logout</span>
+                <span className="mt-0.5 block text-[11px] text-[var(--muted-text)]">
                   Exit the app
                 </span>
               </span>

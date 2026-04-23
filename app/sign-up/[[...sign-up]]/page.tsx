@@ -3,10 +3,12 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/PasswordInput'
 import { Label } from '@/components/ui/label'
+import { apiCall } from '@/lib/utils/api-handler'
 
 function SignUpForm() {
   const router = useRouter()
@@ -31,26 +33,23 @@ function SignUpForm() {
     setLoading(true)
     setError(null)
 
-    try {
+    const data = await apiCall(async () => {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),
       })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Registration failed')
-      }
-
+      return res.json()
+    }, {
+      successMsg: 'Account created',
+      errorMsg: 'Registration failed',
+      onError: (err) => setError(err instanceof Error ? err.message : 'Registration failed'),
+    })
+    if (data) {
       router.push('/')
       router.refresh()
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Registration failed')
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }
 
   return (
@@ -95,8 +94,8 @@ function SignUpForm() {
         </div>
 
         {error && (
-          <div className="rounded-lg bg-destructive/10 p-3">
-            <p className="text-sm font-medium text-destructive">{error}</p>
+          <div>
+            <p className="mt-1 text-[12px] font-medium text-[var(--danger)]">{error}</p>
             {error.includes('already exists') && (
               <Button 
                 variant="outline" 
@@ -113,7 +112,7 @@ function SignUpForm() {
         )}
 
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? 'Creating account...' : 'Create Account'}
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Account'}
         </Button>
       </form>
 
@@ -133,7 +132,7 @@ function SignUpForm() {
 export default function SignUpPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-muted/50 px-4">
-      <Suspense fallback={<div className="text-sm text-muted-foreground">Loading...</div>}>
+      <Suspense fallback={<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}>
         <SignUpForm />
       </Suspense>
     </main>

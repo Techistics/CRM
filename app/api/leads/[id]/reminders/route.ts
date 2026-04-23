@@ -3,9 +3,10 @@ import { and, asc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { db } from '@/db'
-import { leadActivities, leadReminders } from '@/db/schema'
+import { leadActivities, leadReminders, users } from '@/db/schema'
 import { reconcileOverdueRemindersForTenant } from '@/lib/lead-reminders-sync'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
+import { sendReminderEmail } from '@/lib/mail'
 import { requireTenantMemberApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
@@ -104,6 +105,31 @@ export async function POST(
       type: 'note',
       note: `Reminder created: ${title} (${dueAt.toLocaleString()})`,
     })
+
+    if (lead.assignedTo) {
+      const [agent] = await db
+        .select({
+          email: users.email,
+          name: users.name,
+        })
+        .from(users)
+        .where(eq(users.id, lead.assignedTo))
+        .limit(1)
+
+      if (agent?.email) {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+        const leadUrl = `${baseUrl}/t/${ctx.tenant.slug}/admin/leads/${id}`
+        await sendReminderEmail({
+          agentEmail: agent.email,
+          agentName: agent.name ?? 'Agent',
+          reminderTitle: title.trim(),
+          leadName: lead.fullName,
+          dueAt,
+          leadUrl,
+          workspaceName: ctx.tenant.name,
+        })
+      }
+    }
 
     return successResponse({ reminder: created }, 201)
   })

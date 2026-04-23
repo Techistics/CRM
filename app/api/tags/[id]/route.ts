@@ -58,7 +58,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  _: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {

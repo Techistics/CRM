@@ -29,8 +29,6 @@ export function ThemeToggle() {
           : 'light'
 
     applyTheme(initial)
-    
-    // Defer state updates to avoid synchronous cascading renders warning
     setTimeout(() => {
       setTheme(initial)
       setMounted(true)

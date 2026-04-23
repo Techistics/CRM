@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
@@ -19,6 +19,15 @@ function SignInForm() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Sync email search param to state on mount
+  useEffect(() => {
+    if (initialEmail) {
+      setTimeout(() => {
+        setEmail(initialEmail)
+      }, 0)
+    }
+  }, [initialEmail])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

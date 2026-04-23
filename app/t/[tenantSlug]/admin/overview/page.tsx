@@ -1,14 +1,59 @@
 import { db } from '@/db'
 import { leads, leadReminders, users, tenantMembers } from '@/db/schema'
-import { eq, count, gte, isNull, and, sql } from 'drizzle-orm'
+import { eq, count, gte, lte, isNull, and, sql } from 'drizzle-orm'
 import AnalyticsOverviewClient from './AnalyticsOverviewClient'
 import { loadChartSnapshotsByWindow } from '@/lib/analytics-pipeline'
 import { reconcileOverdueRemindersForTenant } from '@/lib/lead-reminders-sync'
 import { requireTenantAdminSession } from '@/lib/tenant-server'
 
-export default async function AdminOverviewPage() {
+export default async function AdminOverviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; to?: string }>
+}) {
   const { tenant } = await requireTenantAdminSession()
-  const tScope = eq(leads.tenantId, tenant.id)
+  const { from, to } = await searchParams
+
+  let startDate: Date | null = null
+  let endDate: Date | null = null
+
+  if (from) {
+    const d = new Date(from)
+    if (!isNaN(d.getTime())) {
+      startDate = d
+      startDate.setHours(0, 0, 0, 0)
+    }
+  }
+  if (to) {
+    const d = new Date(to)
+    if (!isNaN(d.getTime())) {
+      endDate = d
+      endDate.setHours(23, 59, 59, 999)
+    }
+  }
+
+  // If both are missing (initial load), default to This Month
+  if (from === undefined && to === undefined) {
+    startDate = new Date()
+    startDate.setDate(1)
+    startDate.setHours(0, 0, 0, 0)
+    
+    endDate = new Date()
+    endDate.setHours(23, 59, 59, 999)
+  }
+
+  const dateCondition = startDate && endDate
+    ? and(gte(leads.createdAt, startDate), lte(leads.createdAt, endDate))
+    : startDate
+    ? gte(leads.createdAt, startDate)
+    : endDate
+    ? lte(leads.createdAt, endDate)
+    : undefined
+
+  const tScope = and(
+    eq(leads.tenantId, tenant.id),
+    dateCondition
+  )
 
   await reconcileOverdueRemindersForTenant(tenant.id)
 
@@ -39,7 +84,7 @@ export default async function AdminOverviewPage() {
   const [newLeadsTodayRow] = await db
     .select({ c: count(leads.id) })
     .from(leads)
-    .where(and(tScope, gte(leads.createdAt, startOfToday)))
+    .where(and(eq(leads.tenantId, tenant.id), gte(leads.createdAt, startOfToday)))
 
   const [unassignedRow] = await db
     .select({ c: count(leads.id) })
@@ -122,6 +167,7 @@ export default async function AdminOverviewPage() {
       pipelineValue={Number(valueAggs?.pipelineValue ?? 0)}
       wonRevenue={Number(valueAggs?.wonRevenue ?? 0)}
       conversionRate={conversionRate}
+      dateRange={{ from: startDate, to: endDate }}
     />
   )
 }

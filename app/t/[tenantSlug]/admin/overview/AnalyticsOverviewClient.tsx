@@ -13,8 +13,10 @@ import {
   Tooltip,
 } from 'chart.js'
 import { Doughnut, Line } from 'react-chartjs-2'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 
 import type { AgentStat, ChartWindow, PipelineChartSnapshot } from '@/types/analytics'
+import { DateRangePicker } from '@/components/analytics/DateRangePicker'
 
 ChartJS.register(
   CategoryScale,
@@ -40,6 +42,7 @@ export default function AnalyticsOverviewClient({
   pipelineValue,
   wonRevenue,
   conversionRate,
+  dateRange,
 }: {
   chartByWindow: Record<ChartWindow, PipelineChartSnapshot>
   overdueRemindersCount: number
@@ -53,7 +56,26 @@ export default function AnalyticsOverviewClient({
   pipelineValue: number
   wonRevenue: number
   conversionRate: number
+  dateRange: { from: Date | null; to: Date | null }
 }) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const handleRangeChange = (range: { from: Date | null; to: Date | null }) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (range.from) {
+      params.set('from', range.from.toISOString().split('T')[0])
+    } else {
+      params.delete('from')
+    }
+    if (range.to) {
+      params.set('to', range.to.toISOString().split('T')[0])
+    } else {
+      params.delete('to')
+    }
+    router.push(`${pathname}?${params.toString()}`, { scroll: false })
+  }
   const windowSnapshot = chartByWindow.week
   const stageList = windowSnapshot.stageData
   const chartLabels = windowSnapshot.funnelSteps.map((step) => step.label)
@@ -94,6 +116,10 @@ export default function AnalyticsOverviewClient({
 
   return (
     <div className="space-y-[var(--gap)]">
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <h1 className="text-xl font-semibold text-[var(--text-strong)]">Overview</h1>
+        <DateRangePicker value={dateRange} onChange={handleRangeChange} />
+      </div>
       <div className="grid grid-cols-1 gap-[var(--gap)] lg:grid-cols-4">
         {metricCards.map((metric) => (
           <div

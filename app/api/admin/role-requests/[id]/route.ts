@@ -6,6 +6,7 @@ import { db } from '@/db'
 import { roleRequests, tenantMembers } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
 import { getSession } from '@/lib/auth'
+import { sendAccessApprovedEmail } from '@/lib/mail'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
 const roleDecisionSchema = z.object({
@@ -99,6 +100,16 @@ export async function PATCH(
         tenantId: row.tenantId ?? ctx.tenant.id,
       })
       .where(eq(roleRequests.id, id))
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+    const signInUrl = `${baseUrl}/sign-in`
+    await sendAccessApprovedEmail({
+      userEmail: user.email,
+      userName: user.name,
+      roleName: row.requestedRole,
+      workspaceName: ctx.tenant.name,
+      signInUrl,
+    })
 
     return successResponse({ ok: true })
   })

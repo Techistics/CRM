@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
 import { db } from '@/db'
-import { users, tenantMembers, invitations, auditLogs } from '@/db/schema'
+import { users, tenantMembers, invitations, auditLogs, leads } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
 import { sendInviteEmail } from '@/lib/mail'
 import crypto from 'crypto'
@@ -16,25 +16,32 @@ export async function GET() {
     const ctx = await requireTenantAdminApi()
     if (!ctx.ok) return ctx.response
 
-    // Fetch Members
+    // Fetch Members with active lead count
     const members = await db
       .select({
-        id: tenantMembers.id,
         userId: tenantMembers.userId,
+        name: users.name,
+        email: users.email,
         role: tenantMembers.role,
-        user: {
-          name: users.name,
-          email: users.email,
-        },
+        activeLeadCount: sql<number>`cast(count(${leads.id}) as integer)`,
       })
       .from(tenantMembers)
       .innerJoin(users, eq(tenantMembers.userId, users.id))
+      .leftJoin(
+        leads,
+        and(
+          eq(leads.tenantId, ctx.tenant.id),
+          eq(leads.assignedTo, tenantMembers.userId),
+          sql`${leads.stage} not in ('paid', 'lost')`,
+        ),
+      )
       .where(
         and(
           eq(tenantMembers.tenantId, ctx.tenant.id),
           isNull(tenantMembers.deletedAt)
         )
       )
+      .groupBy(tenantMembers.userId, users.name, users.email, tenantMembers.role)
 
     // Fetch Pending Invitations
     const pendingInvitations = await db

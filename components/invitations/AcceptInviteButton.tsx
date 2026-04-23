@@ -32,9 +32,9 @@ export function AcceptInviteButton({ invitationId }: { invitationId: string }) {
 
   if (success) {
     return (
-      <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100 font-bold text-sm animate-in zoom-in duration-300">
-        <div className="bg-emerald-500 p-1 rounded-full">
-          <Check className="h-3 w-3 text-white" strokeWidth={3} />
+      <div className="flex items-center gap-2 rounded-[8px] border-[0.5px] border-white/10 bg-[#0f1117] px-3 py-2 text-[12px] text-white/70">
+        <div className="rounded-full bg-[rgba(203,239,127,0.2)] p-1">
+          <Check className="h-3 w-3 text-[#CBEF7F]" strokeWidth={2} />
         </div>
         Joined Workspace
       </div>
@@ -43,15 +43,15 @@ export function AcceptInviteButton({ invitationId }: { invitationId: string }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <Button 
-        onClick={handleAccept} 
+      <Button
+        onClick={handleAccept}
         disabled={isPending}
-        className="relative group transition-all active:scale-[0.95] bg-slate-900 hover:bg-indigo-600 text-white font-bold rounded-xl px-6 py-2 h-auto shadow-md hover:shadow-indigo-500/20"
+        className="h-9 rounded-[8px] border-[0.5px] border-white/10 bg-[#0f1117] px-3 py-1 text-[12px] font-medium text-white hover:bg-white/5"
       >
         <span className="flex items-center gap-2">
           {isPending ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" /> 
+              <Loader2 className="h-4 w-4 animate-spin" />
               Propagating...
             </>
           ) : (
@@ -61,7 +61,7 @@ export function AcceptInviteButton({ invitationId }: { invitationId: string }) {
           )}
         </span>
       </Button>
-      {error && <p className="text-[10px] font-bold text-destructive text-center">{error}</p>}
+      {error && <p className="text-center text-[10px] text-[#E24B4A]">{error}</p>}
     </div>
   )
 }

@@ -5,7 +5,6 @@ import { tenantMembers } from '@/db/schema'
 import { SidebarProvider } from '@/components/sidebar-provider'
 import { RoleSidebar } from '@/components/shared/role-sidebar'
 import { AdminHeader } from '@/components/admin/admin-header'
-import { UiScaleWrapper } from '@/components/shared/ui-scale-wrapper'
 import { requireTenantAdminSession } from '@/lib/tenant-server'
 
 export default async function AdminLayout({
@@ -31,12 +30,12 @@ export default async function AdminLayout({
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen bg-slate-50/90 dark:bg-background">
+      <div className="min-h-screen bg-[var(--main-bg)]">
         <RoleSidebar role="ADMIN" tenantSlug={tenant.slug} badges={{ team: teamBadge }} />
-        <div className="flex min-h-screen flex-col lg:pl-52">
+        <div className="flex min-h-screen flex-col lg:pl-[var(--sidebar-width)]">
           <AdminHeader tenantSlug={tenant.slug} />
-          <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 md:px-8 md:py-8">
-            <UiScaleWrapper>{children}</UiScaleWrapper>
+          <main className="w-full flex-1 px-5 py-[18px]">
+            {children}
           </main>
         </div>
       </div>

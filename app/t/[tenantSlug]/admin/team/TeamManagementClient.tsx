@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { apiCall } from '@/lib/utils/api-handler'
 
 type TeamRole = 'ADMIN' | 'PRO'
 
@@ -43,7 +45,6 @@ export default function TeamManagementClient({
   const router = useRouter()
   const [members, setMembers] = useState(initialMembers)
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
 
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
@@ -64,22 +65,21 @@ export default function TeamManagementClient({
   }, [members])
 
   async function inviteMember() {
-    setError(null)
     setBusyId('invite')
-    const res = await fetch('/api/admin/team-members', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+    const data = await apiCall(async () => {
+      const res = await fetch('/api/admin/team-members', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+      })
+      return res.json()
+    }, {
+      successMsg: 'Invite sent',
+      errorMsg: 'Invite failed',
     })
     setBusyId(null)
+    if (!data) return
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      setError(typeof data.error === 'string' ? data.error : 'Invite failed')
-      return
-    }
-
-    const data = await res.json().catch(() => ({}))
     setMembers((prev) => [
       ...prev.filter((m) => m.email.toLowerCase() !== inviteEmail.toLowerCase()),
       {
@@ -102,7 +102,6 @@ export default function TeamManagementClient({
   }
 
   function startEdit(member: TeamMember) {
-    setError(null)
     setEditId(member.id)
     setEditRole(member.role)
     setEditOpen(true)
@@ -110,22 +109,20 @@ export default function TeamManagementClient({
 
   async function saveEdit() {
     if (!editId) return
-    setError(null)
     setBusyId(editId)
-
-    const res = await fetch(`/api/admin/team-members/${editId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role: editRole }),
+    const data = await apiCall(async () => {
+      const res = await fetch(`/api/admin/team-members/${editId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: editRole }),
+      })
+      return res.json()
+    }, {
+      successMsg: 'Member updated',
+      errorMsg: 'Update failed',
     })
-
     setBusyId(null)
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      setError(typeof data.error === 'string' ? data.error : 'Update failed')
-      return
-    }
+    if (!data) return
 
     setMembers((prev) =>
       prev.map((m) => (m.id === editId ? { ...m, role: editRole } : m)),
@@ -136,7 +133,6 @@ export default function TeamManagementClient({
 
   function startResend(member: TeamMember) {
     if (!member.email) return
-    setError(null)
     setResendEmail(member.email)
     setResendRole(member.role)
     setResendOpen(true)
@@ -144,22 +140,20 @@ export default function TeamManagementClient({
 
   async function resendInvite() {
     if (!resendEmail) return
-    setError(null)
     setBusyId('resend')
-
-    const res = await fetch('/api/admin/team-members', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: resendEmail, role: resendRole }),
+    const data = await apiCall(async () => {
+      const res = await fetch('/api/admin/team-members', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: resendEmail, role: resendRole }),
+      })
+      return res.json()
+    }, {
+      successMsg: 'Invite resent',
+      errorMsg: 'Resend failed',
     })
-
     setBusyId(null)
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      setError(typeof data.error === 'string' ? data.error : 'Resend failed')
-      return
-    }
+    if (!data) return
 
     setResendOpen(false)
     router.refresh()
@@ -169,18 +163,18 @@ export default function TeamManagementClient({
     const ok = window.confirm('Remove this member from the workspace?')
     if (!ok) return
 
-    setError(null)
     setBusyId(memberId)
-    const res = await fetch(`/api/admin/team-members/${memberId}`, {
-      method: 'DELETE',
+    const data = await apiCall(async () => {
+      const res = await fetch(`/api/admin/team-members/${memberId}`, {
+        method: 'DELETE',
+      })
+      return res.json()
+    }, {
+      successMsg: 'Member removed',
+      errorMsg: 'Remove failed',
     })
     setBusyId(null)
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      setError(typeof data.error === 'string' ? data.error : 'Remove failed')
-      return
-    }
+    if (!data) return
 
     setMembers((prev) => prev.filter((m) => m.id !== memberId))
     router.refresh()
@@ -208,12 +202,6 @@ export default function TeamManagementClient({
           <p className="mt-1 text-2xl font-semibold">{stats.pros}</p>
         </div>
       </div>
-
-      {error && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </div>
-      )}
 
       <div className="overflow-hidden rounded-xl border bg-white">
         <table className="w-full text-sm">
@@ -260,7 +248,7 @@ export default function TeamManagementClient({
                         disabled={busyId === m.id || busyId === 'resend'}
                         onClick={() => startResend(m)}
                       >
-                        Resend
+                        {busyId === 'resend' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Resend'}
                       </Button>
                     ) : (
                       <Button
@@ -269,7 +257,7 @@ export default function TeamManagementClient({
                         disabled={busyId === m.id}
                         onClick={() => startEdit(m)}
                       >
-                        Edit
+                        {busyId === m.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Edit'}
                       </Button>
                     )}
                     <Button
@@ -278,7 +266,7 @@ export default function TeamManagementClient({
                       disabled={busyId === m.id}
                       onClick={() => removeMember(m.id)}
                     >
-                      Remove
+                      {busyId === m.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remove'}
                     </Button>
                   </div>
                 </td>
@@ -325,7 +313,7 @@ export default function TeamManagementClient({
               Cancel
             </Button>
             <Button disabled={busyId === 'invite'} onClick={inviteMember}>
-              {busyId === 'invite' ? 'Sending…' : 'Send invite'}
+              {busyId === 'invite' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send invite'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -351,7 +339,7 @@ export default function TeamManagementClient({
               Cancel
             </Button>
             <Button disabled={!editId || busyId === editId} onClick={saveEdit}>
-              Save
+              {busyId === editId ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -379,7 +367,7 @@ export default function TeamManagementClient({
               Cancel
             </Button>
             <Button disabled={busyId === 'resend'} onClick={resendInvite}>
-              {busyId === 'resend' ? 'Sending…' : 'Resend Email'}
+              {busyId === 'resend' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Resend Email'}
             </Button>
           </DialogFooter>
         </DialogContent>

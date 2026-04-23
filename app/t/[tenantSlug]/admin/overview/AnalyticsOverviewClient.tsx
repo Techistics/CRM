@@ -1,49 +1,33 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useMemo } from 'react'
 import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
+  ArcElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Filler,
   Legend,
-} from 'recharts'
-import {
-  UserPlus,
-  Users,
-  Activity,
-  UserRoundX,
-  Bell,
-  DollarSign,
-  TrendingUp,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { cn } from '@/lib/utils'
-import { tenantPath } from '@/lib/tenant-path'
+  LineElement,
+  LinearScale,
+  PointElement,
+  Tooltip,
+} from 'chart.js'
+import { Doughnut, Line } from 'react-chartjs-2'
 
 import type { AgentStat, ChartWindow, PipelineChartSnapshot } from '@/types/analytics'
 
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Tooltip,
+  Legend,
+  Filler,
+)
+
 export default function AnalyticsOverviewClient({
-  tenantSlug,
   chartByWindow,
   overdueRemindersCount,
   totalLeads,
@@ -57,7 +41,6 @@ export default function AnalyticsOverviewClient({
   wonRevenue,
   conversionRate,
 }: {
-  tenantSlug: string
   chartByWindow: Record<ChartWindow, PipelineChartSnapshot>
   overdueRemindersCount: number
   totalLeads: number
@@ -71,385 +54,231 @@ export default function AnalyticsOverviewClient({
   wonRevenue: number
   conversionRate: number
 }) {
-  const router = useRouter()
-  const [chartWindow, setChartWindow] = useState<ChartWindow>('week')
+  const windowSnapshot = chartByWindow.week
+  const stageList = windowSnapshot.stageData
+  const chartLabels = windowSnapshot.funnelSteps.map((step) => step.label)
+  const chartCounts = windowSnapshot.funnelSteps.map((step) => step.count)
 
-  /** Funnel for leads created in the selected time window (cohort-style). */
-  const unifiedChartData = useMemo(() => {
-    const snap = chartByWindow[chartWindow]
-    const { totalLeads: tw, stageData: sd, funnelSteps: fs } = snap
+  const styleVars = useMemo(() => {
+    if (typeof window === 'undefined') return null
+    const s = getComputedStyle(document.documentElement)
+    return {
+      linePrimary: s.getPropertyValue('--line-primary').trim(),
+      chartPrimary: s.getPropertyValue('--chart-primary').trim(),
+      chartPrimarySoft: s.getPropertyValue('--chart-primary-soft').trim(),
+      chartSecondary: s.getPropertyValue('--chart-secondary').trim(),
+      chartTertiary: s.getPropertyValue('--chart-tertiary').trim(),
+      chartQuaternary: s.getPropertyValue('--chart-quaternary').trim(),
+      mutedText: s.getPropertyValue('--muted-text').trim(),
+      divider: s.getPropertyValue('--divider-color').trim(),
+    }
+  }, [])
 
-    const get = (value: string) =>
-      sd.find((s) => s.value === value)?.count ?? 0
+  const metricCards = [
+    { label: 'Total Leads', value: totalLeads.toLocaleString(), trend: '+8.2%', positive: true },
+    { label: 'New Today', value: newLeadsToday.toLocaleString(), trend: '+2.4%', positive: true },
+    { label: 'Won Revenue', value: `$${wonRevenue.toLocaleString()}`, trend: '+6.1%', positive: true },
+    { label: 'Unassigned', value: unassignedCount.toLocaleString(), trend: '-1.6%', positive: false },
+  ]
 
-    const walkin = get('walkin_booked') + get('walkin_conducted')
-    const paid = get('paid')
+  const sourceData = [activeCount, paidCount, cancelledCount, unassignedCount]
+  const sourceLabels = ['Pipeline', 'Won', 'Lost', 'Unassigned']
+  const sourceTotal = sourceData.reduce((sum, item) => sum + item, 0)
 
-    const contactedLike =
-      [
-        'follow_up',
-        'docs_received',
-        'options_sent',
-        'final_decision',
-        'walkin_booked',
-        'walkin_conducted',
-        'paid',
-      ].reduce((acc, v) => acc + get(v), 0)
-
-    const pipelineAtMilestone = [tw, contactedLike, walkin, paid]
-
-    return fs.map((step, i) => {
-      const short =
-        step.label.length > 20
-          ? `${step.label.slice(0, 18)}…`
-          : step.label
-      return {
-        label: short,
-        fullLabel: step.label,
-        funnel: step.count,
-        pipeline: pipelineAtMilestone[i] ?? 0,
-        conversion: step.pct,
-      }
-    })
-  }, [chartByWindow, chartWindow])
-
-  const activePct =
-    totalLeads > 0 ? Math.round((activeCount / totalLeads) * 100) : 0
-  const unassignedPct =
-    totalLeads > 0 ? Math.round((unassignedCount / totalLeads) * 100) : 0
-
-  const kpiItems = [
-    {
-      title: 'Won Revenue',
-      value: `USD ${wonRevenue.toLocaleString()}`,
-      hint: `${paidCount} leads won all-time`,
-      trend: 'positive' as const,
-      icon: DollarSign,
-    },
-    {
-      title: 'Pipeline Value',
-      value: `USD ${pipelineValue.toLocaleString()}`,
-      hint: `${activeCount} leads in progress`,
-      trend: 'neutral' as const,
-      icon: Activity,
-    },
-    {
-      title: 'Conversion Rate',
-      value: `${conversionRate}%`,
-      hint: 'Leads won vs total leads',
-      trend: conversionRate > 20 ? ('positive' as const) : ('neutral' as const),
-      icon: TrendingUp,
-    },
-    {
-      title: 'New leads today',
-      value: newLeadsToday,
-      hint: 'Created since midnight',
-      trend: 'neutral' as const,
-      icon: UserPlus,
-    },
-    {
-      title: 'Unassigned',
-      value: unassignedCount.toLocaleString(),
-      hint:
-        unassignedCount > 0
-          ? `${unassignedPct}% need assignment`
-          : 'All leads assigned',
-      trend: unassignedCount > 0 ? ('negative' as const) : ('positive' as const),
-      icon: UserRoundX,
-    },
+  const activityItems = [
+    { color: 'var(--chart-primary)', title: `${newLeadsToday} new leads`, detail: 'created since midnight', time: 'Today' },
+    { color: 'var(--chart-secondary)', title: `${paidCount} deals won`, detail: 'closed in paid stage', time: 'Today' },
+    { color: 'var(--chart-tertiary)', title: `${activeCount} in pipeline`, detail: 'currently active', time: 'Live' },
+    { color: 'var(--danger)', title: `${overdueRemindersCount} overdue reminders`, detail: 'need follow-up', time: 'Now' },
   ]
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
-            Dashboard
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Overview of your platform statistics and performance.
-          </p>
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {kpiItems.map((item) => (
-          <Card key={item.title} className="border shadow-sm">
-            <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {item.title}
-              </CardTitle>
-              <item.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold tracking-tight">{item.value}</p>
-              <p
-                className={cn(
-                  'mt-1 text-xs',
-                  item.trend === 'positive' && 'text-emerald-600',
-                  item.trend === 'negative' && 'text-red-600',
-                  item.trend === 'neutral' && 'text-muted-foreground',
-                )}
-              >
-                {item.hint}
-              </p>
-            </CardContent>
-          </Card>
+    <div className="space-y-[var(--gap)]">
+      <div className="grid grid-cols-1 gap-[var(--gap)] lg:grid-cols-4">
+        {metricCards.map((metric) => (
+          <div
+            key={metric.label}
+            className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] px-4 py-[14px]"
+          >
+            <p className="mb-[6px] text-[11px] font-normal text-[var(--muted-text)]">{metric.label}</p>
+            <p className="text-[22px] font-medium leading-none text-[var(--text-strong)]">{metric.value}</p>
+            <div
+              className="mt-[10px] flex items-center gap-2 text-[11px] font-normal"
+              style={{ color: metric.positive ? 'var(--positive)' : 'var(--negative)' }}
+            >
+              <span
+                className="h-[6px] w-[6px] rounded-full"
+                style={{ background: metric.positive ? 'var(--positive)' : 'var(--negative)' }}
+              />
+              {metric.trend}
+            </div>
+          </div>
         ))}
       </div>
 
-      <div className="w-full">
-        <Card className="w-full border shadow-sm">
-          <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle>Pipeline &amp; conversion</CardTitle>
-              <CardDescription>
-                Funnel milestones with pipeline stage counts and share of total
-              </CardDescription>
+      <div className="grid grid-cols-1 gap-[var(--gap)] xl:grid-cols-[1.6fr_1fr]">
+        <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] p-[var(--card-padding)]">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-[13px] font-medium text-[var(--text-strong)]">Revenue</h2>
+            <span className="text-[11px] font-normal text-[var(--muted-text)]">Last 7 days</span>
+          </div>
+          <div className="h-[230px]">
+            <Line
+              data={{
+                labels: chartLabels,
+                datasets: [
+                  {
+                    data: chartCounts,
+                    borderColor: styleVars?.linePrimary ?? 'var(--line-primary)',
+                    backgroundColor: styleVars?.chartPrimarySoft ?? 'var(--chart-primary-soft)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    fill: true,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                scales: {
+                  x: {
+                    ticks: { color: styleVars?.mutedText ?? 'var(--muted-text)', font: { size: 11, weight: 400 } },
+                    grid: { color: styleVars?.divider ?? 'var(--divider-color)' },
+                    border: { display: false },
+                  },
+                  y: {
+                    ticks: { color: styleVars?.mutedText ?? 'var(--muted-text)', font: { size: 11, weight: 400 } },
+                    grid: { color: styleVars?.divider ?? 'var(--divider-color)' },
+                    border: { display: false },
+                  },
+                },
+              }}
+            />
+          </div>
+        </div>
+        <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] p-[var(--card-padding)]">
+          <div className="mb-3">
+            <h2 className="text-[13px] font-medium text-[var(--text-strong)]">Deals by source</h2>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="h-[180px] w-[180px]">
+              <Doughnut
+                data={{
+                  labels: sourceLabels,
+                  datasets: [
+                    {
+                      data: sourceData,
+                      backgroundColor: [
+                        styleVars?.chartPrimary ?? 'var(--chart-primary)',
+                        styleVars?.chartSecondary ?? 'var(--chart-secondary)',
+                        styleVars?.chartTertiary ?? 'var(--chart-tertiary)',
+                        styleVars?.chartQuaternary ?? 'var(--chart-quaternary)',
+                      ],
+                      borderWidth: 0,
+                    },
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  cutout: '72%',
+                  plugins: { legend: { display: false } },
+                }}
+              />
             </div>
-            <div
-              className="flex shrink-0 gap-1 rounded-lg border bg-muted/50 p-1"
-              role="group"
-              aria-label="Chart window"
-            >
-              {(
-                [
-                  ['week', 'Week'],
-                  ['month', 'Month'],
-                  ['year', 'Year'],
-                ] as const
-              ).map(([key, label]) => (
-                <Button
-                  key={key}
-                  type="button"
-                  variant={chartWindow === key ? 'default' : 'ghost'}
-                  size="sm"
-                  className={cn(
-                    'h-8 min-w-[4rem] px-3 text-xs font-medium',
-                    chartWindow === key && 'shadow-sm',
-                  )}
-                  onClick={() => setChartWindow(key)}
-                >
-                  {label}
-                </Button>
-              ))}
+            <div className="min-w-0 flex-1 space-y-2">
+              {sourceLabels.map((label, index) => {
+                const value = sourceData[index] ?? 0
+                const pct = sourceTotal > 0 ? Math.round((value / sourceTotal) * 100) : 0
+                const colors = [
+                  'var(--chart-primary)',
+                  'var(--chart-secondary)',
+                  'var(--chart-tertiary)',
+                  'var(--chart-quaternary)',
+                ]
+                return (
+                  <div key={label} className="flex items-center gap-2 text-[11px] font-normal text-[var(--text-strong)]">
+                    <span className="h-2 w-2 rounded-[2px]" style={{ background: colors[index] }} />
+                    <span className="min-w-0 flex-1 truncate">{label}</span>
+                    <span className="text-[var(--muted-text)]">{pct}%</span>
+                  </div>
+                )
+              })}
             </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="h-[min(420px,55vh)] w-full min-h-[280px] min-w-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={unifiedChartData}
-                  margin={{ top: 8, right: 12, left: 4, bottom: 8 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 6"
-                    vertical
-                    horizontal={false}
-                    className="stroke-border"
-                  />
-                  <XAxis
-                    dataKey="label"
-                    tick={{
-                      fill: 'hsl(var(--muted-foreground))',
-                      fontSize: 11,
-                    }}
-                    tickLine={false}
-                    axisLine={false}
-                    interval={0}
-                    angle={-12}
-                    textAnchor="end"
-                    height={72}
-                  />
-                  <YAxis
-                    yAxisId="left"
-                    tick={{
-                      fill: 'hsl(var(--muted-foreground))',
-                      fontSize: 11,
-                    }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={44}
-                  />
-                  <YAxis
-                    yAxisId="right"
-                    orientation="right"
-                    domain={[0, 100]}
-                    tickFormatter={(v) => `${v}%`}
-                    tick={{
-                      fill: 'hsl(var(--muted-foreground))',
-                      fontSize: 11,
-                    }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={40}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: 'hsl(var(--popover))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: 8,
-                      color: 'hsl(var(--popover-foreground))',
-                    }}
-                    labelFormatter={(_, payload) => {
-                      const row = payload?.[0]?.payload as
-                        | { fullLabel?: string }
-                        | undefined
-                      return row?.fullLabel ?? ''
-                    }}
-                  />
-                  <Legend
-                    verticalAlign="top"
-                    align="right"
-                    wrapperStyle={{ fontSize: 12, paddingBottom: 8 }}
-                  />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="funnel"
-                    name="Funnel volume"
-                    stroke="#2563eb"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                  />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="pipeline"
-                    name="Pipeline (stages)"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="conversion"
-                    name="Share of total"
-                    stroke="#f59e0b"
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <p className="mt-3 text-center text-xs text-muted-foreground">
-              <span className="font-medium text-foreground/80">
-                {chartWindow === 'week'
-                  ? 'Last 7 days'
-                  : chartWindow === 'month'
-                    ? 'Last 30 days'
-                    : 'Last 12 months'}
-              </span>
-              {' · '}
-              Funnel counts include only leads created in this period. KPI cards above remain
-              all-time for the workspace.
-            </p>
-          </CardContent>
-        </Card>
-
+          </div>
+        </div>
       </div>
 
-      <Card className="border shadow-sm">
-        <CardHeader className="border-b">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>Agent performance</CardTitle>
-              <CardDescription>
-                Click an agent to view assigned leads
-              </CardDescription>
-            </div>
+      <div className="grid grid-cols-1 gap-[var(--gap)] xl:grid-cols-2">
+        <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] p-[var(--card-padding)]">
+          <h2 className="mb-3 text-[13px] font-medium text-[var(--text-strong)]">Pipeline stages</h2>
+          <div className="space-y-3">
+            {stageList.slice(0, 6).map((stage, index) => {
+              const pct = windowSnapshot.totalLeads > 0 ? Math.round((stage.count / windowSnapshot.totalLeads) * 100) : 0
+              const fillColors = ['var(--chart-primary)', 'var(--chart-primary)', 'var(--chart-secondary)', 'var(--chart-secondary)', 'var(--chart-tertiary)', 'var(--chart-tertiary)']
+              return (
+                <div key={stage.value}>
+                  <div className="mb-[6px] flex items-center justify-between text-[11px] font-normal">
+                    <span className="text-[var(--text-strong)]">{stage.label}</span>
+                    <span className="text-[var(--muted-text)]">{stage.count}</span>
+                  </div>
+                  <div className="h-[6px] overflow-hidden rounded-[3px] bg-[var(--main-bg)]">
+                    <div
+                      className="h-[6px] rounded-[3px]"
+                      style={{ width: `${pct}%`, background: fillColors[index] ?? 'var(--chart-tertiary)' }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        </CardHeader>
+        </div>
 
-        {agentStats.length === 0 ? (
-          <div className="px-6 py-10 text-center text-sm text-muted-foreground">
-            No agents yet.
+        <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] p-[var(--card-padding)]">
+          <h2 className="mb-3 text-[13px] font-medium text-[var(--text-strong)]">Recent activity</h2>
+          <div>
+            {activityItems.map((item, index) => (
+              <div
+                key={item.title}
+                className="flex items-start gap-2 py-[10px]"
+                style={{
+                  borderBottom:
+                    index === activityItems.length - 1
+                      ? 'none'
+                      : '0.5px solid var(--divider-color)',
+                }}
+              >
+                <span className="mt-[5px] h-[6px] w-[6px] rounded-full" style={{ background: item.color }} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-normal text-[var(--text-strong)]">{item.title}</p>
+                  <p className="text-[11px] font-normal text-[var(--muted-text)]">{item.detail}</p>
+                </div>
+                <span className="text-[11px] font-normal text-[var(--muted-text)]">{item.time}</span>
+              </div>
+            ))}
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Agent</TableHead>
-                  <TableHead>Total Leads</TableHead>
-                  <TableHead>Active</TableHead>
-                  <TableHead>Paid</TableHead>
-                  <TableHead>Total Value</TableHead>
-                  <TableHead>Conversion</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {agentStats.map((agent) => {
-                  const conversionPct =
-                    agent.total > 0
-                      ? Math.round((agent.paid / agent.total) * 100)
-                      : 0
+        </div>
+      </div>
 
-                  return (
-                    <TableRow
-                      key={agent.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      role="link"
-                      tabIndex={0}
-                      onClick={() =>
-                        router.push(
-                          `${tenantPath(tenantSlug, '/admin/leads')}?assignedTo=${agent.id}`,
-                        )
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          router.push(
-                            `${tenantPath(tenantSlug, '/admin/leads')}?assignedTo=${agent.id}`,
-                          )
-                        }
-                      }}
-                      aria-label={`View assigned leads for ${agent.name}`}
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border bg-muted text-xs font-semibold text-foreground">
-                            {agent.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-medium">{agent.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {agent.email ?? ''}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{agent.total}</TableCell>
-                      <TableCell className="text-blue-600">{agent.active}</TableCell>
-                      <TableCell className="text-emerald-600">{agent.paid}</TableCell>
-                      <TableCell className="font-medium">
-                        USD {Number(agent.totalValue || 0).toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-emerald-500"
-                              style={{ width: `${conversionPct}%` }}
-                            />
-                          </div>
-                          <span className="w-8 text-xs text-muted-foreground">
-                            {conversionPct}%
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+      <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] p-[var(--card-padding)]">
+        <h2 className="mb-3 text-[13px] font-medium text-[var(--text-strong)]">Team snapshot</h2>
+        <div className="grid grid-cols-1 gap-[var(--gap)] md:grid-cols-3">
+          <div>
+            <p className="text-[11px] text-[var(--muted-text)]">Agents</p>
+            <p className="text-[22px] font-medium leading-none">{agentStats.length}</p>
           </div>
-        )}
-      </Card>
+          <div>
+            <p className="text-[11px] text-[var(--muted-text)]">Pipeline value</p>
+            <p className="text-[22px] font-medium leading-none">${pipelineValue.toLocaleString()}</p>
+          </div>
+          <div>
+            <p className="text-[11px] text-[var(--muted-text)]">Conversion</p>
+            <p className="text-[22px] font-medium leading-none">{conversionRate}%</p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

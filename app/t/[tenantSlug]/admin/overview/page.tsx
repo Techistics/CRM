@@ -110,7 +110,6 @@ export default async function AdminOverviewPage() {
 
   return (
     <AnalyticsOverviewClient
-      tenantSlug={tenant.slug}
       chartByWindow={chartByWindow}
       overdueRemindersCount={overdueRemindersCount}
       totalLeads={totalLeads}
@@ -125,4 +124,4 @@ export default async function AdminOverviewPage() {
       conversionRate={conversionRate}
     />
   )
-}
+}

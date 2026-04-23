@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import { Check, Plus, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -171,7 +170,7 @@ export function TagSelector({ leadId, initialTags }: TagSelectorProps) {
                   disabled={loading}
                 >
                   <Plus className="mr-2 h-3 w-3" />
-                  Create "{inputValue}"
+                  Create &quot;{inputValue}&quot;
                 </Button>
               </CommandEmpty>
               <CommandGroup>

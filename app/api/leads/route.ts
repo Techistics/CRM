@@ -3,7 +3,7 @@ import { and, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
 
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'
-import { leads, leadTagAssignments } from '@/db/schema'
+import { leads, leadTagAssignments, leadTags } from '@/db/schema'
 import { leadsVisibleWhere } from '@/lib/leads-scope'
 import { requireTenantAdminApi, requireTenantMemberApi } from '@/lib/tenant-api'
 import { leadCreateBodySchema } from '@/lib/validators/lead'
@@ -16,8 +16,11 @@ export async function GET(req: NextRequest) {
     if (!ctx.ok) return ctx.response
 
     const url = new URL(req.url)
-    const q = url.searchParams.get('q')?.trim()
+    const q = (url.searchParams.get('q') ?? url.searchParams.get('search') ?? '').trim()
     const tagsParam = url.searchParams.get('tags')
+    const assignedTo = url.searchParams.get('assignedTo')?.trim()
+    const stage = url.searchParams.get('stage')?.trim()
+    const idsOnly = url.searchParams.get('idsOnly') === 'true'
 
     const conditions = [leadsVisibleWhere(ctx.tenant.id, ctx.role, ctx.dbUserId)]
 
@@ -46,7 +49,60 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    if (assignedTo) {
+      conditions.push(eq(leads.assignedTo, assignedTo))
+    }
+
+    if (stage) {
+      conditions.push(eq(leads.stage, stage as StageValue))
+    }
+
     const where = and(...conditions)
+
+    const attachTagsToLeads = async <
+      T extends {
+        id: string
+      },
+    >(
+      rows: T[],
+    ): Promise<Array<T & { tags: Array<{ id: string; name: string; color: string }> }>> => {
+      if (rows.length === 0) {
+        return rows.map((row) => ({ ...row, tags: [] }))
+      }
+
+      const leadIds = rows.map((row) => row.id)
+      const tagRows = await db
+        .select({
+          leadId: leadTagAssignments.leadId,
+          id: leadTags.id,
+          name: leadTags.name,
+          color: leadTags.color,
+        })
+        .from(leadTagAssignments)
+        .innerJoin(leadTags, eq(leadTags.id, leadTagAssignments.tagId))
+        .where(inArray(leadTagAssignments.leadId, leadIds))
+
+      const tagsByLeadId = new Map<string, Array<{ id: string; name: string; color: string }>>()
+      for (const tagRow of tagRows) {
+        const current = tagsByLeadId.get(tagRow.leadId) ?? []
+        current.push({ id: tagRow.id, name: tagRow.name, color: tagRow.color })
+        tagsByLeadId.set(tagRow.leadId, current)
+      }
+
+      return rows.map((row) => ({
+        ...row,
+        tags: tagsByLeadId.get(row.id) ?? [],
+      }))
+    }
+
+    if (idsOnly) {
+      const rows = await db
+        .select({ id: leads.id })
+        .from(leads)
+        .where(where)
+        .orderBy(desc(leads.updatedAt))
+      return successResponse({ leadIds: rows.map((row) => row.id) })
+    }
 
     const pageParam = url.searchParams.get('page')
     const pageSizeParam = url.searchParams.get('pageSize')
@@ -61,15 +117,35 @@ export async function GET(req: NextRequest) {
         .from(leads)
         .where(where)
       const rows = await db
-        .select()
+        .select({
+          id: leads.id,
+          tenantId: leads.tenantId,
+          fullName: leads.fullName,
+          contactNumber: leads.contactNumber,
+          email: leads.email,
+          city: leads.city,
+          country: leads.country,
+          lastQualification: leads.lastQualification,
+          grades: leads.grades,
+          source: leads.source,
+          rawData: leads.rawData,
+          stage: leads.stage,
+          assignedTo: leads.assignedTo,
+          createdBy: leads.createdBy,
+          dealValue: leads.dealValue,
+          dealCurrency: leads.dealCurrency,
+          createdAt: leads.createdAt,
+          updatedAt: leads.updatedAt,
+        })
         .from(leads)
         .where(where)
         .orderBy(desc(leads.updatedAt))
         .limit(pageSize)
         .offset(offset)
+      const rowsWithTags = await attachTagsToLeads(rows)
       
       return successResponse({
-        leads: rows,
+        leads: rowsWithTags,
         total: Number(totalRow?.c ?? 0),
         page,
         pageSize,
@@ -77,12 +153,32 @@ export async function GET(req: NextRequest) {
     }
 
     const rows = await db
-      .select()
+      .select({
+        id: leads.id,
+        tenantId: leads.tenantId,
+        fullName: leads.fullName,
+        contactNumber: leads.contactNumber,
+        email: leads.email,
+        city: leads.city,
+        country: leads.country,
+        lastQualification: leads.lastQualification,
+        grades: leads.grades,
+        source: leads.source,
+        rawData: leads.rawData,
+        stage: leads.stage,
+        assignedTo: leads.assignedTo,
+        createdBy: leads.createdBy,
+        dealValue: leads.dealValue,
+        dealCurrency: leads.dealCurrency,
+        createdAt: leads.createdAt,
+        updatedAt: leads.updatedAt,
+      })
       .from(leads)
       .where(where)
       .orderBy(desc(leads.updatedAt))
+    const rowsWithTags = await attachTagsToLeads(rows)
     
-    return successResponse({ leads: rows })
+    return successResponse({ leads: rowsWithTags })
   })
 }
 
@@ -148,7 +244,7 @@ export async function POST(req: NextRequest) {
         email: emailNorm,
         city: data.city?.trim() || null,
         country: data.country?.trim() || DEFAULT_LEAD_COUNTRY,
-        lastQualification: (data as any).notes || data.lastQualification?.trim() || null,
+        lastQualification: data.notes || data.lastQualification?.trim() || null,
         grades: data.grades?.trim() || null,
         source: data.source?.trim() || 'manual',
         assignedTo: data.assignedTo ?? null,

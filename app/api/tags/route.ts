@@ -11,7 +11,7 @@ const tagSchema = z.object({
   color: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, 'Invalid hex color').default('#3b82f6'),
 })
 
-export async function GET(_req: NextRequest) {
+export async function GET() {
   return withApiErrorHandling(async () => {
     const ctx = await requireTenantMemberApi()
     if (!ctx.ok) return ctx.response

@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Plus, Loader2, AlertCircle } from 'lucide-react'
-import { toast } from 'sonner'
 
 import {
   Dialog,
@@ -36,6 +35,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { apiCall } from '@/lib/utils/api-handler'
 
 const COUNTRIES = [
   'Pakistan', 'United Kingdom', 'Canada', 'Australia', 
@@ -68,9 +68,10 @@ type FormValues = z.infer<typeof createLeadSchema>
 
 interface Agent {
   userId: string
-  user: {
-    name: string
-  }
+  name: string
+  email: string
+  role: string
+  activeLeadCount: number
 }
 
 export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
@@ -98,16 +99,7 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
     },
   })
 
-  useEffect(() => {
-    if (open) {
-      fetchAgents()
-    } else {
-      setConflict(false)
-      form.reset()
-    }
-  }, [open])
-
-  async function fetchAgents() {
+  const fetchAgents = useCallback(async () => {
     setLoadingAgents(true)
     try {
       const res = await fetch(`/api/admin/team-members?tenantSlug=${tenantSlug}`)
@@ -120,11 +112,20 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
     } finally {
       setLoadingAgents(false)
     }
-  }
+  }, [tenantSlug])
+
+  useEffect(() => {
+    if (open) {
+      fetchAgents()
+    } else {
+      setConflict(false)
+      form.reset()
+    }
+  }, [open, fetchAgents, form])
 
   async function onSubmit(values: FormValues, force = false) {
     setIsSubmitting(true)
-    try {
+    const result = await apiCall(async () => {
       const res = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -133,25 +134,30 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
 
       if (res.status === 409) {
         setConflict(true)
-        return
+        return { conflict: true as const }
       }
 
-      if (!res.ok) throw new Error('Failed to create')
+      const data = await res.json()
+      return { conflict: false as const, data }
+    }, {
+      successMsg: force ? 'Lead created' : 'Lead created successfully',
+      errorMsg: 'Failed to create lead. Please try again.',
+    })
 
-      toast.success('Lead created successfully')
+    if (result && !('conflict' in result && result.conflict)) {
       setOpen(false)
       router.refresh()
-    } catch (err) {
-      toast.error('Failed to create lead. Please try again.')
-    } finally {
-      setIsSubmitting(false)
     }
+    setIsSubmitting(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-1.5 shadow-sm hover:shadow-md transition-all active:scale-95">
+        <Button
+          size="sm"
+          className="gap-1.5 border border-[#b7df65] bg-[#CBEF7F] text-[#1A2B40] shadow-sm hover:bg-[#bfe873] hover:text-[#1A2B40] hover:shadow-md transition-all active:scale-95"
+        >
           <Plus className="h-4 w-4" />
           New Lead
         </Button>
@@ -159,7 +165,7 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
       <DialogContent className="max-w-2xl overflow-y-auto max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-[#223955]">Add New Lead</DialogTitle>
-          <DialogDescription>Fill in the lead's details below.</DialogDescription>
+          <DialogDescription>Fill in the lead&apos;s details below.</DialogDescription>
         </DialogHeader>
 
         {conflict && (
@@ -338,9 +344,8 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
                     <FormControl>
                       <SelectTrigger>
                         {loadingAgents ? (
-                          <div className="flex items-center gap-2">
-                             <Loader2 className="h-3 w-3 animate-spin" />
-                             <span>Loading...</span>
+                          <div className="flex items-center">
+                            <Loader2 className="h-3 w-3 animate-spin" />
                           </div>
                         ) : (
                           <SelectValue placeholder="Select agent" />
@@ -350,7 +355,7 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
                     <SelectContent>
                       <SelectItem value="unassigned">Unassigned</SelectItem>
                       {agents.map(a => (
-                        <SelectItem key={a.userId} value={a.userId}>{a.user.name}</SelectItem>
+                        <SelectItem key={a.userId} value={a.userId}>{a.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -434,10 +439,7 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
               disabled={isSubmitting}
             >
               {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 'Create Lead'
               )}

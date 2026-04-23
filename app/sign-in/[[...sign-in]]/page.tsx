@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/ui/PasswordInput'
 import { Label } from '@/components/ui/label'
+import { apiCall } from '@/lib/utils/api-handler'
 
 function SignInForm() {
   const router = useRouter()
@@ -18,38 +20,28 @@ function SignInForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Sync email search param to state on mount
-  useEffect(() => {
-    if (initialEmail) {
-      setEmail(initialEmail)
-    }
-  }, [initialEmail])
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
-    try {
+    const data = await apiCall(async () => {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Login failed')
-      }
-
+      return res.json()
+    }, {
+      successMsg: 'Signed in successfully',
+      errorMsg: 'Login failed',
+      onError: (err) => setError(err instanceof Error ? err.message : 'Login failed'),
+    })
+    if (data) {
       router.push('/')
       router.refresh()
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed')
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }
 
   return (
@@ -92,11 +84,11 @@ function SignInForm() {
         </div>
 
         {error && (
-          <p className="text-sm font-medium text-destructive">{error}</p>
+          <p className="mt-1 text-[12px] font-medium text-[var(--danger)]">{error}</p>
         )}
 
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? 'Signing in...' : 'Sign In'}
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Sign In'}
         </Button>
       </form>
 
@@ -116,7 +108,7 @@ function SignInForm() {
 export default function SignInPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-muted/50 px-4">
-      <Suspense fallback={<div className="text-sm text-muted-foreground">Loading...</div>}>
+      <Suspense fallback={<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}>
         <SignInForm />
       </Suspense>
     </main>

@@ -1,7 +1,7 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { isPlatformSuperAdmin } from '@/lib/platform-role'
+import { AdminShell } from '@/app/platform/_components/AdminShell'
 
 export default async function PlatformLayout({
   children,
@@ -11,22 +11,5 @@ export default async function PlatformLayout({
   const ok = await isPlatformSuperAdmin()
   if (!ok) redirect('/')
 
-  return (
-    <div className="min-h-screen bg-muted/40">
-      <header className="border-b bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-6 px-4 py-3 text-sm">
-          <Link href="/platform" className="font-semibold">
-            Platform
-          </Link>
-          <Link href="/platform/tenants" className="text-muted-foreground hover:text-foreground">
-            Workspaces
-          </Link>
-          <Link href="/" className="ml-auto text-muted-foreground hover:text-foreground">
-            App home
-          </Link>
-        </div>
-      </header>
-      <div className="mx-auto max-w-5xl px-4 py-8">{children}</div>
-    </div>
-  )
+  return <AdminShell>{children}</AdminShell>
 }

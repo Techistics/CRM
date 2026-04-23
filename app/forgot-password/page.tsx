@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { requestPasswordReset } from '@/app/actions/auth'
-import { ArrowLeft, MailCheck } from 'lucide-react'
+import { ArrowLeft, Loader2, MailCheck } from 'lucide-react'
+import { apiCall } from '@/lib/utils/api-handler'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -19,16 +20,13 @@ export default function ForgotPasswordPage() {
     setLoading(true)
     setError(null)
 
-    try {
-      const result = await requestPasswordReset(email)
-      if (result.success) {
-        setSuccess(true)
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
-    } finally {
-      setLoading(false)
-    }
+    const result = await apiCall(async () => requestPasswordReset(email), {
+      successMsg: 'Reset link sent',
+      errorMsg: 'Something went wrong',
+      onError: (err) => setError(err instanceof Error ? err.message : 'Something went wrong'),
+    })
+    if (result?.success) setSuccess(true)
+    setLoading(false)
   }
 
   return (
@@ -70,11 +68,11 @@ export default function ForgotPasswordPage() {
               </div>
 
               {error && (
-                <p className="text-sm font-medium text-destructive">{error}</p>
+                <p className="mt-1 text-[12px] font-medium text-[var(--danger)]">{error}</p>
               )}
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Sending link...' : 'Send Reset Link'}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send Reset Link'}
               </Button>
             </form>
 

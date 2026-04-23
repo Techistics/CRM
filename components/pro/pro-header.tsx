@@ -6,6 +6,7 @@ import NotificationBell from '@/app/components/NotificationBell'
 import { useSidebar } from '@/components/sidebar-provider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ThemeToggle } from '@/components/shared/theme-toggle'
 
 export function ProHeader({ tenantSlug }: { tenantSlug: string }) {
   const { toggle } = useSidebar()
@@ -37,6 +38,7 @@ export function ProHeader({ tenantSlug }: { tenantSlug: string }) {
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+          <ThemeToggle />
           <NotificationBell tenantSlug={tenantSlug} portalBase="pro" />
           <UserMenu />
         </div>

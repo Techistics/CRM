@@ -3,7 +3,8 @@ import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { db } from '@/db'
-import { leads, notifications, tenantMembers } from '@/db/schema'
+import { leads, notifications, tenantMembers, users } from '@/db/schema'
+import { sendLeadAssignedEmail } from '@/lib/mail'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
 import { getLeadInTenant } from '@/lib/lead-tenant'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
@@ -69,6 +70,30 @@ export async function PATCH(
         type: 'lead_assigned',
         leadId: id,
       })
+
+      const [assignee] = await db
+        .select({
+          email: users.email,
+          name: users.name,
+        })
+        .from(users)
+        .where(eq(users.id, assignedTo))
+        .limit(1)
+
+      if (assignee?.email) {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+        const leadUrl = `${baseUrl}/t/${ctx.tenant.slug}/admin/leads/${id}`
+        await sendLeadAssignedEmail({
+          agentEmail: assignee.email,
+          agentName: assignee.name ?? 'Agent',
+          leadName: lead.fullName,
+          contactNumber: lead.contactNumber ?? '',
+          leadEmail: lead.email ?? '',
+          stage: lead.stage ?? 'new_lead',
+          leadUrl,
+          workspaceName: ctx.tenant.name,
+        })
+      }
     }
 
     return successResponse({ success: true })

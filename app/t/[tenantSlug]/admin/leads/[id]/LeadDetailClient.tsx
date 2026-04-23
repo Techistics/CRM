@@ -3,10 +3,9 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
-import { DollarSign } from 'lucide-react'
+import { DollarSign, Loader2 } from 'lucide-react'
 import type { Lead, LeadStage } from '@/types/models'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
-import { useToast } from '@/hooks/use-toast'
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { TagSelector } from '@/components/lead/TagSelector'
@@ -33,6 +32,7 @@ import { tenantPath } from '@/lib/tenant-path'
 import type { LeadReminder } from '@/types/models'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LeadDocumentsPanel } from '@/components/lead/LeadDocumentsPanel'
+import { apiCall } from '@/lib/utils/api-handler'
 
 export default function LeadDetailClient({
   lead,
@@ -45,7 +45,6 @@ export default function LeadDetailClient({
   allUsers: UserRow[]
   tags: { id: string; name: string; color: string }[]
 }) {
-  const { toast } = useToast()
   const router = useRouter()
   const params = useParams()
   const tenantSlug = String(params?.tenantSlug ?? '')
@@ -78,9 +77,11 @@ export default function LeadDetailClient({
   useEffect(() => {
     async function loadReminders() {
       setLoadingReminders(true)
-      const res = await fetch(`/api/leads/${lead.id}/reminders`)
-      const data = await res.json()
-      setReminders(data.reminders ?? [])
+      const data = await apiCall(async () => {
+        const res = await fetch(`/api/leads/${lead.id}/reminders`)
+        return res.json()
+      }, { errorMsg: 'Failed to load reminders' })
+      setReminders((data as { reminders?: LeadReminder[] } | null)?.reminders ?? [])
       setLoadingReminders(false)
     }
 
@@ -91,102 +92,108 @@ export default function LeadDetailClient({
     const previous = stage
     setStage(newStage)
     setSaving(true)
-    const res = await fetch(`/api/leads/${lead.id}/stage`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stage: newStage }),
-    })
-    setSaving(false)
-    if (!res.ok) {
-      setStage(previous)
-      toast({
-        variant: 'destructive',
-        title: 'Stage update failed',
-        description: 'Could not save the new stage.',
+    const data = await apiCall(async () => {
+      const res = await fetch(`/api/leads/${lead.id}/stage`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: newStage }),
       })
+      return res.json()
+    }, { successMsg: 'Lead stage updated', errorMsg: 'Stage update failed' })
+    setSaving(false)
+    if (!data) {
+      setStage(previous)
       return
     }
-    toast({ title: 'Stage Updated', description: 'Lead stage has been successfully updated.' })
     router.refresh()
   }
 
   async function handleAssign(newAssignedTo: string) {
     setAssignedTo(newAssignedTo)
-    await fetch(`/api/leads/${lead.id}/assign`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assignedTo: newAssignedTo || null }),
-    })
-    toast({ title: 'Lead Assigned', description: 'Assignment updated successfully.' })
+    const data = await apiCall(async () => {
+      const res = await fetch(`/api/leads/${lead.id}/assign`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignedTo: newAssignedTo || null }),
+      })
+      return res.json()
+    }, { successMsg: 'Lead assigned', errorMsg: 'Assignment update failed' })
+    if (!data) return
     router.refresh()
   }
 
   async function handleAddNote() {
     if (!note.trim()) return
     setAddingNote(true)
-    await fetch(`/api/leads/${lead.id}/notes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ note, type: noteType }),
-    })
-    setNote('')
+    const data = await apiCall(async () => {
+      const res = await fetch(`/api/leads/${lead.id}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note, type: noteType }),
+      })
+      return res.json()
+    }, { successMsg: 'Activity added', errorMsg: 'Failed to add activity' })
     setAddingNote(false)
-    toast({ title: 'Activity Added', description: 'Your note was attached to the lead.' })
+    if (!data) return
+    setNote('')
     router.refresh()
   }
 
   async function handleSaveLeadProfile() {
     setEditingLead(true)
-    const res = await fetch(`/api/leads/${lead.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...profileForm,
-        dealValue: profileForm.dealValue === '' ? null : Number(profileForm.dealValue)
-      }),
-    })
+    const data = await apiCall(async () => {
+      const res = await fetch(`/api/leads/${lead.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...profileForm,
+          dealValue: profileForm.dealValue === '' ? null : Number(profileForm.dealValue)
+        }),
+      })
+      return res.json()
+    }, { successMsg: 'Lead updated', errorMsg: 'Could not update lead profile' })
     setEditingLead(false)
-    if (!res.ok) {
-      toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not update lead profile.' })
-      return
-    }
-    toast({ title: 'Lead Updated', description: 'Core lead fields saved successfully.' })
+    if (!data) return
     router.refresh()
   }
 
 
   async function createReminder() {
     if (!reminderTitle.trim() || !reminderDueAt) return
-    const res = await fetch(`/api/leads/${lead.id}/reminders`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: reminderTitle,
-        note: reminderNote,
-        dueAt: new Date(reminderDueAt).toISOString(),
-      }),
-    })
-    if (!res.ok) {
-      toast({ variant: 'destructive', title: 'Reminder Failed', description: 'Could not create reminder.' })
-      return
+    const data = await apiCall(async () => {
+      const res = await fetch(`/api/leads/${lead.id}/reminders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: reminderTitle,
+          note: reminderNote,
+          dueAt: new Date(reminderDueAt).toISOString(),
+        }),
+      })
+      return res.json()
+    }, { successMsg: 'Reminder added', errorMsg: 'Could not create reminder' })
+    if (!data) return
+    const reminder = (data as { reminder?: LeadReminder }).reminder
+    if (reminder) {
+      setReminders((prev) => [...prev, reminder].sort((a, b) => +new Date(a.dueAt ?? 0) - +new Date(b.dueAt ?? 0)))
     }
-    const data = await res.json()
-    setReminders((prev) => [...prev, data.reminder].sort((a, b) => +new Date(a.dueAt ?? 0) - +new Date(b.dueAt ?? 0)))
     setReminderTitle('')
     setReminderNote('')
     setReminderDueAt('')
-    toast({ title: 'Reminder Added', description: 'Follow-up reminder created.' })
   }
 
   async function completeReminder(reminderId: string) {
-    const res = await fetch(`/api/leads/${lead.id}/reminders/${reminderId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'completed' }),
-    })
-    if (!res.ok) return
-    const data = await res.json()
-    setReminders((prev) => prev.map((r) => (r.id === reminderId ? data.reminder : r)))
+    const data = await apiCall(async () => {
+      const res = await fetch(`/api/leads/${lead.id}/reminders/${reminderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'completed' }),
+      })
+      return res.json()
+    }, { successMsg: 'Reminder completed', errorMsg: 'Failed to complete reminder' })
+    const reminder = (data as { reminder?: LeadReminder } | null)?.reminder
+    if (!reminder) return
+    setReminders((prev) => prev.map((r) => (r.id === reminderId ? reminder : r)))
   }
 
   const stageLabel = STAGES.find((s) => s.value === stage)?.label ?? stage
@@ -222,7 +229,7 @@ export default function LeadDetailClient({
             <span className={`rounded-md border px-2 py-1 text-xs ${STAGE_COLORS[stage]}`}>
               {stageLabel}
             </span>
-            {saving && <span className="text-xs text-muted-foreground">Saving…</span>}
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
           </div>
         </div>
       </div>
@@ -326,7 +333,7 @@ export default function LeadDetailClient({
               disabled={editingLead}
               className="mt-3 bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50"
             >
-              {editingLead ? 'Saving...' : 'Save Lead Profile'}
+              {editingLead ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Lead Profile'}
             </button>
           </div>
 
@@ -381,7 +388,7 @@ export default function LeadDetailClient({
               disabled={!note.trim() || addingNote}
               className="mt-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-800 disabled:text-gray-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
-              {addingNote ? 'Saving...' : 'Save'}
+              {addingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
             </button>
           </div>
         </div>
@@ -451,7 +458,9 @@ export default function LeadDetailClient({
             </div>
 
             {loadingReminders ? (
-              <p className="text-sm text-gray-500">Loading reminders...</p>
+              <div className="flex items-center justify-center py-2">
+                <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+              </div>
             ) : reminders.length === 0 ? (
               <p className="text-sm text-gray-500">No reminders yet.</p>
             ) : (

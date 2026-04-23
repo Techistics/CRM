@@ -3,14 +3,15 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 import type { Lead } from '@/types/models'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
-import { useToast } from '@/hooks/use-toast'
 import { STAGE_LABELS } from '@/constants/leads'
 import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { tenantPath } from '@/lib/tenant-path'
 import { LeadDocumentsPanel } from '@/components/lead/LeadDocumentsPanel'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { apiCall } from '@/lib/utils/api-handler'
 
 import type { StageValue, ActivityRow } from '@/types/leads'
 
@@ -23,7 +24,6 @@ export default function ProLeadDetailClient({
   lead: Lead
   activities: ActivityRow[]
 }) {
-  const { toast } = useToast()
   const router = useRouter()
   const params = useParams()
   const tenantSlug = String(params?.tenantSlug ?? '')
@@ -37,38 +37,40 @@ export default function ProLeadDetailClient({
     const previous = stage
     setStage(newStage)
     setSaving(true)
-    try {
+    const data = await apiCall(async () => {
       const res = await fetch(`/api/pro/leads/${lead.id}/stage`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stage: newStage }),
       })
-      if (!res.ok) throw new Error('Failed to update')
-      toast({ title: 'Stage Updated', description: 'Lead stage has been successfully updated.' })
-      router.refresh()
-    } catch {
+      return res.json()
+    }, { successMsg: 'Stage updated', errorMsg: 'Could not save the new stage' })
+    if (!data) {
       setStage(previous)
-      toast({
-        variant: 'destructive',
-        title: 'Stage update failed',
-        description: 'Could not save the new stage.',
-      })
-    } finally {
       setSaving(false)
+      return
     }
+    router.refresh()
+    setSaving(false)
   }
 
   async function handleAddNote() {
     if (!note.trim()) return
     setAddingNote(true)
-    await fetch(`/api/pro/leads/${lead.id}/notes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ note, type: noteType }),
-    })
+    const data = await apiCall(async () => {
+      const res = await fetch(`/api/pro/leads/${lead.id}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note, type: noteType }),
+      })
+      return res.json()
+    }, { successMsg: 'Activity added', errorMsg: 'Failed to add activity' })
+    if (!data) {
+      setAddingNote(false)
+      return
+    }
     setNote('')
     setAddingNote(false)
-    toast({ title: 'Activity Added', description: 'Your note was attached to the lead.' })
     router.refresh()
   }
 
@@ -90,7 +92,7 @@ export default function ProLeadDetailClient({
             <span className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium bg-white shadow-sm ${currentStageObj.color}`}>
               {currentStageObj.label}
             </span>
-            {saving && <span className="text-gray-400 font-medium text-xs flex items-center gap-1.5"><svg className="animate-spin h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Saving...</span>}
+            {saving && <Loader2 className="h-3 w-3 animate-spin text-gray-400" />}
           </div>
         </div>
       </div>
@@ -204,7 +206,7 @@ export default function ProLeadDetailClient({
                     disabled={!note.trim() || addingNote}
                     className="bg-gray-900 hover:bg-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm transition-all"
                   >
-                    {addingNote ? 'Saving...' : 'Save Activity'}
+                    {addingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Activity'}
                   </button>
                 </div>
               </div>

@@ -23,7 +23,9 @@ function SignInForm() {
   // Sync email search param to state on mount
   useEffect(() => {
     if (initialEmail) {
-      setEmail(initialEmail)
+      setTimeout(() => {
+        setEmail(initialEmail)
+      }, 0)
     }
   }, [initialEmail])
 

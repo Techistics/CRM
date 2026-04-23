@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { leadTags } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
@@ -58,7 +58,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  _: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {

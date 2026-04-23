@@ -29,8 +29,10 @@ export function ThemeToggle() {
           : 'light'
 
     applyTheme(initial)
-    setTheme(initial)
-    setMounted(true)
+    setTimeout(() => {
+      setTheme(initial)
+      setMounted(true)
+    }, 0)
 
     const onStorage = (event: StorageEvent) => {
       if (event.key !== THEME_KEY) return

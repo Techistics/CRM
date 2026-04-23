@@ -106,7 +106,7 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
       setConflict(false)
       form.reset()
     }
-  }, [open])
+  }, [open, fetchAgents, form])
 
   async function fetchAgents() {
     setLoadingAgents(true)

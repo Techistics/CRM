@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { DollarSign, Loader2 } from 'lucide-react'
-import type { Lead, LeadStage } from '@/types/models'
+import type { Lead, LeadStage, LeadReminder } from '@/types/models'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
@@ -29,7 +29,6 @@ const STAGE_COLORS: Record<string, string> = {
 
 import type { ActivityRow, UserRow } from '@/types/leads'
 import { tenantPath } from '@/lib/tenant-path'
-import type { LeadReminder } from '@/types/models'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LeadDocumentsPanel } from '@/components/lead/LeadDocumentsPanel'
 import { apiCall } from '@/lib/utils/api-handler'
@@ -493,6 +492,7 @@ export default function LeadDetailClient({
       </div>
         </TabsContent>
       </Tabs>
+
     </div>
   )
 }

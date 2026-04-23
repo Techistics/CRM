@@ -88,6 +88,7 @@ export default function NotificationBell({
     lead_assigned: '👤',
     stage_changed: '⟳',
     note_added: '✎',
+    stale_lead: '⚠️',
   }
 
   return (

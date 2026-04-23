@@ -16,7 +16,7 @@ import {
 import Pagination from '@/components/Pagination'
 import SearchInput from '@/components/SearchInput'
 import PageSizeDropdown from '@/components/PageSizeDropdown'
-import { STAGE_LABELS } from '@/constants/leads'
+import { getStageInfo } from '@/constants/pipeline-stages'
 import { tenantPath } from '@/lib/tenant-path'
 import { TagFilter } from '@/components/lead/TagFilter'
 import { CreateLeadDialog } from '@/components/lead/CreateLeadDialog'
@@ -450,7 +450,7 @@ export default function LeadsPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {leads.map((lead) => {
-                  const stage = STAGE_LABELS[lead.stage ?? 'new_lead']
+                  const stageInfo = getStageInfo(lead.stage)
                   
                   return (
                     <tr
@@ -516,8 +516,8 @@ export default function LeadsPage() {
                         {lead.lastQualification ?? '—'}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`text-xs px-2.5 py-1 rounded-full border ${stage.color} font-medium tracking-wide`}>
-                          {stage.label}
+                        <span className={`text-xs px-2.5 py-1 rounded-full border ${stageInfo.badgeClasses} font-medium tracking-wide`}>
+                          {stageInfo.label}
                         </span>
                       </td>
                       <td className="px-6 py-4">

@@ -21,6 +21,18 @@ export type LeadReminder = typeof leadReminders.$inferSelect
 export type LeadDocumentChecklistItem = typeof leadDocumentChecklist.$inferSelect
 export type LeadUploadedDocument = typeof leadUploadedDocuments.$inferSelect
 export type CsvImport = typeof csvImports.$inferSelect
-export type LeadStage = Lead['stage']
+export type StageValue = 
+  | "new_lead" 
+  | "unresponsive" 
+  | "follow_up" 
+  | "docs_received" 
+  | "options_sent" 
+  | "final_decision" 
+  | "walkin_booked" 
+  | "walkin_conducted" 
+  | "cancelled" 
+  | "paid"
+
+export type LeadStage = StageValue
 export type Notification = typeof notifications.$inferSelect
 export type RoleRequest = typeof roleRequests.$inferSelect

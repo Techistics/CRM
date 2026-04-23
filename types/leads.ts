@@ -1,16 +1,5 @@
-import type { LeadActivity, User } from '@/types/models'
+import type { LeadActivity, User, StageValue } from '@/types/models'
 
-export type StageValue = 
-  | "new_lead" 
-  | "unresponsive" 
-  | "follow_up" 
-  | "docs_received" 
-  | "options_sent" 
-  | "final_decision" 
-  | "walkin_booked" 
-  | "walkin_conducted" 
-  | "cancelled" 
-  | "paid"
 
 export type ActivityRow = {
   id: string

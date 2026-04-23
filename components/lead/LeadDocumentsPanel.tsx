@@ -99,7 +99,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Storage sync failed.')
     }
-  }, [leadId, toast])
+  }, [leadId])
 
   const loadChecklist = useCallback(async () => {
     try {

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { leadTags } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'

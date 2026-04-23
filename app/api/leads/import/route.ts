@@ -237,7 +237,7 @@ export async function POST(req: NextRequest) {
           }
           return true
         })
-        .map(({ rowNumber: _rowNumber, ...row }) => row)
+        .map(({ rowNumber: _, ...row }) => row) // eslint-disable-line @typescript-eslint/no-unused-vars
 
       return successResponse({
         fileName: parsed.data.fileName,

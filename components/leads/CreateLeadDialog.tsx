@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -99,16 +99,7 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
     },
   })
 
-  useEffect(() => {
-    if (open) {
-      fetchAgents()
-    } else {
-      setConflict(false)
-      form.reset()
-    }
-  }, [open])
-
-  async function fetchAgents() {
+  const fetchAgents = useCallback(async () => {
     setLoadingAgents(true)
     try {
       const res = await fetch(`/api/admin/team-members?tenantSlug=${tenantSlug}`)
@@ -121,7 +112,16 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
     } finally {
       setLoadingAgents(false)
     }
-  }
+  }, [tenantSlug])
+
+  useEffect(() => {
+    if (open) {
+      fetchAgents()
+    } else {
+      setConflict(false)
+      form.reset()
+    }
+  }, [open, fetchAgents, form])
 
   async function onSubmit(values: FormValues, force = false) {
     setIsSubmitting(true)

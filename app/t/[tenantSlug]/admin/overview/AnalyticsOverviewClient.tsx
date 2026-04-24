@@ -13,7 +13,6 @@ import {
   Tooltip,
 } from 'chart.js'
 import { Doughnut, Line } from 'react-chartjs-2'
-import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams, useParams } from 'next/navigation'
 import { Download, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'

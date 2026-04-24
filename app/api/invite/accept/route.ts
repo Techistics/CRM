@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { and, eq, sql } from 'drizzle-orm'
+import { NextRequest } from 'next/server'
+import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 
@@ -20,14 +20,6 @@ export async function GET(req: NextRequest) {
     const token = url.searchParams.get('token')
 
     if (!token) return errorResponse('Token required', 'MISSING_TOKEN', 400)
-
-    const invitation = await db.query.invitations.findFirst({
-      where: (i, { eq }) => eq(i.token, token),
-      with: {
-        tenant: true,
-        inviter: true,
-      } as any, // Drizzle relations might need manual join if not configured
-    })
 
     // Manual join since I haven't verified all relations in schema.ts
     const [row] = await db

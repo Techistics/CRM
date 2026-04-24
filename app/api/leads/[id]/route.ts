@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { and, eq, sql } from 'drizzle-orm'
+import { NextRequest } from 'next/server'
+import { and, eq } from 'drizzle-orm'
 
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'

@@ -27,7 +27,11 @@ export async function POST(req: NextRequest) {
     if (parsed.data.tenantSlug !== ctx.tenant.slug) return errorResponse('Forbidden', 'FORBIDDEN', 403)
 
     const [member] = await db
-      .select({ userId: tenantMembers.userId, name: users.name, email: users.email })
+      .select({ 
+        userId: tenantMembers.userId, 
+        name: users.name, 
+        email: users.email 
+      })
       .from(tenantMembers)
       .innerJoin(users, eq(users.id, tenantMembers.userId))
       .where(
@@ -37,6 +41,7 @@ export async function POST(req: NextRequest) {
         ),
       )
       .limit(1)
+      
     if (!member) return errorResponse('Assignee is not in this workspace', 'INVALID_ASSIGNEE', 400)
 
     const updatedRows = await db
@@ -46,19 +51,24 @@ export async function POST(req: NextRequest) {
       .returning({ id: leads.id })
 
     if (member.email && updatedRows.length > 0) {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-      await sendLeadAssignedEmail({
-        agentEmail: member.email,
-        agentName: member.name ?? 'Agent',
-        leadName: `${updatedRows.length} leads (bulk assignment)`,
-        contactNumber: '-',
-        leadEmail: '-',
-        stage: 'mixed',
-        leadUrl: `${baseUrl}/t/${ctx.tenant.slug}/admin/leads`,
-        workspaceName: ctx.tenant.name,
-      })
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+        await sendLeadAssignedEmail({
+          agentEmail: member.email,
+          agentName: member.name ?? 'Agent',
+          leadName: `${updatedRows.length} leads assigned to you`,
+          contactNumber: '-',
+          leadEmail: '-',
+          stage: 'Bulk Assignment',
+          leadUrl: `${baseUrl}/t/${ctx.tenant.slug}/admin/leads`,
+          workspaceName: ctx.tenant.name,
+        })
+      } catch (err) {
+        console.error('[bulk-assign] Email failed:', err)
+      }
     }
 
     return successResponse({ updated: updatedRows.length })
   })
 }
+

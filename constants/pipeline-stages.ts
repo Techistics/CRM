@@ -103,3 +103,12 @@ export function isValidLeadStage(value: unknown): value is StageValue {
 export function getStageInfo(value: string | null | undefined) {
   return PIPELINE_STAGES.find((s) => s.value === value) || PIPELINE_STAGES[0]
 }
+
+export const STAGE_LABELS = PIPELINE_STAGES.reduce((acc, stage) => {
+  acc[stage.value] = {
+    label: stage.label,
+    color: stage.badgeClasses,
+  }
+  return acc
+}, {} as Record<StageValue, { label: string; color: string }>)
+

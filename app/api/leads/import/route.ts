@@ -276,6 +276,7 @@ export async function POST(req: NextRequest) {
       const validAgentIds = assignableMembers.map((member) => member.userId)
 
       const rowsToInsert: (typeof leads.$inferInsert)[] = parsed.data.parsedData.map((leadRow, index) => {
+        // Round-robin distribution
         const assignedTo =
           validAgentIds.length > 0 ? validAgentIds[index % validAgentIds.length] : null
 
@@ -317,20 +318,26 @@ export async function POST(req: NextRequest) {
         status: 'done',
       })
 
+      // Send ONE email per agent summarizing their new leads
       for (const member of assignableMembers) {
         const count = assignedCounts.get(member.userId) ?? 0
         if (count <= 0 || !member.email) continue
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-        await sendLeadAssignedEmail({
-          agentEmail: member.email,
-          agentName: member.name ?? 'Agent',
-          leadName: `${count} leads from CSV import`,
-          contactNumber: '-',
-          leadEmail: '-',
-          stage: 'new_lead',
-          leadUrl: `${baseUrl}/t/${ctx.tenant.slug}/admin/leads`,
-          workspaceName: ctx.tenant.name,
-        })
+        
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+          await sendLeadAssignedEmail({
+            agentEmail: member.email,
+            agentName: member.name ?? 'Agent',
+            leadName: `${count} leads assigned to you via CSV import`,
+            contactNumber: '-',
+            leadEmail: '-',
+            stage: 'Imported',
+            leadUrl: `${baseUrl}/t/${ctx.tenant.slug}/admin/leads`,
+            workspaceName: ctx.tenant.name,
+          })
+        } catch (err) {
+          console.error('[import-confirm] Summary email failed:', err)
+        }
       }
 
       return successResponse({
@@ -348,3 +355,4 @@ export async function POST(req: NextRequest) {
     return errorResponse('Unsupported action', 'VALIDATION_ERROR', 400)
   })
 }
+

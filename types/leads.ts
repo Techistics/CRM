@@ -1,4 +1,5 @@
-import type { LeadActivity, User, StageValue } from '@/types/models'
+import type { LeadActivity, User } from '@/types/models'
+export type { StageValue } from '@/types/models'
 
 
 export type ActivityRow = {

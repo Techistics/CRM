@@ -101,16 +101,27 @@ export async function PATCH(
       })
       .where(eq(roleRequests.id, id))
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-    const signInUrl = `${baseUrl}/sign-in`
-    await sendAccessApprovedEmail({
-      userEmail: user.email,
-      userName: user.name,
-      roleName: row.requestedRole,
-      workspaceName: ctx.tenant.name,
-      signInUrl,
-    })
+    // Send Approval Email
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+      const signInUrl = `${baseUrl}/sign-in`
+      
+      // Format role name nicely
+      const roleDisplayName = row.requestedRole === 'ADMIN' ? 'Team Admin' : 'Agent'
+      
+      await sendAccessApprovedEmail({
+        userEmail: user.email,
+        userName: user.name || 'User',
+        roleName: roleDisplayName,
+        workspaceName: ctx.tenant.name || 'Workspace',
+        signInUrl,
+      })
+    } catch (err) {
+      console.error('[role-approval] Email failed:', err)
+      // Non-critical failure, don't return error
+    }
 
     return successResponse({ ok: true })
   })
 }
+

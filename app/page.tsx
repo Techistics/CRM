@@ -11,8 +11,14 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { crmConfig } from '@/lib/config/theme'
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ highlight?: string }>
+}) {
+  const { highlight } = await searchParams
   const session = await getSession()
+
   if (!session) redirect('/sign-in')
 
   const user = await db.query.users.findFirst({
@@ -128,11 +134,22 @@ export default async function Home() {
               {pendingInvites.map((invite) => (
                 <li
                   key={invite.id}
-                  className="rounded-[10px] border-[0.5px] border-white/10 bg-[#161b22] px-5 py-4"
+                  className={`rounded-[10px] border-[0.5px] bg-[#161b22] px-5 py-4 transition-all duration-500 ${
+                    invite.tenantSlug === highlight 
+                      ? 'border-[#CBEF7F] bg-[rgba(203,239,127,0.08)] shadow-[0_0_20px_rgba(203,239,127,0.1)]' 
+                      : 'border-white/10'
+                  }`}
                 >
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-[14px] font-medium text-white">{invite.tenantName}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[14px] font-medium text-white">{invite.tenantName}</p>
+                        {invite.tenantSlug === highlight && (
+                          <span className="inline-flex items-center rounded-full bg-[#CBEF7F] px-2 py-0.5 text-[10px] font-bold uppercase text-black">
+                            New Invite
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-1 flex items-center gap-2">
                         <span className="inline-flex items-center rounded-[4px] bg-white/5 px-2 py-0.5 text-[11px] text-white/45">
                           {invite.role === 'PRO' ? 'Pro Access' : 'Admin Access'}
@@ -157,14 +174,30 @@ export default async function Home() {
               <li key={t.id}>
                 <a
                   href={workspaceOrigin(t.slug)}
-                  className="group flex items-center justify-between rounded-[10px] border-[0.5px] border-white/10 bg-[#161b22] px-5 py-4 transition-colors hover:border-white/20 hover:bg-[#1a2030]"
+                  className={`group flex items-center justify-between rounded-[10px] border-[0.5px] bg-[#161b22] px-5 py-4 transition-all duration-500 hover:border-white/20 hover:bg-[#1a2030] ${
+                    t.slug === highlight
+                      ? 'border-[#CBEF7F] bg-[rgba(203,239,127,0.08)] shadow-[0_0_20px_rgba(203,239,127,0.1)]'
+                      : 'border-white/10'
+                  }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(203,239,127,0.12)] text-[14px] font-medium text-[#CBEF7F]">
-                      {getInitials(t.name)}
+                    <div className="relative">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(203,239,127,0.12)] text-[14px] font-medium text-[#CBEF7F]">
+                        {getInitials(t.name)}
+                      </div>
+                      {t.slug === highlight && (
+                        <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-[#161b22] bg-[#CBEF7F]">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#CBEF7F] opacity-75"></span>
+                        </div>
+                      )}
                     </div>
                     <div>
-                      <p className="text-[14px] font-medium text-white">{t.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[14px] font-medium text-white">{t.name}</p>
+                        {t.slug === highlight && (
+                          <span className="text-[10px] font-bold uppercase text-[#CBEF7F]">Just Added</span>
+                        )}
+                      </div>
                       <p className="text-[12px] text-white/40">{t.slug}</p>
                     </div>
                   </div>

@@ -1,10 +1,11 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import {
   Dialog,
@@ -48,6 +49,7 @@ export default function TeamManagementClient({
 
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteName, setInviteName] = useState('')
   const [inviteRole, setInviteRole] = useState<TeamRole>('PRO')
 
   const [editOpen, setEditOpen] = useState(false)
@@ -64,42 +66,51 @@ export default function TeamManagementClient({
     return { admins, pros }
   }, [members])
 
+  const { tenantSlug } = useParams<{ tenantSlug: string }>()
+
   async function inviteMember() {
     setBusyId('invite')
-    const data = await apiCall(async () => {
-      const res = await fetch('/api/admin/team-members', {
+    const result = await apiCall(async () => {
+      const res = await fetch(`/api/t/${tenantSlug}/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+        body: JSON.stringify({ 
+          email: inviteEmail, 
+          role: inviteRole,
+          name: inviteName || undefined // Add name field to state if not exists
+        }),
       })
-      return res.json()
+      
+      const data = await res.json()
+      
+      if (res.status === 409) {
+        throw new Error('This user is already in your workspace')
+      }
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send invitation')
+      }
+      
+      return data
     }, {
-      successMsg: 'Invite sent',
+      successMsg: 'Operation successful',
       errorMsg: 'Invite failed',
+      onSuccess: (data) => {
+        if (data.added) toast.success(`${inviteEmail} added to workspace`)
+        else toast.success(`Invitation sent to ${inviteEmail}`)
+      }
     })
+    
     setBusyId(null)
-    if (!data) return
-
-    setMembers((prev) => [
-      ...prev.filter((m) => m.email.toLowerCase() !== inviteEmail.toLowerCase()),
-      {
-        id: data.invitationId ? `invite:${data.invitationId}` : `invite:${inviteEmail}`,
-        name: inviteEmail.split('@')[0] || 'Invited user',
-        email: inviteEmail,
-        role: inviteRole,
-        totalLeads: 0,
-        activeLeads: 0,
-        paidLeads: 0,
-        status: 'pending_invite',
-        invitationId: data.invitationId ?? null,
-      },
-    ])
+    if (!result) return
 
     setInviteOpen(false)
     setInviteEmail('')
+    setInviteName('')
     setInviteRole('PRO')
     router.refresh()
   }
+
 
   function startEdit(member: TeamMember) {
     setEditId(member.id)
@@ -297,7 +308,14 @@ export default function TeamManagementClient({
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
               type="email"
+              required
             />
+            <Input
+              placeholder="Full Name (Optional)"
+              value={inviteName}
+              onChange={(e) => setInviteName(e.target.value)}
+            />
+
             <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as TeamRole)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select role" />

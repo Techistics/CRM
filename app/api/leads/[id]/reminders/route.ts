@@ -106,6 +106,7 @@ export async function POST(
       note: `Reminder created: ${title} (${dueAt.toLocaleString()})`,
     })
 
+    // Email logic: Always fire if there's an assigned agent
     if (lead.assignedTo) {
       const [agent] = await db
         .select({
@@ -117,20 +118,26 @@ export async function POST(
         .limit(1)
 
       if (agent?.email) {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-        const leadUrl = `${baseUrl}/t/${ctx.tenant.slug}/admin/leads/${id}`
-        await sendReminderEmail({
-          agentEmail: agent.email,
-          agentName: agent.name ?? 'Agent',
-          reminderTitle: title.trim(),
-          leadName: lead.fullName,
-          dueAt,
-          leadUrl,
-          workspaceName: ctx.tenant.name,
-        })
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+          const leadUrl = `${baseUrl}/t/${ctx.tenant.slug}/admin/leads/${id}`
+          await sendReminderEmail({
+            agentEmail: agent.email,
+            agentName: agent.name ?? 'Agent',
+            reminderTitle: title.trim(),
+            leadName: lead.fullName,
+            dueAt,
+            leadUrl,
+            workspaceName: ctx.tenant.name,
+          })
+        } catch (err) {
+          // sendReminderEmail must never throw - wrap in try/catch
+          console.error('[reminder] Email failed:', err)
+        }
       }
     }
 
     return successResponse({ reminder: created }, 201)
   })
 }
+

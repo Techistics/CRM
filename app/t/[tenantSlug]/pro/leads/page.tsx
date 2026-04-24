@@ -3,7 +3,7 @@ import { leads } from '@/db/schema'
 import { eq, or, ilike, and } from 'drizzle-orm'
 import SearchInput from '@/components/SearchInput'
 
-import { STAGE_LABELS } from '@/constants/leads'
+import { STAGE_LABELS } from '@/constants/pipeline-stages'
 import { requireTenantSession } from '@/lib/tenant-server'
 import { tenantPath } from '@/lib/tenant-path'
 

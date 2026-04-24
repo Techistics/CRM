@@ -384,3 +384,15 @@ export const leadTagAssignmentRelations = relations(leadTagAssignments, ({ one }
     references: [leadTags.id],
   }),
 }))
+
+export const invitationRelations = relations(invitations, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [invitations.tenantId],
+    references: [tenants.id],
+  }),
+  inviter: one(users, {
+    fields: [invitations.invitedBy],
+    references: [users.id],
+  }),
+}))
+

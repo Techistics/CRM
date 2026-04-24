@@ -237,7 +237,10 @@ export async function POST(req: NextRequest) {
           }
           return true
         })
-        .map(({ rowNumber: _, ...row }) => row)
+        .map((row) => {
+          const { rowNumber, ...rest } = row
+          return rest
+        })
 
       return successResponse({
         fileName: parsed.data.fileName,

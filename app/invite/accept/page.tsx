@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { CheckCircle2, Loader2, XCircle, ShieldCheck, UserPlus } from 'lucide-react'
+import { Loader2, XCircle, ShieldCheck, UserPlus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -46,7 +46,7 @@ function AcceptInviteContent() {
         } else {
           setInviteData(data.data)
         }
-      } catch (err) {
+      } catch {
         setError('Failed to load invitation details.')
       } finally {
         setLoading(false)

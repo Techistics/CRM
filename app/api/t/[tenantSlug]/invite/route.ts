@@ -1,10 +1,9 @@
 import { NextRequest } from 'next/server'
-import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import crypto from 'crypto'
 
 import { db } from '@/db'
-import { invitations, tenantMembers, users } from '@/db/schema'
+import { invitations, tenantMembers } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
 import { sendInviteEmail } from '@/lib/mail'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
@@ -16,8 +15,7 @@ const inviteSchema = z.object({
 })
 
 export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ tenantSlug: string }> }
+  req: NextRequest
 ) {
   return withApiErrorHandling(async () => {
     const ctx = await requireTenantAdminApi()
@@ -29,7 +27,7 @@ export async function POST(
     const parsed = inviteSchema.safeParse(body)
     if (!parsed.success) return errorResponse('Validation failed', 'VALIDATION_ERROR', 400)
 
-    const { email, role, name } = parsed.data
+    const { email, role } = parsed.data
     const normalizedEmail = email.toLowerCase().trim()
 
     // 1. Check if user already exists
@@ -90,7 +88,6 @@ export async function POST(
     // Send invite email
     try {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-      const inviteLink = `${baseUrl}/invite/accept?token=${token}`
       
       await sendInviteEmail({
         email: normalizedEmail,

@@ -47,7 +47,8 @@ function SignInForm() {
       onError: (err) => setError(err instanceof Error ? err.message : 'Login failed'),
     })
     if (data) {
-      router.push('/')
+      const redirectPath = searchParams.get('redirect') || '/'
+      router.push(redirectPath)
       router.refresh()
     }
     setLoading(false)

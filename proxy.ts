@@ -15,7 +15,9 @@ const PUBLIC_ROUTES = [
   '/api/auth',
   '/forgot-password',
   '/reset-password',
+  '/invite/accept',
 ]
+
 
 export default async function proxy(req: NextRequest) {
   const url = req.nextUrl.clone()
@@ -46,13 +48,18 @@ export default async function proxy(req: NextRequest) {
   // 2. Strict Redirection logic
   // If NOT public and NO valid JWT -> redirect to /sign-in
   if (!isPublicRoute && !payload) {
-    return NextResponse.redirect(new URL('/sign-in', req.url))
+    const loginUrl = req.nextUrl.clone()
+    loginUrl.pathname = '/sign-in'
+    loginUrl.searchParams.set('redirect', pathname + loginUrl.search)
+    return NextResponse.redirect(loginUrl)
   }
 
   // If public AND signed in -> redirect to dashboard (prevent double sign-in)
   // ONLY for /sign-in and /sign-up
   if (payload && (pathname === '/sign-in' || pathname === '/sign-up')) {
-    return NextResponse.redirect(new URL('/', req.url))
+    const homeUrl = req.nextUrl.clone()
+    homeUrl.pathname = '/'
+    return NextResponse.redirect(homeUrl)
   }
 
   // Tenant rewrites

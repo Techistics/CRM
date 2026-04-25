@@ -37,18 +37,7 @@ import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { apiCall } from '@/lib/utils/api-handler'
 
-const COUNTRIES = [
-  'Pakistan', 'United Kingdom', 'Canada', 'Australia', 
-  'USA', 'UAE', 'New Zealand', 'Ireland', 'Germany', 
-  'Netherlands', 'Other'
-]
-
-const SOURCES = [
-  'Walk-in', 'Referral', 'Website', 'Social Media', 
-  'University Fair', 'Agent', 'Other'
-]
-
-const CURRENCIES = ['PKR', 'USD', 'GBP', 'EUR', 'AED', 'CAD', 'AUD']
+import { COUNTRIES, SOURCES, CURRENCIES } from '@/constants/lead-options'
 
 const createLeadSchema = z.object({
   fullName: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),

@@ -258,7 +258,7 @@ export const notifications = pgTable('notifications', {
   title: text('title').notNull(),
   body: text('body').notNull(),
   type: text('type', {
-    enum: ['lead_assigned', 'stage_changed', 'note_added'],
+    enum: ['lead_assigned', 'stage_changed', 'note_added', 'stale_lead'],
   }).notNull(),
   leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'cascade' }),
   read: boolean('read').default(false),
@@ -384,3 +384,15 @@ export const leadTagAssignmentRelations = relations(leadTagAssignments, ({ one }
     references: [leadTags.id],
   }),
 }))
+
+export const invitationRelations = relations(invitations, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [invitations.tenantId],
+    references: [tenants.id],
+  }),
+  inviter: one(users, {
+    fields: [invitations.invitedBy],
+    references: [users.id],
+  }),
+}))
+

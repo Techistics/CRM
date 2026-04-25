@@ -16,10 +16,10 @@ import {
 import Pagination from '@/components/Pagination'
 import SearchInput from '@/components/SearchInput'
 import PageSizeDropdown from '@/components/PageSizeDropdown'
-import { STAGE_LABELS } from '@/constants/leads'
+import { getStageInfo } from '@/constants/pipeline-stages'
 import { tenantPath } from '@/lib/tenant-path'
 import { TagFilter } from '@/components/lead/TagFilter'
-import { CreateLeadDialog } from '@/components/leads/CreateLeadDialog'
+import { CreateLeadDialog } from '@/components/lead/CreateLeadDialog'
 import { cn } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
@@ -248,7 +248,6 @@ export default function LeadsPage() {
     setBulkActionLoading(true)
     await apiCall(async () => {
       const params = new URLSearchParams()
-      params.set('tenantSlug', tenantSlug)
       params.set('idsOnly', 'true')
       if (q) params.set('q', q)
       if (stageFilter) params.set('stage', stageFilter)
@@ -256,11 +255,16 @@ export default function LeadsPage() {
       if (tagsParam) params.set('tags', tagsParam)
 
       const idsRes = await fetch(`/api/leads?${params.toString()}`)
+      if (!idsRes.ok) {
+        const errorData = await idsRes.json()
+        throw new Error(errorData.error || 'Failed to fetch lead IDs')
+      }
+      
       const idsData = await idsRes.json()
       const leadIds = idsData.data?.leadIds as string[] | undefined
 
-      if (!leadIds?.length) {
-        throw new Error('No leads to export')
+      if (!leadIds || leadIds.length === 0) {
+        throw new Error('No leads matching the current filters were found.')
       }
 
       const res = await fetch('/api/leads/bulk-export', {
@@ -268,20 +272,25 @@ export default function LeadsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ leadIds, tenantSlug }),
       })
-      if (!res.ok) throw new Error('Export failed')
+      if (!res.ok) throw new Error('Export generation failed')
+      
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `all-leads-${new Date().toISOString().split('T')[0]}.csv`
+      a.download = `leads-export-${new Date().toISOString().split('T')[0]}.csv`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
       return true
-    }, { successMsg: 'Export downloaded', errorMsg: 'Failed to export leads' })
+    }, { 
+      successMsg: 'Export started', 
+      errorMsg: 'Failed to export leads' 
+    })
     setBulkActionLoading(false)
   }
+
 
   return (
     <div className="p-8">
@@ -450,7 +459,7 @@ export default function LeadsPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {leads.map((lead) => {
-                  const stage = STAGE_LABELS[lead.stage ?? 'new_lead']
+                  const stageInfo = getStageInfo(lead.stage)
                   
                   return (
                     <tr
@@ -516,8 +525,8 @@ export default function LeadsPage() {
                         {lead.lastQualification ?? '—'}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`text-xs px-2.5 py-1 rounded-full border ${stage.color} font-medium tracking-wide`}>
-                          {stage.label}
+                        <span className={`text-xs px-2.5 py-1 rounded-full border ${stageInfo.badgeClasses} font-medium tracking-wide`}>
+                          {stageInfo.label}
                         </span>
                       </td>
                       <td className="px-6 py-4">

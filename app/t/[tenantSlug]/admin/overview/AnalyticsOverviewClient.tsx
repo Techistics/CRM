@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ArcElement,
   CategoryScale,
@@ -13,7 +13,9 @@ import {
   Tooltip,
 } from 'chart.js'
 import { Doughnut, Line } from 'react-chartjs-2'
-import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams, useParams } from 'next/navigation'
+import { Download, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 import type { AgentStat, ChartWindow, PipelineChartSnapshot } from '@/types/analytics'
 import { DateRangePicker } from '@/components/analytics/DateRangePicker'
@@ -61,6 +63,47 @@ export default function AnalyticsOverviewClient({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const params = useParams()
+  const tenantSlug = String(params?.tenantSlug ?? '')
+
+  const [exportingPipeline, setExportingPipeline] = useState(false)
+  const [exportingAgent, setExportingAgent] = useState(false)
+
+  const handleExport = async (type: 'pipeline' | 'agent') => {
+    const setLoader = type === 'pipeline' ? setExportingPipeline : setExportingAgent
+    setLoader(true)
+
+    try {
+      const q = new URLSearchParams()
+      if (dateRange.from) q.set('from', dateRange.from.toISOString().split('T')[0])
+      if (dateRange.to) q.set('to', dateRange.to.toISOString().split('T')[0])
+      q.set('tenantSlug', tenantSlug)
+
+      const url = `/api/reports/${type}-export?${q.toString()}`
+      
+      // We use a link to trigger download in a new tab if possible, 
+      // but to show the spinner correctly we can fetch or just use a small delay if it's instant.
+      // Better: Fetch the blob so we can control the spinner.
+      const res = await fetch(url)
+      if (!res.ok) throw new Error('Export failed')
+      
+      const blob = await res.blob()
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      
+      const filename = res.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `${type}-report.csv`
+      link.setAttribute('download', filename)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(downloadUrl)
+    } catch (error) {
+      console.error('Export error:', error)
+    } finally {
+      setLoader(false)
+    }
+  }
 
   const handleRangeChange = (range: { from: Date | null; to: Date | null }) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -118,7 +161,37 @@ export default function AnalyticsOverviewClient({
     <div className="space-y-[var(--gap)]">
       <div className="flex items-center justify-between gap-4 mb-4">
         <h1 className="text-xl font-semibold text-[var(--text-strong)]">Overview</h1>
-        <DateRangePicker value={dateRange} onChange={handleRangeChange} />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExport('pipeline')}
+            disabled={exportingPipeline}
+            className="h-8 gap-1.5 border-[var(--card-border-color)] bg-[var(--card-bg)] text-[var(--text-strong)] hover:bg-[var(--main-bg)]"
+          >
+            {exportingPipeline ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            Pipeline Report
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleExport('agent')}
+            disabled={exportingAgent}
+            className="h-8 gap-1.5 border-[var(--card-border-color)] bg-[var(--card-bg)] text-[var(--text-strong)] hover:bg-[var(--main-bg)]"
+          >
+            {exportingAgent ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            Agent Report
+          </Button>
+          <DateRangePicker value={dateRange} onChange={handleRangeChange} />
+        </div>
       </div>
       <div className="grid grid-cols-1 gap-[var(--gap)] lg:grid-cols-4">
         {metricCards.map((metric) => (

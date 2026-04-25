@@ -4,32 +4,16 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { DollarSign, Loader2 } from 'lucide-react'
-import type { Lead, LeadStage } from '@/types/models'
+import type { Lead, LeadReminder } from '@/types/models'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
-import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
+import { PIPELINE_STAGES, getStageInfo } from '@/constants/pipeline-stages'
 import { TagSelector } from '@/components/lead/TagSelector'
+import { CURRENCIES } from '@/constants/lead-options'
 
-const STAGES: { value: LeadStage; label: string }[] = PIPELINE_STAGES.map(
-  (s) => ({ value: s.value, label: s.label }),
-)
-
-const STAGE_COLORS: Record<string, string> = {
-  new_lead:         'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  unresponsive:     'bg-gray-500/10 text-gray-400 border-gray-500/20',
-  follow_up:        'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-  docs_received:    'bg-purple-500/10 text-purple-400 border-purple-500/20',
-  options_sent:     'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-  final_decision:   'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  walkin_booked:    'bg-teal-500/10 text-teal-400 border-teal-500/20',
-  walkin_conducted: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
-  cancelled:        'bg-red-500/10 text-red-400 border-red-500/20',
-  paid:             'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-}
 
 import type { ActivityRow, UserRow } from '@/types/leads'
 import { tenantPath } from '@/lib/tenant-path'
-import type { LeadReminder } from '@/types/models'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LeadDocumentsPanel } from '@/components/lead/LeadDocumentsPanel'
 import { apiCall } from '@/lib/utils/api-handler'
@@ -196,7 +180,7 @@ export default function LeadDetailClient({
     setReminders((prev) => prev.map((r) => (r.id === reminderId ? reminder : r)))
   }
 
-  const stageLabel = STAGES.find((s) => s.value === stage)?.label ?? stage
+  const stageInfo = getStageInfo(stage)
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
@@ -226,8 +210,8 @@ export default function LeadDetailClient({
             <TagSelector leadId={lead.id} initialTags={tags} />
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <span className={`rounded-md border px-2 py-1 text-xs ${STAGE_COLORS[stage]}`}>
-              {stageLabel}
+            <span className={`rounded-md border px-2 py-1 text-xs ${stageInfo.mutedClasses}`}>
+              {stageInfo.label}
             </span>
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
           </div>
@@ -307,7 +291,7 @@ export default function LeadDetailClient({
                     }
                     className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white flex-1"
                   >
-                    {['USD', 'GBP', 'EUR', 'PKR', 'AED', 'CAD', 'AUD'].map(c => (
+                    {CURRENCIES.map(c => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
@@ -341,13 +325,13 @@ export default function LeadDetailClient({
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <h2 className="text-white font-medium mb-4">Pipeline Stage</h2>
             <div className="grid grid-cols-2 gap-2">
-              {STAGES.map((s) => (
+              {PIPELINE_STAGES.map((s) => (
                 <button
                   key={s.value}
                   onClick={() => handleStageChange(s.value)}
                   className={`text-left px-3 py-2 rounded-lg text-sm transition-colors border ${
                     stage === s.value
-                      ? STAGE_COLORS[s.value]
+                      ? s.mutedClasses
                       : 'border-gray-800 text-gray-500 hover:text-gray-300 hover:border-gray-600'
                   }`}
                 >
@@ -493,6 +477,7 @@ export default function LeadDetailClient({
       </div>
         </TabsContent>
       </Tabs>
+
     </div>
   )
 }

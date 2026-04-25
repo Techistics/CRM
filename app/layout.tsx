@@ -2,6 +2,8 @@ import './globals.css'
 import { Inter } from 'next/font/google'
 import Script from 'next/script'
 import { Toaster } from '@/components/ui/sonner'
+import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import { AuthToastWrapper } from '@/components/auth-toast-wrapper'
 import { FetchInterceptor } from '@/components/FetchInterceptor'
 
@@ -49,6 +51,8 @@ export default function RootLayout({
         </Script>
         <AuthToastWrapper />
         <FetchInterceptor />
+        <Analytics />
+        <SpeedInsights />
         {children}
         <Toaster position="top-right" />
       </body>

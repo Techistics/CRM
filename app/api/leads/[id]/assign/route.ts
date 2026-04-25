@@ -61,7 +61,9 @@ export async function PATCH(
       .set({ assignedTo: assignedTo || null, updatedAt: new Date() })
       .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenant.id)))
 
+    // Email logic
     if (assignedTo) {
+      // 1. Create in-app notification
       await db.insert(notifications).values({
         tenantId: ctx.tenant.id,
         userId: assignedTo,
@@ -71,31 +73,40 @@ export async function PATCH(
         leadId: id,
       })
 
-      const [assignee] = await db
+      // 2. Fetch agent details (id, name, email) from users table
+      const [agent] = await db
         .select({
-          email: users.email,
+          id: users.id,
           name: users.name,
+          email: users.email,
         })
         .from(users)
         .where(eq(users.id, assignedTo))
         .limit(1)
 
-      if (assignee?.email) {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-        const leadUrl = `${baseUrl}/t/${ctx.tenant.slug}/admin/leads/${id}`
-        await sendLeadAssignedEmail({
-          agentEmail: assignee.email,
-          agentName: assignee.name ?? 'Agent',
-          leadName: lead.fullName,
-          contactNumber: lead.contactNumber ?? '',
-          leadEmail: lead.email ?? '',
-          stage: lead.stage ?? 'new_lead',
-          leadUrl,
-          workspaceName: ctx.tenant.name,
-        })
+      // 3. Send email only if agent exists and has an email
+      if (agent?.email) {
+        try {
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+          const leadUrl = `${baseUrl}/t/${ctx.tenant.slug}/admin/leads/${id}`
+          await sendLeadAssignedEmail({
+            agentEmail: agent.email,
+            agentName: agent.name ?? 'Agent',
+            leadName: lead.fullName,
+            contactNumber: lead.contactNumber ?? '',
+            leadEmail: lead.email ?? '',
+            stage: lead.stage ?? 'new_lead',
+            leadUrl,
+            workspaceName: ctx.tenant.name,
+          })
+        } catch (err) {
+          // Skip email silently on failure as requested
+          console.error('[assign] Email failed:', err)
+        }
       }
     }
 
     return successResponse({ success: true })
   })
 }
+

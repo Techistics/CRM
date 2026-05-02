@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
 
 import { UserMenu } from '@/components/shared/UserMenu'
-import type { Tenant } from '@/types/models'
 
 export function AdminHeader({ 
   user 

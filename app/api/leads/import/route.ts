@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
           return true
         })
         .map((row) => {
-          const { rowNumber: _, ...rest } = row
+          const { rowNumber: _rowNumber, ...rest } = row
           return rest
         })
 

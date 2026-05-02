@@ -33,10 +33,10 @@ export async function POST(req: NextRequest) {
     )
 
     return NextResponse.json({ url: result.url })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Logo upload failed:', error)
     return NextResponse.json(
-      { error: error.message || 'Upload failed' },
+      { error: error instanceof Error ? error.message : 'Upload failed' },
       { status: 500 }
     )
   }

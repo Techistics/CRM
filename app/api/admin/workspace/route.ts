@@ -15,7 +15,7 @@ export async function PATCH(req: Request) {
     }
 
     // Merge existing settings with new logoUrl
-    const currentSettings = (tenant.settings as any) || {}
+    const currentSettings = (tenant.settings as Record<string, unknown>) || {}
     const updatedSettings = {
       ...currentSettings,
       logoUrl: logoUrl || currentSettings.logoUrl,
@@ -30,10 +30,10 @@ export async function PATCH(req: Request) {
       .where(eq(tenants.id, tenant.id))
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to update workspace settings:', error)
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
+      { error: error instanceof Error ? error.message : 'Internal Server Error' },
       { status: 500 }
     )
   }

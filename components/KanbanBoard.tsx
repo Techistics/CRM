@@ -235,7 +235,7 @@ export default function KanbanBoard({
     }
   }
 
-  async function handleDragEnd(_event: DragEndEvent) {
+  async function handleDragEnd() {
     const leadId = activeId
     setActiveId(null)
     

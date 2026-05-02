@@ -270,6 +270,7 @@ export async function POST(req: NextRequest) {
           dealCurrency: data.dealCurrency,
           createdBy: ctx.dbUserId,
           primaryStage: nextStage,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           stage: nextStage as any,
           updatedAt: new Date(),
         })

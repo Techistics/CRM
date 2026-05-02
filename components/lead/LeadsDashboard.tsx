@@ -13,7 +13,6 @@ import {
   Loader2,
   Filter,
   MoreHorizontal,
-  Plus,
   Upload,
 } from 'lucide-react'
 

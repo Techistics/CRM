@@ -7,12 +7,9 @@ import { Menu, Search } from 'lucide-react'
 import NotificationBell from '@/app/components/NotificationBell'
 import { useSidebar } from '@/components/sidebar-provider'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
 
 import type { Tenant } from '@/types/models'
-import Image from 'next/image'
-import { crmConfig } from '@/lib/config/theme'
 
 export function ProHeader({ 
   tenant, 
@@ -22,9 +19,6 @@ export function ProHeader({
   user: { name: string, email: string } 
 }) {
   const { toggle } = useSidebar()
-  const tenantSettings = (tenant.settings as any) || {}
-  const logoSrc = tenantSettings.logoUrl || crmConfig.brand.logo
-  const brandName = tenant.name || crmConfig.brand.name
 
   const pathname = usePathname()
 

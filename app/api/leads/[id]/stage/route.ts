@@ -98,6 +98,7 @@ export async function PATCH(
         .set({
           primaryStage,
           // Keep legacy column in sync until we fully remove it.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           stage: primaryStage as any,
           lastContactedAt: new Date(),
           updatedAt: new Date(),
@@ -122,6 +123,7 @@ export async function PATCH(
         leadId: id,
         userId: ctx.dbUserId,
         type: 'stage_change',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         fromStage: (lead.primaryStage ?? lead.stage) as any,
         toStage: primaryStage,
         note: activeStages.length > 1 ? `Active: ${activeStages.join(', ')}` : null,

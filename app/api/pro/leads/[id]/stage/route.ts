@@ -92,6 +92,7 @@ export async function PATCH(
         .update(leads)
         .set({
           primaryStage,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           stage: primaryStage as any,
           updatedAt: new Date(),
         })
@@ -115,6 +116,7 @@ export async function PATCH(
         leadId: id,
         userId: ctx.dbUserId,
         type: 'stage_change',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         fromStage: (lead.primaryStage ?? lead.stage) as any,
         toStage: primaryStage,
         note: activeStages.length > 1 ? `Active: ${activeStages.join(', ')}` : null,

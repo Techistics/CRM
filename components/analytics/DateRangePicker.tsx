@@ -2,7 +2,7 @@
 
 import { Input } from '@/components/ui/input'
 
-import { Calendar as CalendarIcon, ChevronDown } from 'lucide-react'
+import { Calendar as CalendarIcon } from 'lucide-react'
 import {
   Select,
   SelectContent,

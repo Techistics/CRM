@@ -27,7 +27,7 @@ export default function ProLeadDetailClient({
   const router = useRouter()
   const params = useParams()
   const tenantSlug = String(params?.tenantSlug ?? '')
-  const [stage, setStage] = useState<string>((lead as any).primaryStage ?? lead.stage ?? 'new_lead')
+  const [stage, setStage] = useState<string>(lead.primaryStage ?? lead.stage ?? 'new_lead')
   const [pipelineStages, setPipelineStages] = useState<Array<{ key: string; label: string }>>([])
   const [note, setNote] = useState('')
   const [noteType, setNoteType] = useState<'note' | 'call' | 'message'>('note')
@@ -140,7 +140,9 @@ export default function ProLeadDetailClient({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 space-y-6">
               <StudentJourney 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 stage={stage as any} 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 onStepClick={(newStage) => handleStageChange(newStage as any)} 
               />
               {/* Contact info */}
@@ -250,6 +252,7 @@ export default function ProLeadDetailClient({
                 leadName={lead.fullName}
                 leadCountry={lead.country ?? null}
                 leadProgramme={lead.lastQualification ?? null}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 currentStage={stage as any}
                 leadPhone={lead.contactNumber}
               />

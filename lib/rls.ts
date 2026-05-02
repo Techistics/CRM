@@ -16,6 +16,6 @@ export async function withTenantRls<T>(
     
     // Execute the actual database logic (RLS policies will now enforce this tenant ID)
     // We cast `tx` to `typeof db` so we can seamlessly pass it around in place of the standard db object
-    return callback(tx as any)
+    return callback(tx as unknown as typeof db)
   })
 }

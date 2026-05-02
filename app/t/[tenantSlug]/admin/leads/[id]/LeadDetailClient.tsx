@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { DollarSign, Loader2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import type { Lead, LeadReminder } from '@/types/models'
+import type { Lead } from '@/types/models'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
@@ -42,13 +42,12 @@ export default function LeadDetailClient({
   const params = useParams()
   const tenantSlug = String(params?.tenantSlug ?? '')
   const [primaryStage, setPrimaryStage] = useState<string>(
-    (lead as any).primaryStage ?? lead.stage ?? 'new_lead',
+    lead.primaryStage ?? lead.stage ?? 'new_lead',
   )
   const [activeStages, setActiveStages] = useState<string[]>(
-    activeStagesProp?.length ? activeStagesProp : [((lead as any).primaryStage ?? lead.stage ?? 'new_lead')],
+    activeStagesProp?.length ? activeStagesProp : [(lead.primaryStage ?? lead.stage ?? 'new_lead')],
   )
   const [pipelineStages, setPipelineStages] = useState<Array<{ key: string; label: string }>>([])
-  const [allowedPairs, setAllowedPairs] = useState<Set<string>>(new Set())
   const [assignedTo, setAssignedTo] = useState(lead.assignedTo ?? '')
   const [note, setNote] = useState('')
   const [noteType, setNoteType] = useState<'note' | 'call' | 'message'>('note')
@@ -97,13 +96,7 @@ export default function LeadDetailClient({
         const res = await fetch('/api/pipeline-stages')
         const data = await res.json()
         const rows = (data?.data?.stages ?? data?.stages ?? []) as Array<{ key: string; label: string }>
-        const pairs = (data?.data?.allowedPairs ?? data?.allowedPairs ?? []) as Array<[string, string]>
         setPipelineStages(rows)
-        setAllowedPairs(
-          new Set(
-            pairs.map(([a, b]) => (a < b ? `${a}__${b}` : `${b}__${a}`)),
-          ),
-        )
       } catch {
         // If this fails, we still allow fallback single-stage behavior.
       }
@@ -130,7 +123,7 @@ export default function LeadDetailClient({
     const prevPrimary = primaryStage
     const prevActive = activeStages
 
-    let nextActive = prevActive.includes(stageKey)
+    const nextActive = prevActive.includes(stageKey)
       ? prevActive.filter((s) => s !== stageKey)
       : [...prevActive, stageKey]
 
@@ -294,6 +287,7 @@ export default function LeadDetailClient({
         <div className="space-y-6 xl:col-span-2">
 
           <StudentJourney 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             stage={primaryStage as any} 
             onStepClick={(newStage) => handleStageToggle(String(newStage))} 
           />
@@ -399,7 +393,7 @@ export default function LeadDetailClient({
                       'bg-gray-500/10 text-gray-400 border-gray-500/20',
                   }))
                 : PIPELINE_STAGES
-              ).map((s: any) => (
+              ).map((s) => (
                 <button
                   key={s.value}
                   onClick={() => handleStageToggle(s.value)}

@@ -35,7 +35,7 @@ export function RoleSidebar({
   badges?: Partial<Record<string, string>>
 }) {
   const tenantSlug = tenant.slug
-  const tenantSettings = (tenant.settings as any) || {}
+  const tenantSettings = (tenant.settings as Record<string, string | null>) || {}
   const logoSrc = tenantSettings.logoUrl || crmConfig.brand.logo
   const brandName = tenant.name || crmConfig.brand.name
   const router = useRouter()

@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Building2, Globe, Image as ImageIcon, Loader2, Save, ShieldCheck, Upload } from 'lucide-react'
-
+import Image from 'next/image'
+import { Building2, Image as ImageIcon, Loader2, Save, ShieldCheck, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,7 +20,7 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   
-  const initialSettings = (tenant.settings as any) || {}
+  const initialSettings = (tenant.settings as Record<string, string | null>) || {}
   const [name, setName] = useState(tenant.name)
   const [logoUrl, setLogoUrl] = useState(initialSettings.logoUrl || '')
 
@@ -43,8 +43,8 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
 
       setLogoUrl(data.url)
       toast.success('Logo uploaded successfully!')
-    } catch (error: any) {
-      toast.error(error.message)
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Upload failed')
     } finally {
       setUploading(false)
     }
@@ -68,8 +68,8 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
 
       toast.success('Workspace settings updated successfully!')
       router.refresh()
-    } catch (error: any) {
-      toast.error(error.message || 'Something went wrong')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Something went wrong')
     } finally {
       setLoading(false)
     }
@@ -79,7 +79,7 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
     <div className="max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-[var(--text-strong)] tracking-tight">Workspace Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">Manage your organization's identity and branding</p>
+        <p className="text-sm text-gray-500 mt-1">Manage your organization&apos;s identity and branding</p>
       </div>
 
       <div className="grid gap-6">
@@ -142,7 +142,7 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
                 <div className="shrink-0 flex flex-col items-center gap-2">
                   <div className="h-24 w-24 rounded-2xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 overflow-hidden group relative">
                     {logoUrl ? (
-                      <img src={logoUrl} alt="Preview" className="h-full w-full object-contain p-2" />
+                      <Image src={logoUrl} alt="Preview" width={96} height={96} className="h-full w-full object-contain p-2" />
                     ) : (
                       <ImageIcon className="h-10 w-10 text-gray-300" />
                     )}

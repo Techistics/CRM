@@ -37,14 +37,6 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
   const [stages, setStages] = useState<StageDraft[]>(defaultDraft)
   const [allowedPairs, setAllowedPairs] = useState<Set<string>>(new Set())
 
-  const pairs = useMemo(() => {
-    const res: Array<[string, string]> = []
-    for (let i = 0; i < stages.length; i++) {
-      for (let j = i + 1; j < stages.length; j++) res.push([stages[i].key, stages[j].key])
-    }
-    return res
-  }, [stages])
-
   function togglePair(a: string, b: string) {
     const k = a < b ? `${a}__${b}` : `${b}__${a}`
     setAllowedPairs((prev) => {

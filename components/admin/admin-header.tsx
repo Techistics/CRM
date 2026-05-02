@@ -12,10 +12,8 @@ import { UserMenu } from '@/components/shared/UserMenu'
 import type { Tenant } from '@/types/models'
 
 export function AdminHeader({ 
-  tenant, 
   user 
 }: { 
-  tenant: Tenant, 
   user: { name: string, email: string } 
 }) {
   const { toggle } = useSidebar()

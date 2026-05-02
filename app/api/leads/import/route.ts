@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
           return true
         })
         .map((row) => {
-          const { rowNumber, ...rest } = row
+          const { rowNumber: _, ...rest } = row
           return rest
         })
 
@@ -299,6 +299,7 @@ export async function POST(req: NextRequest) {
           city: leadRow.city ?? null,
           country: leadRow.country ?? 'Pakistan',
           primaryStage: stageKey,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           stage: stageKey as any,
           source: leadRow.source ?? 'csv_import',
           lastQualification: leadRow.notes ?? null,

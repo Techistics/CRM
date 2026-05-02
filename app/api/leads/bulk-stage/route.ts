@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
     const updated = await db.transaction(async (tx) => {
       const updatedRows = await tx
         .update(leads)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .set({ primaryStage: stage, stage: stage as any, updatedAt: new Date() })
         .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.id, parsed.data.leadIds)))
         .returning({ id: leads.id })

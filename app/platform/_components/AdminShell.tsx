@@ -8,7 +8,6 @@ import {
   CreditCard,
   Grid3X3,
   List,
-  Search,
   Settings,
   Users,
 } from 'lucide-react'

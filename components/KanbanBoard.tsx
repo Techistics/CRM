@@ -36,11 +36,9 @@ function fallbackStageColor(value: string) {
 function LeadCard({
   lead,
   isDragging = false,
-  isBlocked = false,
 }: {
   lead: KanbanLead
   isDragging?: boolean
-  isBlocked?: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: lead.id })
@@ -142,7 +140,6 @@ export default function KanbanBoard({
   const [leadsState, setLeadsState] = useState<KanbanLead[]>(initialLeads)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
-  const [blockedId, setBlockedId] = useState<string | null>(null)
   const stageAtDragStartRef = useRef<string | null>(null)
   const [stages, setStages] = useState<BoardStage[]>(
     (stagesProp ?? []).map((s) => ({
@@ -238,7 +235,7 @@ export default function KanbanBoard({
     }
   }
 
-  async function handleDragEnd(event: DragEndEvent) {
+  async function handleDragEnd(_event: DragEndEvent) {
     const leadId = activeId
     setActiveId(null)
     
@@ -268,7 +265,7 @@ export default function KanbanBoard({
         title: 'Stage Updated', 
         description: `${lead.fullName} is now in ${stages.find(s => s.value === lead.stage)?.label ?? 'new stage'}.` 
       })
-    } catch (err) {
+    } catch {
       // Revert state on failure
       const previous = startStage ?? 'new_lead'
       setLeadsState((prev) =>
@@ -330,7 +327,6 @@ export default function KanbanBoard({
                         <LeadCard
                           lead={lead}
                           isDragging={activeId === lead.id}
-                          isBlocked={blockedId === lead.id}
                         />
                         {saving === lead.id && (
                           <div className="absolute inset-0 bg-white/80 backdrop-blur-[1px] rounded-lg flex items-center justify-center border border-gray-100 object-cover z-10 transition-opacity">

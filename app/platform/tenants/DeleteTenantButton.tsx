@@ -27,7 +27,7 @@ export function DeleteTenantButton({ tenantId }: { tenantId: string }) {
         await deleteWorkspaceAction(formData)
         toast.success('Workspace deleted successfully')
         setOpen(false)
-      } catch (err) {
+      } catch {
         toast.error('Failed to delete workspace')
       }
     })

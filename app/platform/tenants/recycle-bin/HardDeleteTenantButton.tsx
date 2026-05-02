@@ -27,7 +27,7 @@ export function HardDeleteTenantButton({ tenantId }: { tenantId: string }) {
         await hardDeleteWorkspaceAction(formData)
         toast.success('Workspace permanently deleted')
         setOpen(false)
-      } catch (err) {
+      } catch {
         toast.error('Failed to permanently delete workspace')
       }
     })

@@ -12,7 +12,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { tenant } = await requireTenantAdminSession()
+  const { tenant, user, role } = await requireTenantAdminSession()
 
   const [teamRow] = await db
     .select({ c: count() })
@@ -31,9 +31,9 @@ export default async function AdminLayout({
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-[var(--main-bg)]">
-        <RoleSidebar role="ADMIN" tenantSlug={tenant.slug} badges={{ team: teamBadge }} />
+        <RoleSidebar role={role} tenant={tenant} badges={{ team: teamBadge }} />
         <div className="flex min-h-screen flex-col lg:pl-[var(--sidebar-width)]">
-          <AdminHeader tenantSlug={tenant.slug} />
+          <AdminHeader user={user} />
           <main className="w-full flex-1 px-5 py-[18px]">
             {children}
           </main>

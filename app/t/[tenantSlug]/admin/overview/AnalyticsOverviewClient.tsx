@@ -14,8 +14,20 @@ import {
 } from 'chart.js'
 import { Doughnut, Line } from 'react-chartjs-2'
 import { useRouter, usePathname, useSearchParams, useParams } from 'next/navigation'
-import { Download, Loader2 } from 'lucide-react'
+import { Download, Loader2, FileDown, ChevronDown } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 import type { AgentStat, ChartWindow, PipelineChartSnapshot } from '@/types/analytics'
 import { DateRangePicker } from '@/components/analytics/DateRangePicker'
@@ -44,6 +56,7 @@ export default function AnalyticsOverviewClient({
   pipelineValue,
   wonRevenue,
   conversionRate,
+  teamPerformance,
   dateRange,
 }: {
   chartByWindow: Record<ChartWindow, PipelineChartSnapshot>
@@ -58,6 +71,17 @@ export default function AnalyticsOverviewClient({
   pipelineValue: number
   wonRevenue: number
   conversionRate: number
+  teamPerformance: Array<{
+    id: string
+    name: string
+    email: string
+    total_leads: number
+    won: number
+    cold_leads: number
+    dead_leads: number
+    conversion_rate: number | null
+    last_activity: string | null
+  }>
   dateRange: { from: Date | null; to: Date | null }
 }) {
   const router = useRouter()
@@ -80,18 +104,12 @@ export default function AnalyticsOverviewClient({
       q.set('tenantSlug', tenantSlug)
 
       const url = `/api/reports/${type}-export?${q.toString()}`
-      
-      // We use a link to trigger download in a new tab if possible, 
-      // but to show the spinner correctly we can fetch or just use a small delay if it's instant.
-      // Better: Fetch the blob so we can control the spinner.
       const res = await fetch(url)
       if (!res.ok) throw new Error('Export failed')
-      
       const blob = await res.blob()
       const downloadUrl = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = downloadUrl
-      
       const filename = res.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `${type}-report.csv`
       link.setAttribute('download', filename)
       document.body.appendChild(link)
@@ -107,18 +125,13 @@ export default function AnalyticsOverviewClient({
 
   const handleRangeChange = (range: { from: Date | null; to: Date | null }) => {
     const params = new URLSearchParams(searchParams.toString())
-    if (range.from) {
-      params.set('from', range.from.toISOString().split('T')[0])
-    } else {
-      params.delete('from')
-    }
-    if (range.to) {
-      params.set('to', range.to.toISOString().split('T')[0])
-    } else {
-      params.delete('to')
-    }
+    if (range.from) params.set('from', range.from.toISOString().split('T')[0])
+    else params.delete('from')
+    if (range.to) params.set('to', range.to.toISOString().split('T')[0])
+    else params.delete('to')
     router.push(`${pathname}?${params.toString()}`, { scroll: false })
   }
+
   const windowSnapshot = chartByWindow.week
   const stageList = windowSnapshot.stageData
   const chartLabels = windowSnapshot.funnelSteps.map((step) => step.label)
@@ -159,37 +172,47 @@ export default function AnalyticsOverviewClient({
 
   return (
     <div className="space-y-[var(--gap)]">
-      <div className="flex items-center justify-between gap-4 mb-4">
-        <h1 className="text-xl font-semibold text-[var(--text-strong)]">Overview</h1>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleExport('pipeline')}
-            disabled={exportingPipeline}
-            className="h-8 gap-1.5 border-[var(--card-border-color)] bg-[var(--card-bg)] text-[var(--text-strong)] hover:bg-[var(--main-bg)]"
-          >
-            {exportingPipeline ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
-            )}
-            Pipeline Report
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleExport('agent')}
-            disabled={exportingAgent}
-            className="h-8 gap-1.5 border-[var(--card-border-color)] bg-[var(--card-bg)] text-[var(--text-strong)] hover:bg-[var(--main-bg)]"
-          >
-            {exportingAgent ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
-            )}
-            Agent Report
-          </Button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--text-strong)] tracking-tight">Overview</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Track your pipeline and team performance in real-time</p>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 gap-2 border-gray-200 bg-white shadow-sm hover:bg-gray-50 text-gray-700 font-medium px-4"
+              >
+                <FileDown className="h-4 w-4 text-blue-600" />
+                Reports
+                <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Export Reports</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => handleExport('pipeline')}
+                disabled={exportingPipeline}
+                className="gap-2 cursor-pointer"
+              >
+                {exportingPipeline ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Pipeline Report
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => handleExport('agent')}
+                disabled={exportingAgent}
+                className="gap-2 cursor-pointer"
+              >
+                {exportingAgent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Agent Report
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <DateRangePicker value={dateRange} onChange={handleRangeChange} />
         </div>
       </div>
@@ -214,6 +237,91 @@ export default function AnalyticsOverviewClient({
           </div>
         ))}
       </div>
+
+      <Card className="rounded-xl border shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">
+            Team Performance
+          </CardTitle>
+          <CardDescription>
+            Live agent accountability — sorted by leads needing attention
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Agent</TableHead>
+                <TableHead className="text-center">Total</TableHead>
+                <TableHead className="text-center">Won</TableHead>
+                <TableHead className="text-center">
+                  <span className="text-orange-600">Cold (3d+)</span>
+                </TableHead>
+                <TableHead className="text-center">
+                  <span className="text-red-600">Dead (7d+)</span>
+                </TableHead>
+                <TableHead className="text-center">Conv %</TableHead>
+                <TableHead>Last Activity</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {teamPerformance.map((agent) => (
+                <TableRow
+                  key={agent.id}
+                  className={cn(
+                    agent.dead_leads > 0 && 'bg-red-50/50 dark:bg-red-900/10',
+                    agent.cold_leads > 5 && agent.dead_leads === 0 && 'bg-orange-50/50 dark:bg-orange-900/10',
+                  )}
+                >
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold">
+                        {(agent.name?.[0] ?? 'U').toUpperCase()}
+                      </div>
+                      <span className="font-medium text-sm">{agent.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center text-sm">
+                    {Number(agent.total_leads ?? 0)}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span className="text-sm text-green-600 font-medium">
+                      {Number(agent.won ?? 0)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span
+                      className={cn(
+                        'text-sm font-medium',
+                        Number(agent.cold_leads ?? 0) > 0 ? 'text-orange-600' : 'text-muted-foreground',
+                      )}
+                    >
+                      {Number(agent.cold_leads ?? 0)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {Number(agent.dead_leads ?? 0) > 0 ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-100 px-2 py-0.5 rounded-full">
+                        ❄️ {Number(agent.dead_leads ?? 0)}
+                      </span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">0</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center text-sm">
+                    {(agent.conversion_rate ?? 0)}%
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {agent.last_activity
+                      ? `${formatDistanceToNow(new Date(agent.last_activity))} ago`
+                      : 'Never'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-[var(--gap)] xl:grid-cols-[1.6fr_1fr]">
         <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] p-[var(--card-padding)]">

@@ -14,7 +14,28 @@ export default async function ProLeadDetailPage({
   const { id } = await params
 
   const [lead] = await db
-    .select()
+    .select({
+      id: leads.id,
+      fullName: leads.fullName,
+      email: leads.email,
+      contactNumber: leads.contactNumber,
+      city: leads.city,
+      country: leads.country,
+      stage: leads.stage,
+      primaryStage: leads.primaryStage,
+      lastQualification: leads.lastQualification,
+      grades: leads.grades,
+      source: leads.source,
+      rawData: leads.rawData,
+      assignedTo: leads.assignedTo,
+      tenantId: leads.tenantId,
+      createdBy: leads.createdBy,
+      dealValue: leads.dealValue,
+      dealCurrency: leads.dealCurrency,
+      createdAt: leads.createdAt,
+      updatedAt: leads.updatedAt,
+      lastContactedAt: leads.lastContactedAt,
+    })
     .from(leads)
     .where(
       and(

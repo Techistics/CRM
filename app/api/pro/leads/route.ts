@@ -10,7 +10,21 @@ export async function GET() {
     if (!ctx.ok) return ctx.response
 
     const myLeads = await db
-      .select()
+      .select({
+        id: leads.id,
+        fullName: leads.fullName,
+        email: leads.email,
+        contactNumber: leads.contactNumber,
+        city: leads.city,
+        country: leads.country,
+        stage: leads.stage,
+        lastQualification: leads.lastQualification,
+        grades: leads.grades,
+        source: leads.source,
+        assignedTo: leads.assignedTo,
+        createdAt: leads.createdAt,
+        lastContactedAt: leads.lastContactedAt,
+      })
       .from(leads)
       .where(
         and(

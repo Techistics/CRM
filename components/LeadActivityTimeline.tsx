@@ -1,4 +1,5 @@
 import type { LeadActivity } from '@/types/models'
+import { Check } from 'lucide-react'
 import { leadStageLabel } from '@/lib/lead-stage-labels'
 
 import type { TimelineActivity } from '@/types/leads'
@@ -44,11 +45,18 @@ function activityKindLabel(type: LeadActivity['type']): string {
 
 export default function LeadActivityTimeline({
   activities,
+  stageLabels,
 }: {
   activities: TimelineActivity[]
+  stageLabels?: Record<string, string>
 }) {
   if (activities.length === 0) {
     return <p className="text-gray-600 text-sm">No activity yet.</p>
+  }
+
+  const label = (value: string | null | undefined) => {
+    if (!value) return leadStageLabel(value)
+    return stageLabels?.[value] ?? leadStageLabel(value)
   }
 
   return (
@@ -63,10 +71,12 @@ export default function LeadActivityTimeline({
           return (
             <li key={a.id} className="relative flex gap-4 pb-8 last:pb-0">
               <div
-                className="relative mt-1.5 flex h-7 w-4 shrink-0 flex-col items-center"
+                className="relative mt-1 flex h-7 w-5 shrink-0 flex-col items-center"
                 aria-hidden
               >
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500 ring-4 ring-gray-900" />
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 ring-4 ring-gray-900 border border-emerald-500/50">
+                  <Check className="h-3 w-3 text-emerald-500" strokeWidth={3} />
+                </div>
                 <span className="mt-1 text-[12px] leading-none text-gray-500">{icon}</span>
               </div>
               <div className="min-w-0 flex-1 space-y-1">
@@ -77,11 +87,11 @@ export default function LeadActivityTimeline({
                   <p className="text-sm text-gray-200">
                     <span className="text-gray-400">From </span>
                     <span className="font-medium text-white">
-                      {leadStageLabel(a.fromStage)}
+                      {label(a.fromStage)}
                     </span>
                     <span className="text-gray-400"> to </span>
                     <span className="font-medium text-emerald-400">
-                      {leadStageLabel(a.toStage)}
+                      {label(a.toStage)}
                     </span>
                   </p>
                 ) : (

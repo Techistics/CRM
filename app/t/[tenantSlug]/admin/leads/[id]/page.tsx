@@ -1,5 +1,5 @@
 import { db } from '@/db'
-import { leadActivities, users, tenantMembers, leadTags, leadTagAssignments } from '@/db/schema'
+import { leadActivities, users, tenantMembers, leadTags, leadTagAssignments, leadStageAssignments } from '@/db/schema'
 import { eq, desc, and } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import LeadDetailClient from './LeadDetailClient'
@@ -60,12 +60,23 @@ export default async function LeadDetailPage({
       eq(leadTagAssignments.leadId, id)
     )
 
+  const stageAssignments = await db
+    .select({ stageKey: leadStageAssignments.stageKey })
+    .from(leadStageAssignments)
+    .where(
+      and(
+        eq(leadStageAssignments.leadId, id),
+        eq(leadStageAssignments.tenantId, tenant.id),
+      ),
+    )
+
   return (
     <LeadDetailClient 
       lead={lead} 
       activities={activities} 
       allUsers={allUsers} 
       tags={tags} 
+      activeStages={stageAssignments.map((r) => r.stageKey)}
     />
   )
 }

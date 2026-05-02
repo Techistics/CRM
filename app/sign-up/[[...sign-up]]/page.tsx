@@ -14,6 +14,8 @@ function SignUpForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const initialEmail = searchParams.get('email') || ''
+  const inviteToken = searchParams.get('invite_token') || searchParams.get('token') || ''
+  const redirectPath = searchParams.get('redirect') || ''
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState(initialEmail)
@@ -39,7 +41,7 @@ function SignUpForm() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, invite_token: inviteToken }),
       })
       return res.json()
     }, {
@@ -48,11 +50,17 @@ function SignUpForm() {
       onError: (err) => setError(err instanceof Error ? err.message : 'Registration failed'),
     })
     if (data) {
-      router.push('/')
+      router.push(redirectPath || '/')
       router.refresh()
     }
     setLoading(false)
   }
+
+  const authQueryParams = new URLSearchParams()
+  if (email) authQueryParams.set('email', email)
+  if (inviteToken) authQueryParams.set('token', inviteToken)
+  if (redirectPath) authQueryParams.set('redirect', redirectPath)
+  const authQueryString = authQueryParams.toString()
 
   return (
     <div className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm">
@@ -105,7 +113,7 @@ function SignUpForm() {
                 className="mt-2 w-full border-destructive/20 text-destructive hover:bg-destructive/10"
                 asChild
               >
-                <Link href={`/sign-in${email ? `?email=${encodeURIComponent(email)}` : ''}`}>
+                <Link href={`/sign-in${authQueryString ? `?${authQueryString}` : ''}`}>
                   Sign in with this email
                 </Link>
               </Button>
@@ -121,7 +129,7 @@ function SignUpForm() {
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Already have an account?{' '}
         <Link 
-          href={`/sign-in${email ? `?email=${encodeURIComponent(email)}` : ''}`} 
+          href={`/sign-in${authQueryString ? `?${authQueryString}` : ''}`} 
           className="font-medium text-primary hover:underline"
         >
           Sign in

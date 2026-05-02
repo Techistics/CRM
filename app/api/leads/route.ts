@@ -3,17 +3,24 @@ import { and, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
 
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'
-import { leads, leadTagAssignments, leadTags } from '@/db/schema'
+import { leads, leadTagAssignments, leadTags, leadStageAssignments } from '@/db/schema'
 import { leadsVisibleWhere } from '@/lib/leads-scope'
 import { requireTenantAdminApi, requireTenantMemberApi } from '@/lib/tenant-api'
 import { leadCreateBodySchema } from '@/lib/validators/lead'
-import type { StageValue } from '@/types/leads'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
+import { getTenantPipeline } from '@/lib/pipeline/config'
+import { rateLimit } from '@/lib/rate-limit'
 
 export async function GET(req: NextRequest) {
   return withApiErrorHandling(async () => {
     const ctx = await requireTenantMemberApi()
     if (!ctx.ok) return ctx.response
+
+    // Rate limit: Max 50 requests per 10 seconds per workspace to prevent noisy neighbors
+    const rl = rateLimit(`leads-get-${ctx.tenant.id}`, 50, 10000)
+    if (!rl.success) {
+      return errorResponse('Rate limit exceeded. Please slow down.', 'RATE_LIMIT', 429)
+    }
 
     const url = new URL(req.url)
     const q = (url.searchParams.get('q') ?? url.searchParams.get('search') ?? '').trim()
@@ -54,7 +61,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (stage) {
-      conditions.push(eq(leads.stage, stage as StageValue))
+      conditions.push(eq(leads.primaryStage, stage))
     }
 
     const where = and(...conditions)
@@ -129,7 +136,8 @@ export async function GET(req: NextRequest) {
           grades: leads.grades,
           source: leads.source,
           rawData: leads.rawData,
-          stage: leads.stage,
+          stage: leads.primaryStage,
+          lastContactedAt: leads.lastContactedAt,
           assignedTo: leads.assignedTo,
           createdBy: leads.createdBy,
           dealValue: leads.dealValue,
@@ -165,7 +173,8 @@ export async function GET(req: NextRequest) {
         grades: leads.grades,
         source: leads.source,
         rawData: leads.rawData,
-        stage: leads.stage,
+          stage: leads.primaryStage,
+        lastContactedAt: leads.lastContactedAt,
         assignedTo: leads.assignedTo,
         createdBy: leads.createdBy,
         dealValue: leads.dealValue,
@@ -204,11 +213,19 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data
-    const nextStage = data.stage as StageValue
+    const nextStage = data.stage as string
     const emailNorm =
       data.email === undefined || data.email === '' || data.email === null
         ? null
         : data.email
+
+    const pipeline = await getTenantPipeline(ctx.tenant.id)
+    if (pipeline.stages.length === 0) {
+      return errorResponse('Pipeline not configured', 'PIPELINE_NOT_CONFIGURED', 409)
+    }
+    if (!pipeline.stageKeys.has(nextStage)) {
+      return errorResponse('Invalid stage', 'INVALID_STAGE', 400)
+    }
 
     // 1. Duplicate check (if not forced)
     if (!data.force) {
@@ -235,26 +252,39 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const [created] = await db
-      .insert(leads)
-      .values({
+    const created = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(leads)
+        .values({
+          tenantId: ctx.tenant.id,
+          fullName: data.fullName,
+          contactNumber: data.contactNumber?.trim() || null,
+          email: emailNorm,
+          city: data.city?.trim() || null,
+          country: data.country?.trim() || DEFAULT_LEAD_COUNTRY,
+          lastQualification: data.notes || data.lastQualification?.trim() || null,
+          grades: data.grades?.trim() || null,
+          source: data.source?.trim() || 'manual',
+          assignedTo: data.assignedTo ?? null,
+          dealValue: data.dealValue?.toString() ?? null,
+          dealCurrency: data.dealCurrency,
+          createdBy: ctx.dbUserId,
+          primaryStage: nextStage,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          stage: nextStage as any,
+          updatedAt: new Date(),
+        })
+        .returning()
+
+      await tx.insert(leadStageAssignments).values({
         tenantId: ctx.tenant.id,
-        fullName: data.fullName,
-        contactNumber: data.contactNumber?.trim() || null,
-        email: emailNorm,
-        city: data.city?.trim() || null,
-        country: data.country?.trim() || DEFAULT_LEAD_COUNTRY,
-        lastQualification: data.notes || data.lastQualification?.trim() || null,
-        grades: data.grades?.trim() || null,
-        source: data.source?.trim() || 'manual',
-        assignedTo: data.assignedTo ?? null,
-        dealValue: data.dealValue?.toString() ?? null,
-        dealCurrency: data.dealCurrency,
+        leadId: row.id,
+        stageKey: nextStage,
         createdBy: ctx.dbUserId,
-        stage: nextStage,
-        updatedAt: new Date(),
       })
-      .returning()
+
+      return row
+    })
 
     return successResponse({ lead: created }, 201)
   })

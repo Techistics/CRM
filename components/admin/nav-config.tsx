@@ -5,6 +5,8 @@ import {
   BarChart3,
   KeyRound,
   Import,
+  Sparkles,
+  Settings as SettingsIcon,
 } from 'lucide-react'
 
 import { ADMIN_ROUTES } from '@/lib/admin-nav'
@@ -16,6 +18,12 @@ export const adminMainNav: AdminNavLink[] = [
     name: 'Dashboard',
     href: ADMIN_ROUTES.overview,
     icon: LayoutDashboard,
+  },
+  {
+    name: 'Templates',
+    href: ADMIN_ROUTES.templates,
+    icon: Sparkles,
+    matchPrefix: true,
   },
   {
     name: 'Users',
@@ -45,8 +53,12 @@ export const adminMainNav: AdminNavLink[] = [
 
 export const adminSettingsLinks: AdminSettingsLink[] = [
   {
+    name: 'Settings',
+    href: ADMIN_ROUTES.settings,
+    icon: SettingsIcon,
+  },
+  {
     name: 'Permissions',
-    description: 'Access control',
     href: ADMIN_ROUTES.requests,
     icon: KeyRound,
   },

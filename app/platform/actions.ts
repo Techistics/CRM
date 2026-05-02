@@ -1,12 +1,12 @@
 'use server'
-
 import { redirect } from 'next/navigation'
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 
 import { db } from '@/db'
 import { tenants } from '@/db/schema'
-import { isPlatformSuperAdmin } from '@/lib/platform-role'
 import { getSession } from '@/lib/auth'
+import { createInvitationAndSendEmail } from '@/lib/invitations/service'
+import { isPlatformSuperAdmin } from '@/lib/platform-role'
 
 function slugify(input: string) {
   return input
@@ -15,6 +15,18 @@ function slugify(input: string) {
     .replace(/[^a-z0-9-]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 48)
+}
+
+function redirectCreateWorkspaceError(
+  code:
+    | 'name-required'
+    | 'invalid-slug'
+    | 'first-admin-email-required'
+    | 'first-admin-email-invalid'
+    | 'slug-in-use'
+    | 'create-failed',
+): never {
+  redirect(`/platform/tenants/new?error=${code}`)
 }
 
 export async function createWorkspaceAction(formData: FormData) {
@@ -26,19 +38,43 @@ export async function createWorkspaceAction(formData: FormData) {
 
   const name = String(formData.get('name') ?? '').trim()
   const slugRaw = String(formData.get('slug') ?? '').trim()
-  
-  if (!name) throw new Error('Name is required')
+  const firstAdminEmail = String(formData.get('firstAdminEmail') ?? '')
+    .trim()
+    .toLowerCase()
+
+  if (!name) redirectCreateWorkspaceError('name-required')
   const slug = slugify(slugRaw || name)
-  if (!slug) throw new Error('Invalid slug')
+  if (!slug) redirectCreateWorkspaceError('invalid-slug')
+  if (!firstAdminEmail) redirectCreateWorkspaceError('first-admin-email-required')
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(firstAdminEmail)) {
+    redirectCreateWorkspaceError('first-admin-email-invalid')
+  }
 
   const [exists] = await db.select().from(tenants).where(eq(tenants.slug, slug))
-  if (exists) throw new Error('Slug already in use')
+  if (exists) redirectCreateWorkspaceError('slug-in-use')
 
-  await db.insert(tenants).values({
-    slug,
-    name,
-    status: 'active',
-  })
+  try {
+    const [tenant] = await db
+      .insert(tenants)
+      .values({
+        slug,
+        name,
+        status: 'active',
+        createdBy: session.userId,
+      })
+      .returning({ id: tenants.id })
+
+    await createInvitationAndSendEmail({
+      tenantId: tenant.id,
+      email: firstAdminEmail,
+      role: 'ADMIN',
+      tenantSlug: slug,
+      tenantName: name,
+      invitedBy: session.userId,
+    })
+  } catch {
+    redirectCreateWorkspaceError('create-failed')
+  }
 
   redirect('/platform/tenants')
 }
@@ -63,26 +99,93 @@ export async function inviteWorkspaceUserAction(formData: FormData) {
     throw new Error('Invalid role')
   }
 
-  // Implementation of invitation logic:
-  // For now, we'll return a message that they should use the /sign-up flow 
-  // and the admin should add them via the team management UI which we've refactored.
-  throw new Error('Invitations are temporarily disabled. Please add users directly via Team Management.')
+  const [tenant] = await db
+    .select()
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+
+  if (!tenant) throw new Error('Workspace not found')
+
+  await createInvitationAndSendEmail({
+    tenantId: tenant.id,
+    email,
+    role: appRole,
+    tenantSlug: tenant.slug,
+    tenantName: tenant.name,
+    invitedBy: session.userId,
+  })
+
+  redirect('/platform/tenants')
 }
+
+import { revalidatePath } from 'next/cache'
 
 export async function deleteWorkspaceAction(formData: FormData) {
   const allowed = await isPlatformSuperAdmin()
   if (!allowed) throw new Error('Forbidden')
 
-  const session = await getSession()
-  if (!session) redirect('/sign-in')
-
   const tenantId = String(formData.get('tenantId') ?? '').trim()
-  if (!tenantId) throw new Error('Tenant ID is required')
+  if (!tenantId) throw new Error('Workspace is required')
 
   await db
     .update(tenants)
-    .set({ deletedAt: new Date() })
+    .set({
+      deletedAt: new Date(),
+    })
     .where(eq(tenants.id, tenantId))
 
-  redirect('/platform/tenants')
+  revalidatePath('/platform/tenants')
+  return { success: true }
+}
+
+export async function restoreWorkspaceAction(formData: FormData) {
+  const allowed = await isPlatformSuperAdmin()
+  if (!allowed) throw new Error('Forbidden')
+
+  const tenantId = String(formData.get('tenantId') ?? '').trim()
+  if (!tenantId) throw new Error('Workspace is required')
+
+  await db
+    .update(tenants)
+    .set({
+      deletedAt: null,
+    })
+    .where(eq(tenants.id, tenantId))
+
+  revalidatePath('/platform/tenants/recycle-bin')
+  revalidatePath('/platform/tenants')
+  return { success: true }
+}
+
+export async function hardDeleteWorkspaceAction(formData: FormData) {
+  const allowed = await isPlatformSuperAdmin()
+  if (!allowed) throw new Error('Forbidden')
+
+  const tenantId = String(formData.get('tenantId') ?? '').trim()
+  if (!tenantId) throw new Error('Workspace is required')
+
+  await db.delete(tenants).where(eq(tenants.id, tenantId))
+
+  revalidatePath('/platform/tenants/recycle-bin')
+  return { success: true }
+}
+
+export async function bulkDeleteWorkspaceAction(formData: FormData) {
+  const allowed = await isPlatformSuperAdmin()
+  if (!allowed) throw new Error('Forbidden')
+
+  const tenantIdsString = String(formData.get('tenantIds') ?? '').trim()
+  if (!tenantIdsString) throw new Error('Workspaces are required')
+  
+  const tenantIds = tenantIdsString.split(',')
+
+  await db
+    .update(tenants)
+    .set({
+      deletedAt: new Date(),
+    })
+    .where(inArray(tenants.id, tenantIds))
+
+  revalidatePath('/platform/tenants')
+  return { success: true }
 }

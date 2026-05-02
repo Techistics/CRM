@@ -3,12 +3,17 @@ import { and, count, eq, gte } from 'drizzle-orm'
 import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { db } from '@/db'
 import { leads } from '@/db/schema'
+import { getTenantPipeline } from '@/lib/pipeline/config'
 import type {
   ChartWindow,
   FunnelStep,
   PipelineChartSnapshot,
   StageDatum,
 } from '@/types/analytics'
+
+function chartColorForStage(key: string) {
+  return PIPELINE_STAGES.find((s) => s.value === key)?.chartColor ?? '#6b7280'
+}
 
 export function startDateForChartWindow(window: ChartWindow): Date {
   const d = new Date()
@@ -28,19 +33,25 @@ export async function getPipelineSnapshotForTenant(
 ): Promise<PipelineChartSnapshot> {
   const tScope = and(eq(leads.tenantId, tenantId), gte(leads.createdAt, createdSince))
 
+  const pipeline = await getTenantPipeline(tenantId)
   const byStage = await db
-    .select({ stage: leads.stage, total: count(leads.id) })
+    .select({ stage: leads.primaryStage, total: count(leads.id) })
     .from(leads)
     .where(tScope)
-    .groupBy(leads.stage)
+    .groupBy(leads.primaryStage)
 
   const totalLeads = byStage.reduce((sum, s) => sum + Number(s.total), 0)
 
-  const stageData: StageDatum[] = PIPELINE_STAGES.map((s) => ({
-    value: s.value,
+  const stageData: StageDatum[] = (pipeline.stages.length > 0 ? pipeline.stages : PIPELINE_STAGES.map((s) => ({
+    key: s.value,
     label: s.label,
-    count: Number(byStage.find((b) => b.stage === s.value)?.total ?? 0),
-    color: s.chartColor,
+    sortOrder: 0,
+    meta: null,
+  }))).map((s) => ({
+    value: s.key,
+    label: s.label,
+    count: Number(byStage.find((b) => b.stage === s.key)?.total ?? 0),
+    color: chartColorForStage(s.key),
   }))
 
   const paidCount = Number(byStage.find((b) => b.stage === 'paid')?.total ?? 0)

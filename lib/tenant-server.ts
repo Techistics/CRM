@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 
 import { db } from '@/db'
-import { tenants } from '@/db/schema'
+import { tenants, users } from '@/db/schema'
 import type { Tenant } from '@/types/models'
 
 import { getSession } from '@/lib/auth'
@@ -37,6 +37,10 @@ export async function requireTenantSession(): Promise<{
   tenant: Tenant
   dbUserId: string
   role: TenantAppRole
+  user: {
+    name: string
+    email: string
+  }
 }> {
   const tenant = await requireTenantFromHeaders()
   const session = await getSession()
@@ -50,7 +54,21 @@ export async function requireTenantSession(): Promise<{
     redirect('/no-access?reason=not-in-org')
   }
 
-  return { tenant, dbUserId: actor.dbUserId, role: actor.role }
+  // Fetch full user data for profile info
+  const userRow = await db.query.users.findFirst({
+    where: eq(users.id, actor.dbUserId),
+    columns: {
+      name: true,
+      email: true,
+    }
+  })
+
+  return { 
+    tenant, 
+    dbUserId: actor.dbUserId, 
+    role: actor.role,
+    user: userRow ?? { name: 'Unknown', email: 'unknown@example.com' }
+  }
 }
 
 export async function requireTenantAdminSession() {

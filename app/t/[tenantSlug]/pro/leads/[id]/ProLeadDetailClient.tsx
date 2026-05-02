@@ -1,20 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import type { Lead } from '@/types/models'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
-import { STAGE_LABELS, PIPELINE_STAGES } from '@/constants/pipeline-stages'
+import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { tenantPath } from '@/lib/tenant-path'
 import { LeadDocumentsPanel } from '@/components/lead/LeadDocumentsPanel'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { apiCall } from '@/lib/utils/api-handler'
+import { StudentJourney } from '@/components/leads/StudentJourney'
+import { WhatsappLogger } from '@/components/leads/WhatsappLogger'
+import { LeadReminders } from '@/components/lead/LeadReminders'
 
-import type { StageValue, ActivityRow } from '@/types/leads'
-
-const ORDERED_STAGES: StageValue[] = PIPELINE_STAGES.map((s) => s.value)
+import type { ActivityRow } from '@/types/leads'
 
 export default function ProLeadDetailClient({
   lead,
@@ -26,13 +27,38 @@ export default function ProLeadDetailClient({
   const router = useRouter()
   const params = useParams()
   const tenantSlug = String(params?.tenantSlug ?? '')
-  const [stage, setStage] = useState(lead.stage ?? 'new_lead')
+  const [stage, setStage] = useState<string>(lead.primaryStage ?? lead.stage ?? 'new_lead')
+  const [pipelineStages, setPipelineStages] = useState<Array<{ key: string; label: string }>>([])
   const [note, setNote] = useState('')
   const [noteType, setNoteType] = useState<'note' | 'call' | 'message'>('note')
   const [saving, setSaving] = useState(false)
   const [addingNote, setAddingNote] = useState(false)
 
-  async function handleStageChange(newStage: StageValue) {
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch('/api/pipeline-stages')
+        const data = await res.json()
+        setPipelineStages((data?.data?.stages ?? data?.stages ?? []) as Array<{ key: string; label: string }>)
+      } catch {
+        setPipelineStages([])
+      }
+    })()
+  }, [])
+
+  const stageLabelByKey = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const s of pipelineStages) map.set(s.key, s.label)
+    return map
+  }, [pipelineStages])
+
+  const colorByKey = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const s of PIPELINE_STAGES) map.set(s.value, s.badgeClasses)
+    return map
+  }, [])
+
+  async function handleStageChange(newStage: string) {
     const previous = stage
     setStage(newStage)
     setSaving(true)
@@ -73,7 +99,9 @@ export default function ProLeadDetailClient({
     router.refresh()
   }
 
-  const currentStageObj = STAGE_LABELS[stage] ?? STAGE_LABELS['new_lead']
+  const currentStageLabel = stageLabelByKey.get(stage) ?? stage
+  const currentStageColor =
+    colorByKey.get(stage) ?? 'bg-gray-50 text-gray-700 border-gray-200 shadow-sm'
 
   return (
     <div className="p-8 max-w-6xl">
@@ -88,8 +116,8 @@ export default function ProLeadDetailClient({
           </Link>
           <h1 className="text-3xl font-bold text-gray-900 mt-4 tracking-tight">{lead.fullName}</h1>
           <div className="flex items-center gap-3 mt-3">
-            <span className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium bg-white shadow-sm ${currentStageObj.color}`}>
-              {currentStageObj.label}
+            <span className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium bg-white shadow-sm ${currentStageColor}`}>
+              {currentStageLabel}
             </span>
             {saving && <Loader2 className="h-3 w-3 animate-spin text-gray-400" />}
           </div>
@@ -111,6 +139,12 @@ export default function ProLeadDetailClient({
         <TabsContent value="overview" className="outline-none">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 space-y-6">
+              <StudentJourney 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                stage={stage as any} 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                onStepClick={(newStage) => handleStageChange(newStage as any)} 
+              />
               {/* Contact info */}
               <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6">
                 <h2 className="text-gray-900 font-semibold mb-5 flex items-center gap-2">
@@ -144,16 +178,16 @@ export default function ProLeadDetailClient({
                   Pipeline Stage
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {ORDERED_STAGES.map((s) => {
+                  {(pipelineStages.length ? pipelineStages.map((s) => s.key) : PIPELINE_STAGES.map((s) => s.value)).map((s) => {
                     const isSelected = stage === s
-                    const stageObj = STAGE_LABELS[s]
+                    const stageLabel = stageLabelByKey.get(s) ?? PIPELINE_STAGES.find((x) => x.value === s)?.label ?? s
                     return (
                       <button
                         key={s}
                         onClick={() => handleStageChange(s)}
                         className={`text-left px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all border ${
                           isSelected
-                            ? `bg-gray-50 shadow-sm border-gray-300 ring-1 ring-gray-200 ${stageObj.color.split(' ')[1]}`
+                            ? `bg-gray-50 shadow-sm border-gray-300 ring-1 ring-gray-200 text-gray-900`
                             : 'bg-white border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-300 hover:shadow-sm'
                         }`}
                       >
@@ -161,7 +195,7 @@ export default function ProLeadDetailClient({
                            <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${isSelected ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-300'}`}>
                              {isSelected && <svg className="w-2 h-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                            </div>
-                           {stageObj.label}
+                           {stageLabel}
                         </div>
                       </button>
                     )
@@ -212,6 +246,17 @@ export default function ProLeadDetailClient({
             </div>
 
             <div className="space-y-6">
+              <WhatsappLogger
+                leadId={lead.id}
+                tenantSlug={tenantSlug}
+                leadName={lead.fullName}
+                leadCountry={lead.country ?? null}
+                leadProgramme={lead.lastQualification ?? null}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                currentStage={stage as any}
+                leadPhone={lead.contactNumber}
+              />
+              <LeadReminders leadId={lead.id} className="mb-6" />
               {/* Activity log */}
               <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6 h-fit">
                 <h2 className="text-gray-900 font-semibold mb-2">Activity Log</h2>
@@ -219,7 +264,7 @@ export default function ProLeadDetailClient({
                   Historical timeline of status changes, calls, notes, and messages.
                 </p>
                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <LeadActivityTimeline activities={initialActivities} />
+                  <LeadActivityTimeline activities={initialActivities} stageLabels={Object.fromEntries(stageLabelByKey)} />
                 </div>
               </div>
             </div>

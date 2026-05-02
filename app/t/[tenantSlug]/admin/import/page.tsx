@@ -16,6 +16,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { Badge } from '@/components/ui/badge'
 
 type ImportState = 'idle' | 'parsing' | 'preview' | 'confirming' | 'done'
 
@@ -108,7 +109,7 @@ export default function ImportPage() {
       throw new Error('Failed to load agents')
     }
     const data = await res.json()
-    const members: Agent[] = data.data?.members ?? []
+    const members: Agent[] = (data.data?.members ?? []).filter((m: Agent) => m.role !== 'ADMIN')
     setAgents(members)
     setSelectedAgentIds(new Set(members.map((member) => member.userId)))
   }
@@ -327,7 +328,12 @@ export default function ImportPage() {
                       <AvatarFallback>{agent.name.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">{agent.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{agent.name}</p>
+                        <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                          {agent.role === 'PRO' ? 'Pro' : agent.role}
+                        </Badge>
+                      </div>
                       <p className="text-xs text-muted-foreground">{agent.email}</p>
                     </div>
                   </div>

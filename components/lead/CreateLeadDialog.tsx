@@ -33,7 +33,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { apiCall } from '@/lib/utils/api-handler'
 
@@ -67,6 +66,7 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
   const [open, setOpen] = useState(false)
   const [loadingAgents, setLoadingAgents] = useState(false)
   const [agents, setAgents] = useState<Agent[]>([])
+  const [pipelineStages, setPipelineStages] = useState<Array<{ key: string; label: string }>>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [conflict, setConflict] = useState<boolean>(false)
   const router = useRouter()
@@ -106,6 +106,16 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
   useEffect(() => {
     if (open) {
       fetchAgents()
+      ;(async () => {
+        try {
+          const res = await fetch('/api/pipeline-stages')
+          const data = await res.json()
+          const stages = (data?.data?.stages ?? data?.stages ?? []) as Array<{ key: string; label: string }>
+          setPipelineStages(stages)
+        } catch {
+          setPipelineStages([])
+        }
+      })()
     } else {
       setConflict(false)
       form.reset()
@@ -310,8 +320,10 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {PIPELINE_STAGES.map(s => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                      {(pipelineStages.length > 0 ? pipelineStages : [{ key: 'new_lead', label: 'New Lead' }]).map((s) => (
+                        <SelectItem key={s.key} value={s.key}>
+                          {s.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

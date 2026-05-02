@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2, XCircle, ShieldCheck, UserPlus } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -59,7 +60,7 @@ function AcceptInviteContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (password !== confirmPassword) {
-      alert('Passwords do not match')
+      toast.error('Passwords do not match')
       return
     }
 
@@ -70,16 +71,19 @@ function AcceptInviteContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, name, password }),
       })
-      return res.json()
+      const json = await res.json()
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || 'Failed to create account')
+      }
+      return json.data
     }, {
       successMsg: 'Account created successfully!',
-      errorMsg: 'Failed to create account',
     })
 
     if (result?.tenantSlug) {
       router.push(`/t/${result.tenantSlug}`)
     } else {
-      setSubmitting(false)
+      router.push('/sign-in')
     }
   }
 

@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { db } from '@/db'
 import { invitations, users, tenants } from '@/db/schema'
 import { getSession } from '@/lib/auth'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { AcceptInviteLanding } from './AcceptInviteLanding'
 import Link from 'next/link'
 
@@ -72,8 +72,22 @@ export default async function AcceptInvitePage(props: {
   // 3. Auth Check
   const session = await getSession()
   if (!session) {
-    // Redirect to signup with pre-filled email and token
-    return redirect(`/sign-up?email=${encodeURIComponent(invite.email)}&invite_token=${token}`)
+    // Check if user already exists
+    const [existingUser] = await db
+      .select()
+      .from(users)
+      .where(sql`lower(${users.email}) = ${invite.email.toLowerCase()}`)
+      .limit(1)
+
+    const redirectPath = encodeURIComponent(`/accept-invite?token=${token}`)
+    
+    if (existingUser) {
+      // User exists, take them to sign-in
+      return redirect(`/sign-in?email=${encodeURIComponent(invite.email)}&token=${token}&redirect=${redirectPath}`)
+    } else {
+      // New user, take them to sign-up
+      return redirect(`/sign-up?email=${encodeURIComponent(invite.email)}&invite_token=${token}&redirect=${redirectPath}`)
+    }
   }
 
   // 4. Verify Email Binding

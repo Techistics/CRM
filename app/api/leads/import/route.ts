@@ -5,11 +5,11 @@ import { and, eq, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { db } from '@/db'
-import { csvImports, leads, tenantMembers, users } from '@/db/schema'
+import { csvImports, leads, tenantMembers, users, leadStageAssignments } from '@/db/schema'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { sendLeadAssignedEmail } from '@/lib/mail'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
-import { isValidLeadStage } from '@/constants/pipeline-stages'
+import { getTenantPipeline } from '@/lib/pipeline/config'
 
 const parseBodySchema = z.object({
   action: z.literal('parse'),
@@ -103,6 +103,12 @@ export async function POST(req: NextRequest) {
     const ctx = await requireTenantAdminApi()
     if (!ctx.ok) return ctx.response
 
+    const pipeline = await getTenantPipeline(ctx.tenant.id)
+    if (pipeline.stages.length === 0) {
+      return errorResponse('Pipeline not configured', 'PIPELINE_NOT_CONFIGURED', 409)
+    }
+    const defaultStageKey = pipeline.stages[0]?.key ?? 'new_lead'
+
     const body = await req.json().catch(() => null)
     if (!body) {
       return errorResponse('Invalid JSON body', 'INVALID_JSON', 400)
@@ -152,7 +158,7 @@ export async function POST(req: NextRequest) {
             : null
 
         const stageNormalized = normalizeStageValue(mapped.stage)
-        const stage = isValidLeadStage(stageNormalized) ? stageNormalized : 'new_lead'
+        const stage = pipeline.stageKeys.has(stageNormalized) ? stageNormalized : defaultStageKey
 
         const dealValueRaw = String(mapped.dealValue ?? '').trim()
         const dealValueCandidate = dealValueRaw.length > 0 ? Number(dealValueRaw) : null
@@ -238,7 +244,7 @@ export async function POST(req: NextRequest) {
           return true
         })
         .map((row) => {
-          const { rowNumber, ...rest } = row
+          const { rowNumber: _rowNumber, ...rest } = row
           return rest
         })
 
@@ -283,6 +289,8 @@ export async function POST(req: NextRequest) {
         const assignedTo =
           validAgentIds.length > 0 ? validAgentIds[index % validAgentIds.length] : null
 
+        const stageKey = pipeline.stageKeys.has(leadRow.stage) ? leadRow.stage : defaultStageKey
+
         return {
           tenantId: ctx.tenant.id,
           fullName: leadRow.fullName,
@@ -290,7 +298,9 @@ export async function POST(req: NextRequest) {
           email: leadRow.email ?? null,
           city: leadRow.city ?? null,
           country: leadRow.country ?? 'Pakistan',
-          stage: isValidLeadStage(leadRow.stage) ? leadRow.stage : 'new_lead',
+          primaryStage: stageKey,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          stage: stageKey as any,
           source: leadRow.source ?? 'csv_import',
           lastQualification: leadRow.notes ?? null,
           dealValue: leadRow.dealValue != null ? leadRow.dealValue.toString() : null,
@@ -301,7 +311,23 @@ export async function POST(req: NextRequest) {
       })
 
       if (rowsToInsert.length > 0) {
-        await db.insert(leads).values(rowsToInsert).onConflictDoNothing()
+        await db.transaction(async (tx) => {
+          const inserted = await tx.insert(leads).values(rowsToInsert).onConflictDoNothing().returning({
+            id: leads.id,
+            primaryStage: leads.primaryStage,
+          })
+
+          if (inserted.length > 0) {
+            await tx.insert(leadStageAssignments).values(
+              inserted.map((row) => ({
+                tenantId: ctx.tenant.id,
+                leadId: row.id,
+                stageKey: row.primaryStage,
+                createdBy: ctx.dbUserId,
+              })),
+            )
+          }
+        })
       }
 
       const assignedCounts = new Map<string, number>()

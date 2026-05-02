@@ -14,7 +14,7 @@ export function initFetchInterceptor() {
   window.fetch = async (...args) => {
     try {
       const res = await originalFetch(...args)
-      if (!res.ok) {
+      if (res.status >= 400) {
         const body = await res.clone().json().catch(() => ({} as Record<string, unknown>))
         const bodyMessage =
           typeof body?.message === 'string'

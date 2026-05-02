@@ -1,21 +1,22 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   DndContext,
-  DragEndEvent,
   DragOverEvent,
   DragStartEvent,
   PointerSensor,
   useSensor,
   useSensors,
   DragOverlay,
-  closestCorners,
+  closestCenter,
+  useDroppable,
 } from '@dnd-kit/core'
 import {
   SortableContext,
   verticalListSortingStrategy,
   useSortable,
+  arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useToast } from '@/hooks/use-toast'
@@ -23,20 +24,20 @@ import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 
 import type { KanbanLead } from '@/types/leads'
 
-const STAGES = PIPELINE_STAGES.map((s) => ({
-  value: s.value,
-  label: s.label,
-  color: s.kanbanBorder,
-}))
+type BoardStage = { value: string; label: string; color: string }
+
+function fallbackStageColor(value: string) {
+  return (
+    PIPELINE_STAGES.find((s) => s.value === value)?.kanbanBorder ?? 'border-t-gray-500'
+  )
+}
 
 function LeadCard({
   lead,
   isDragging = false,
-  isBlocked = false,
 }: {
   lead: KanbanLead
   isDragging?: boolean
-  isBlocked?: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id: lead.id })
@@ -54,8 +55,8 @@ function LeadCard({
       {...attributes}
       {...listeners}
       className={`bg-white border rounded-lg p-2 cursor-grab active:cursor-grabbing shadow-sm transition-all ${
-        isBlocked
-          ? 'border-red-400 bg-red-50/50'
+        !lead.assignedTo
+          ? 'border-amber-100 bg-amber-50/30'
           : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
       }`}
     >
@@ -87,8 +88,8 @@ function LeadCard({
         </div>
       ) : (
         <div className="mt-1.5 flex items-center gap-1">
-          <span className={`text-[9px] font-semibold ${isBlocked ? 'text-red-500' : 'text-gray-400'}`}>
-            {isBlocked ? '✕ Assign first' : 'Unassigned'}
+          <span className="text-[9px] font-medium text-amber-600 italic">
+            Unassigned
           </span>
         </div>
       )}
@@ -107,19 +108,68 @@ function DragCard({ lead }: { lead: KanbanLead }) {
   )
 }
 
+function KanbanColumn({ 
+  id, 
+  children 
+}: { 
+  id: string, 
+  children: React.ReactNode 
+}) {
+  const { setNodeRef } = useDroppable({ id })
+  return (
+    <div 
+      ref={setNodeRef} 
+      className="flex-1 p-2 space-y-2 overflow-y-auto w-full min-h-[200px]"
+    >
+      {children}
+    </div>
+  )
+}
+
 export default function KanbanBoard({
   initialLeads,
   baseApiUrl = '/api/leads',
+  stages: stagesProp,
 }: {
   initialLeads: KanbanLead[]
   baseApiUrl?: string
+  stages?: Array<{ key: string; label: string }>
 }) {
   const { toast } = useToast()
   const [leadsState, setLeadsState] = useState<KanbanLead[]>(initialLeads)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
-  const [blockedId, setBlockedId] = useState<string | null>(null)
   const stageAtDragStartRef = useRef<string | null>(null)
+  const [stages, setStages] = useState<BoardStage[]>(
+    (stagesProp ?? []).map((s) => ({
+      value: s.key,
+      label: s.label,
+      color: fallbackStageColor(s.key),
+    })),
+  )
+
+  // Load stages for this tenant if not provided.
+  // This keeps the board workspace-configurable even when rendered in isolation.
+  useEffect(() => {
+    if (stagesProp && stagesProp.length > 0) return
+    ;(async () => {
+      try {
+        const res = await fetch('/api/pipeline-stages')
+        const data = await res.json()
+        const rows = (data?.data?.stages ?? data?.stages ?? []) as Array<{ key: string; label: string }>
+        if (!rows.length) return
+        setStages(
+          rows.map((s) => ({
+            value: s.key,
+            label: s.label,
+            color: fallbackStageColor(s.key),
+          })),
+        )
+      } catch {
+        // ignore
+      }
+    })()
+  }, [stagesProp])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -146,81 +196,88 @@ export default function KanbanBoard({
     const { active, over } = event
     if (!over) return
 
-    const activeLeadId = active.id as string
+    const activeId = active.id as string
     const overId = over.id as string
 
-    const activeLead = leadsState.find((l) => l.id === activeLeadId)
-    if (!activeLead?.assignedTo) return
+    if (activeId === overId) return
 
-    const overStage = STAGES.find((s) => s.value === overId)
-    if (overStage) {
-      setLeadsState((prev) =>
-        prev.map((l) =>
-          l.id === activeLeadId ? { ...l, stage: overStage.value } : l
-        )
-      )
-    } else {
-      const overLead = leadsState.find((l) => l.id === overId)
-      if (overLead?.stage) {
-        setLeadsState((prev) =>
-          prev.map((l) =>
-            l.id === activeLeadId ? { ...l, stage: overLead.stage } : l
-          )
-        )
-      }
+    // Find the lead being dragged
+    const activeLead = leadsState.find((l) => l.id === activeId)
+    if (!activeLead) return
+
+    // Identify target stage
+    const overStage = stages.find((s) => s.value === overId)
+    const overLead = leadsState.find((l) => l.id === overId)
+    const targetStage = overStage ? overStage.value : (overLead?.stage ?? activeLead.stage)
+
+    if (activeLead.stage !== targetStage) {
+      setLeadsState((prev) => {
+        const activeIndex = prev.findIndex((l) => l.id === activeId)
+        const overIndex = prev.findIndex((l) => l.id === overId)
+        
+        const next = [...prev]
+        if (activeIndex !== -1) {
+          next[activeIndex] = { ...prev[activeIndex], stage: targetStage }
+          return arrayMove(next, activeIndex, overIndex === -1 ? activeIndex : overIndex)
+        }
+        return prev
+      })
+    } else if (overId !== activeId) {
+      setLeadsState((prev) => {
+        const oldIndex = prev.findIndex((l) => l.id === activeId)
+        const newIndex = prev.findIndex((l) => l.id === overId)
+        if (oldIndex !== -1 && newIndex !== -1) {
+          return arrayMove(prev, oldIndex, newIndex)
+        }
+        return prev
+      })
     }
   }
 
-  async function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event
-    if (!over) {
-      setActiveId(null)
-      return
-    }
+  async function handleDragEnd() {
+    const leadId = activeId
+    setActiveId(null)
+    
+    if (!leadId) return
 
-    const leadId = active.id as string
     const lead = leadsState.find((l) => l.id === leadId)
     if (!lead) return
 
-    if (!lead.assignedTo) {
-      setLeadsState((prev) =>
-        prev.map((l) =>
-          l.id === leadId
-            ? { ...l, stage: initialLeads.find((il) => il.id === leadId)?.stage ?? l.stage }
-            : l
-        )
-      )
-      setActiveId(null)
-      setBlockedId(leadId)
-      setTimeout(() => setBlockedId(null), 2000)
-      toast({ variant: 'destructive', title: 'Action Blocked', description: 'Assign lead first before moving.' })
-      return
-    }
-
-    setActiveId(null)
+    // If the stage changed from the start, or even if it didn't (to ensure reordering if we had reordering persistence), save it.
+    const startStage = stageAtDragStartRef.current
+    
+    // We always set saving to show feedback
     setSaving(leadId)
 
-    const res = await fetch(`${baseApiUrl}/${leadId}/stage`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stage: lead.stage }),
-    })
+    try {
+      const res = await fetch(`${baseApiUrl}/${leadId}/stage`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: lead.stage }),
+      })
 
-    if (!res.ok) {
-      const previous = stageAtDragStartRef.current ?? 'new_lead'
+      if (!res.ok) {
+        throw new Error('Failed to update stage')
+      }
+
+      toast({ 
+        title: 'Stage Updated', 
+        description: `${lead.fullName} is now in ${stages.find(s => s.value === lead.stage)?.label ?? 'new stage'}.` 
+      })
+    } catch {
+      // Revert state on failure
+      const previous = startStage ?? 'new_lead'
       setLeadsState((prev) =>
         prev.map((l) => (l.id === leadId ? { ...l, stage: previous } : l)),
       )
       toast({
         variant: 'destructive',
-        title: 'Could not update stage',
-        description: 'Your change was reverted. Try again or refresh the page.',
+        title: 'Update failed',
+        description: 'The card has been moved back. Please check your connection.',
       })
-    } else {
-      toast({ title: 'Stage Updated', description: `${lead.fullName} moved to section.` })
+    } finally {
+      setSaving(null)
     }
-
-    setSaving(null)
   }
 
   return (
@@ -229,21 +286,20 @@ export default function KanbanBoard({
         <div>
           <h1 className="text-lg font-bold text-gray-900 tracking-tight leading-tight">Pipeline Board</h1>
           <p className="text-gray-500 text-[10px] mt-0.5">
-            Drag cards between columns to update stage —{' '}
-            <span className="font-semibold text-gray-600">unassigned leads must be assigned first</span>
+            Drag cards between columns to update stage freely
           </p>
         </div>
       </div>
 
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
         <div className="flex gap-2 overflow-x-auto pb-4 pt-1 select-none flex-1 min-h-0">
-          {STAGES.map((stage) => {
+          {stages.map((stage) => {
             const stageLeads = getLeadsByStage(stage.value)
             return (
               <div
@@ -264,13 +320,12 @@ export default function KanbanBoard({
                   items={stageLeads.map((l) => l.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  <div className="flex-1 p-2 space-y-2 overflow-y-auto w-full">
+                  <KanbanColumn id={stage.value}>
                     {stageLeads.map((lead) => (
                       <div key={lead.id} className="relative">
                         <LeadCard
                           lead={lead}
                           isDragging={activeId === lead.id}
-                          isBlocked={blockedId === lead.id}
                         />
                         {saving === lead.id && (
                           <div className="absolute inset-0 bg-white/80 backdrop-blur-[1px] rounded-lg flex items-center justify-center border border-gray-100 object-cover z-10 transition-opacity">
@@ -282,7 +337,7 @@ export default function KanbanBoard({
                         )}
                       </div>
                     ))}
-                  </div>
+                  </KanbanColumn>
                 </SortableContext>
               </div>
             )

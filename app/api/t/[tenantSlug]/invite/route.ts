@@ -1,11 +1,11 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
-import crypto from 'crypto'
 
 import { db } from '@/db'
-import { invitations, tenantMembers } from '@/db/schema'
+import { tenantMembers } from '@/db/schema'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
 import { sendInviteEmail } from '@/lib/mail'
+import { createInvitationAndSendEmail } from '@/lib/invitations/service'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
 const inviteSchema = z.object({
@@ -69,35 +69,22 @@ export async function POST(
     }
 
     // 2. User does not exist -> Create invitation
-    const token = crypto.randomUUID()
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+    const result = await createInvitationAndSendEmail({
+      tenantId: ctx.tenant.id,
+      tenantSlug: ctx.tenant.slug,
+      tenantName: ctx.tenant.name,
+      email: normalizedEmail,
+      role,
+      invitedBy: ctx.dbUserId,
+    })
 
-    const [invitation] = await db
-      .insert(invitations)
-      .values({
-        tenantId: ctx.tenant.id,
-        email: normalizedEmail,
-        role,
-        token,
-        expiresAt,
-        invitedBy: ctx.dbUserId,
-        status: 'PENDING',
-      })
-      .returning()
-
-    // Send invite email
-    try {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-      
-      await sendInviteEmail({
-        email: normalizedEmail,
-        tenantName: ctx.tenant.name,
-        inviteLink: `${baseUrl}/invite/accept?token=${token}&highlight=${ctx.tenant.slug}`,
-      })
-    } catch (err) {
-      console.error('[invite] Invitation email failed:', err)
-    }
-
-    return successResponse({ invited: true, invitationId: invitation.id }, 201)
+    return successResponse(
+      {
+        invited: true,
+        invitationId: result.invitationId,
+        emailSent: result.emailSent,
+      },
+      201,
+    )
   })
 }

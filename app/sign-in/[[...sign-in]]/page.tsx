@@ -14,6 +14,8 @@ function SignInForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const initialEmail = searchParams.get('email') || ''
+  const token = searchParams.get('token') || ''
+  const redirectPath = searchParams.get('redirect') || ''
 
   const [email, setEmail] = useState(initialEmail)
   const [password, setPassword] = useState('')
@@ -47,12 +49,17 @@ function SignInForm() {
       onError: (err) => setError(err instanceof Error ? err.message : 'Login failed'),
     })
     if (data) {
-      const redirectPath = searchParams.get('redirect') || '/'
-      router.push(redirectPath)
+      router.push(redirectPath || '/')
       router.refresh()
     }
     setLoading(false)
   }
+
+  const authQueryParams = new URLSearchParams()
+  if (email) authQueryParams.set('email', email)
+  if (token) authQueryParams.set('invite_token', token)
+  if (redirectPath) authQueryParams.set('redirect', redirectPath)
+  const authQueryString = authQueryParams.toString()
 
   return (
     <div className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm">
@@ -105,7 +112,7 @@ function SignInForm() {
       <p className="mt-6 text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{' '}
         <Link 
-          href={`/sign-up${email ? `?email=${encodeURIComponent(email)}` : ''}`} 
+          href={`/sign-up${authQueryString ? `?${authQueryString}` : ''}`} 
           className="font-medium text-primary hover:underline"
         >
           Create one

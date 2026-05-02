@@ -3,10 +3,10 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { db } from '@/db'
-import { leads, leadActivities } from '@/db/schema'
-import { isValidLeadStage } from '@/constants/pipeline-stages'
+import { leads, leadActivities, leadStageAssignments } from '@/db/schema'
 import { errorResponse, successResponse, withApiErrorHandling } from '@/lib/api-response'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
+import { getTenantPipeline } from '@/lib/pipeline/config'
 
 const bodySchema = z.object({
   leadIds: z.array(z.string().uuid()).min(1).max(500),
@@ -27,20 +27,41 @@ export async function POST(req: NextRequest) {
     if (parsed.data.tenantSlug !== ctx.tenant.slug) return errorResponse('Forbidden', 'FORBIDDEN', 403)
 
     const stage = parsed.data.stage
-    if (!isValidLeadStage(stage)) {
-      return errorResponse('Invalid stage', 'VALIDATION_ERROR', 400)
+    const pipeline = await getTenantPipeline(ctx.tenant.id)
+    if (pipeline.stages.length === 0) {
+      return errorResponse('Pipeline not configured', 'PIPELINE_NOT_CONFIGURED', 409)
     }
+    if (!pipeline.stageKeys.has(stage)) return errorResponse('Invalid stage', 'VALIDATION_ERROR', 400)
 
     const affected = await db
-      .select({ id: leads.id, fromStage: leads.stage })
+      .select({ id: leads.id, fromStage: leads.primaryStage })
       .from(leads)
       .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.id, parsed.data.leadIds)))
 
-    const updated = await db
-      .update(leads)
-      .set({ stage, updatedAt: new Date() })
-      .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.id, parsed.data.leadIds)))
-      .returning({ id: leads.id })
+    const updated = await db.transaction(async (tx) => {
+      const updatedRows = await tx
+        .update(leads)
+        .set({ primaryStage: stage, stage: stage as any, updatedAt: new Date() })
+        .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.id, parsed.data.leadIds)))
+        .returning({ id: leads.id })
+
+      await tx
+        .delete(leadStageAssignments)
+        .where(and(eq(leadStageAssignments.tenantId, ctx.tenant.id), inArray(leadStageAssignments.leadId, parsed.data.leadIds)))
+
+      if (updatedRows.length > 0) {
+        await tx.insert(leadStageAssignments).values(
+          updatedRows.map((r) => ({
+            tenantId: ctx.tenant.id,
+            leadId: r.id,
+            stageKey: stage,
+            createdBy: ctx.dbUserId,
+          })),
+        )
+      }
+
+      return updatedRows
+    })
 
     if (affected.length > 0) {
       const activityRows: (typeof leadActivities.$inferInsert)[] = affected.map((lead) => ({

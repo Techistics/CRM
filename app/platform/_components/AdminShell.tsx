@@ -15,6 +15,7 @@ import {
 
 import { crmConfig } from '@/lib/config/theme'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
+import { TopNavSearch } from './TopNavSearch'
 
 type AdminShellProps = {
   children: React.ReactNode
@@ -69,33 +70,33 @@ export function AdminShell({ children }: AdminShellProps) {
   const adminInitials = initialsFromName(adminName)
 
   return (
-    <div className="min-h-screen bg-[var(--main-bg)] text-[var(--text-strong)]">
+    <div className="min-h-screen bg-[var(--main-bg)] text-[var(--text-main)]">
       <div className="flex min-h-screen">
-        <aside className="flex w-[220px] shrink-0 flex-col border-r-[0.5px] border-r-[var(--card-border-color)] bg-[var(--sidebar-bg)]">
-          <div className="flex h-[52px] items-center gap-2.5 border-b-[0.5px] border-b-[var(--card-border-color)] px-4">
+        <aside className="flex w-[var(--sidebar-width)] shrink-0 flex-col border-r-[0.5px] border-r-[var(--card-border-color)] bg-[var(--sidebar-bg)]">
+          <div className="flex h-[var(--topbar-height)] items-center gap-2.5 border-b-[0.5px] border-b-[var(--card-border-color)] px-4">
             <Image src={crmConfig.brand.logo} alt={crmConfig.brand.name} width={26} height={26} />
-            <span className="text-[14px] font-medium text-[var(--text-strong)]">{crmConfig.brand.name}</span>
-            <span className="rounded-[4px] bg-[rgba(203,239,127,0.15)] px-1.5 py-0.5 text-[10px] text-[#CBEF7F]">
-              Admin
+            <span className="text-[14px] font-semibold text-[var(--text-strong)]">{crmConfig.brand.name}</span>
+            <span className="rounded-[4px] bg-[var(--accent-color)]/20 px-1.5 py-0.5 text-[10px] font-bold text-[var(--accent-text)]">
+              ADMIN
             </span>
           </div>
 
-          <nav className="flex-1 space-y-5 p-3">
+          <nav className="flex-1 space-y-6 p-3">
             <div className="space-y-1.5">
-              <p className="px-2 text-[10px] uppercase tracking-[0.07em] text-[var(--muted-text)]">Platform</p>
+              <p className="px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted-text)]">Platform</p>
               {platformNav.map((item) => {
                 const active = isActive(pathname, item)
                 return (
                   <Link
                     key={item.label}
                     href={item.href}
-                    className={`flex items-center gap-2.5 rounded-[8px] px-[10px] py-[7px] text-[13px] transition-colors ${
+                    className={`flex items-center gap-2.5 rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium transition-all ${
                       active
-                        ? 'bg-[rgba(203,239,127,0.12)] text-[#CBEF7F]'
-                        : 'text-[var(--muted-text)] hover:bg-foreground/5'
+                        ? 'bg-[var(--accent-color)]/15 text-[var(--accent-text)]'
+                        : 'text-[var(--text-main)] hover:bg-[var(--foreground)]/5 hover:text-[var(--text-strong)]'
                     }`}
                   >
-                    <item.icon className={`h-[15px] w-[15px] ${active ? 'opacity-100' : 'opacity-50'}`} />
+                    <item.icon className={`h-[16px] w-[16px] ${active ? 'opacity-100' : 'opacity-60'}`} />
                     <span>{item.label}</span>
                   </Link>
                 )
@@ -103,20 +104,20 @@ export function AdminShell({ children }: AdminShellProps) {
             </div>
 
             <div className="space-y-1.5">
-              <p className="px-2 text-[10px] uppercase tracking-[0.07em] text-[var(--muted-text)]">System</p>
+              <p className="px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted-text)]">System</p>
               {systemNav.map((item) => {
                 const active = isActive(pathname, item)
                 return (
                   <Link
                     key={item.label}
                     href={item.href}
-                    className={`flex items-center gap-2.5 rounded-[8px] px-[10px] py-[7px] text-[13px] transition-colors ${
+                    className={`flex items-center gap-2.5 rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium transition-all ${
                       active
-                        ? 'bg-[rgba(203,239,127,0.12)] text-[#CBEF7F]'
-                        : 'text-[var(--muted-text)] hover:bg-foreground/5'
+                        ? 'bg-[var(--accent-color)]/15 text-[var(--accent-text)]'
+                        : 'text-[var(--text-main)] hover:bg-[var(--foreground)]/5 hover:text-[var(--text-strong)]'
                     }`}
                   >
-                    <item.icon className={`h-[15px] w-[15px] ${active ? 'opacity-100' : 'opacity-50'}`} />
+                    <item.icon className={`h-[16px] w-[16px] ${active ? 'opacity-100' : 'opacity-60'}`} />
                     <span>{item.label}</span>
                   </Link>
                 )
@@ -124,42 +125,34 @@ export function AdminShell({ children }: AdminShellProps) {
             </div>
           </nav>
 
-          <div className="mt-auto border-t-[0.5px] border-t-[var(--card-border-color)] px-4 py-3">
+          <div className="mt-auto border-t-[0.5px] border-t-[var(--card-border-color)] px-4 py-4">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#CBEF7F] text-[12px] font-medium text-[#2C5000]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-color)] text-[12px] font-bold text-[var(--accent-text)] shadow-sm">
                 {adminInitials}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-[13px] text-[var(--text-strong)]">{adminName}</p>
-                <p className="text-[11px] text-[var(--muted-text)]">Super Admin</p>
+                <p className="truncate text-[13px] font-semibold text-[var(--text-strong)]">{adminName}</p>
+                <p className="text-[11px] font-medium text-[var(--muted-text)]">Super Admin</p>
               </div>
             </div>
           </div>
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col bg-[var(--main-bg)]">
-          <header className="flex h-[52px] items-center justify-between border-b-[0.5px] border-b-[var(--card-border-color)] bg-[var(--sidebar-bg)] px-6">
-            <p className="text-[13px] text-[var(--muted-text)]">{breadcrumb}</p>
-            <div className="flex items-center gap-3">
+          <header className="flex h-[var(--topbar-height)] items-center justify-between border-b-[0.5px] border-b-[var(--card-border-color)] bg-[var(--sidebar-bg)] px-6">
+            <p className="text-[13px] font-medium text-[var(--muted-text)]">{breadcrumb}</p>
+            <div className="flex items-center gap-4">
               <ThemeToggle />
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-2 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[var(--muted-text)]" />
-                <input
-                  type="search"
-                  placeholder="Search"
-                  aria-label="Search"
-                  className="h-9 w-[180px] rounded-[8px] border-[0.5px] border-[var(--card-border-color)] bg-[var(--main-bg)] pl-8 pr-3 text-[13px] text-[var(--text-strong)] outline-none placeholder:text-[var(--muted-text)]"
-                />
-              </div>
+              <TopNavSearch />
               <Link
                 href="/platform/tenants/new"
-                className="rounded-[8px] bg-[#CBEF7F] px-[14px] py-[7px] text-[13px] font-medium text-[#2C5000]"
+                className="rounded-[8px] bg-[var(--accent-color)] px-[16px] py-[8px] text-[13px] font-semibold text-[var(--accent-text)] shadow-sm transition-all hover:brightness-95 active:scale-95"
               >
                 New workspace
               </Link>
             </div>
           </header>
-          <main className="flex-1 px-[28px] py-6">{children}</main>
+          <main className="flex-1 overflow-y-auto px-[32px] py-8">{children}</main>
         </div>
       </div>
     </div>

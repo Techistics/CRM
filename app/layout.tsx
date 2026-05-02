@@ -6,6 +6,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { AuthToastWrapper } from '@/components/auth-toast-wrapper'
 import { FetchInterceptor } from '@/components/FetchInterceptor'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -20,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <body className={`${inter.className} min-h-screen antialiased`}>
+      <head>
         <Script id="theme-init" strategy="beforeInteractive">
           {`(() => {
             try {
@@ -38,7 +39,7 @@ export default function RootLayout({
               const originalFetch = window.fetch.bind(window);
               window.fetch = async (...args) => {
                 const res = await originalFetch(...args);
-                if (!res.ok) {
+                if (res.status >= 400) {
                   const body = await res.clone().json().catch(() => ({}));
                   const msg = body?.message ?? body?.error ?? \`Request failed: \${res.status}\`;
                   throw new Error(msg);
@@ -49,11 +50,15 @@ export default function RootLayout({
             } catch {}
           })();`}
         </Script>
+      </head>
+      <body className={`${inter.className} min-h-screen antialiased`}>
         <AuthToastWrapper />
         <FetchInterceptor />
         <Analytics />
         <SpeedInsights />
-        {children}
+        <TooltipProvider>
+          {children}
+        </TooltipProvider>
         <Toaster position="top-right" />
       </body>
     </html>

@@ -1,49 +1,60 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { DollarSign, Loader2 } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
 import type { Lead, LeadReminder } from '@/types/models'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
-import { PIPELINE_STAGES, getStageInfo } from '@/constants/pipeline-stages'
+import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { TagSelector } from '@/components/lead/TagSelector'
 import { CURRENCIES } from '@/constants/lead-options'
+import { LeadReminders } from '@/components/lead/LeadReminders'
 
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 import type { ActivityRow, UserRow } from '@/types/leads'
 import { tenantPath } from '@/lib/tenant-path'
+import { getHeatLevel, heatConfig } from '@/lib/leads/heat'
+import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LeadDocumentsPanel } from '@/components/lead/LeadDocumentsPanel'
 import { apiCall } from '@/lib/utils/api-handler'
+import { WhatsappLogger } from '@/components/leads/WhatsappLogger'
+import { StudentJourney } from '@/components/leads/StudentJourney'
 
 export default function LeadDetailClient({
   lead,
   activities: initialActivities,
   allUsers,
   tags,
+  activeStages: activeStagesProp,
 }: {
   lead: Lead
   activities: ActivityRow[]
   allUsers: UserRow[]
   tags: { id: string; name: string; color: string }[]
+  activeStages: string[]
 }) {
   const router = useRouter()
   const params = useParams()
   const tenantSlug = String(params?.tenantSlug ?? '')
-  const [stage, setStage] = useState(lead.stage ?? 'new_lead')
+  const [primaryStage, setPrimaryStage] = useState<string>(
+    (lead as any).primaryStage ?? lead.stage ?? 'new_lead',
+  )
+  const [activeStages, setActiveStages] = useState<string[]>(
+    activeStagesProp?.length ? activeStagesProp : [((lead as any).primaryStage ?? lead.stage ?? 'new_lead')],
+  )
+  const [pipelineStages, setPipelineStages] = useState<Array<{ key: string; label: string }>>([])
+  const [allowedPairs, setAllowedPairs] = useState<Set<string>>(new Set())
   const [assignedTo, setAssignedTo] = useState(lead.assignedTo ?? '')
   const [note, setNote] = useState('')
   const [noteType, setNoteType] = useState<'note' | 'call' | 'message'>('note')
   const [saving, setSaving] = useState(false)
   const [addingNote, setAddingNote] = useState(false)
   const [editingLead, setEditingLead] = useState(false)
-  const [reminders, setReminders] = useState<LeadReminder[]>([])
-  const [loadingReminders, setLoadingReminders] = useState(true)
-  const [reminderTitle, setReminderTitle] = useState('')
-  const [reminderNote, setReminderNote] = useState('')
-  const [reminderDueAt, setReminderDueAt] = useState('')
   const [profileForm, setProfileForm] = useState({
     fullName: lead.fullName ?? '',
     email: lead.email ?? '',
@@ -58,38 +69,93 @@ export default function LeadDetailClient({
 
   const proUsers = allUsers.filter((u) => u.role === 'PRO')
 
-  useEffect(() => {
-    async function loadReminders() {
-      setLoadingReminders(true)
-      const data = await apiCall(async () => {
-        const res = await fetch(`/api/leads/${lead.id}/reminders`)
-        return res.json()
-      }, { errorMsg: 'Failed to load reminders' })
-      setReminders((data as { reminders?: LeadReminder[] } | null)?.reminders ?? [])
-      setLoadingReminders(false)
+  const stageLabelByKey = useMemo(() => {
+    const entries = pipelineStages.map((s) => [s.key, s.label] as const)
+    return Object.fromEntries(entries) as Record<string, string>
+  }, [pipelineStages])
+
+  const styleByKey = useMemo(() => {
+    const entries = PIPELINE_STAGES.map((s) => [
+      s.value,
+      { mutedClasses: s.mutedClasses, label: s.label },
+    ] as const)
+    return Object.fromEntries(entries) as Record<string, { mutedClasses: string; label: string }>
+  }, [])
+
+  const stageBadge = useMemo(() => {
+    const fallback = styleByKey[primaryStage] ?? styleByKey['new_lead']
+    return {
+      mutedClasses: fallback?.mutedClasses ?? 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+      label: stageLabelByKey[primaryStage] ?? fallback?.label ?? primaryStage,
     }
+  }, [primaryStage, stageLabelByKey, styleByKey])
 
-    loadReminders()
-  }, [lead.id])
 
-  async function handleStageChange(newStage: Lead['stage']) {
-    const previous = stage
-    setStage(newStage)
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch('/api/pipeline-stages')
+        const data = await res.json()
+        const rows = (data?.data?.stages ?? data?.stages ?? []) as Array<{ key: string; label: string }>
+        const pairs = (data?.data?.allowedPairs ?? data?.allowedPairs ?? []) as Array<[string, string]>
+        setPipelineStages(rows)
+        setAllowedPairs(
+          new Set(
+            pairs.map(([a, b]) => (a < b ? `${a}__${b}` : `${b}__${a}`)),
+          ),
+        )
+      } catch {
+        // If this fails, we still allow fallback single-stage behavior.
+      }
+    })()
+  }, [])
+
+  async function persistStages(nextPrimary: string, nextActive: string[]) {
     setSaving(true)
     const data = await apiCall(async () => {
       const res = await fetch(`/api/leads/${lead.id}/stage`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage: newStage }),
+        body: JSON.stringify({ primaryStage: nextPrimary, activeStages: nextActive }),
       })
       return res.json()
-    }, { successMsg: 'Lead stage updated', errorMsg: 'Stage update failed' })
+    }, { successMsg: 'Lead stages updated', errorMsg: 'Stage update failed' })
     setSaving(false)
-    if (!data) {
-      setStage(previous)
-      return
-    }
+    if (!data) return false
     router.refresh()
+    return true
+  }
+
+  async function handleStageToggle(stageKey: string) {
+    const prevPrimary = primaryStage
+    const prevActive = activeStages
+
+    let nextActive = prevActive.includes(stageKey)
+      ? prevActive.filter((s) => s !== stageKey)
+      : [...prevActive, stageKey]
+
+    // Always keep at least one active stage.
+    if (nextActive.length === 0) return
+
+    // If removing the current primary, promote the last stage in list.
+    let nextPrimary = prevPrimary
+    if (!nextActive.includes(nextPrimary)) {
+      nextPrimary = nextActive[nextActive.length - 1]
+    }
+
+    // If adding a stage, make it primary (simple rule).
+    if (!prevActive.includes(stageKey)) {
+      nextPrimary = stageKey
+    }
+
+    setPrimaryStage(nextPrimary)
+    setActiveStages(nextActive)
+
+    const ok = await persistStages(nextPrimary, nextActive)
+    if (!ok) {
+      setPrimaryStage(prevPrimary)
+      setActiveStages(prevActive)
+    }
   }
 
   async function handleAssign(newAssignedTo: string) {
@@ -142,45 +208,11 @@ export default function LeadDetailClient({
   }
 
 
-  async function createReminder() {
-    if (!reminderTitle.trim() || !reminderDueAt) return
-    const data = await apiCall(async () => {
-      const res = await fetch(`/api/leads/${lead.id}/reminders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: reminderTitle,
-          note: reminderNote,
-          dueAt: new Date(reminderDueAt).toISOString(),
-        }),
-      })
-      return res.json()
-    }, { successMsg: 'Reminder added', errorMsg: 'Could not create reminder' })
-    if (!data) return
-    const reminder = (data as { reminder?: LeadReminder }).reminder
-    if (reminder) {
-      setReminders((prev) => [...prev, reminder].sort((a, b) => +new Date(a.dueAt ?? 0) - +new Date(b.dueAt ?? 0)))
-    }
-    setReminderTitle('')
-    setReminderNote('')
-    setReminderDueAt('')
-  }
 
-  async function completeReminder(reminderId: string) {
-    const data = await apiCall(async () => {
-      const res = await fetch(`/api/leads/${lead.id}/reminders/${reminderId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'completed' }),
-      })
-      return res.json()
-    }, { successMsg: 'Reminder completed', errorMsg: 'Failed to complete reminder' })
-    const reminder = (data as { reminder?: LeadReminder } | null)?.reminder
-    if (!reminder) return
-    setReminders((prev) => prev.map((r) => (r.id === reminderId ? reminder : r)))
-  }
-
-  const stageInfo = getStageInfo(stage)
+  const heat = getHeatLevel(
+    lead.lastContactedAt ? new Date(lead.lastContactedAt) : null,
+    lead.createdAt ? new Date(lead.createdAt) : new Date(),
+  )
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
@@ -210,9 +242,37 @@ export default function LeadDetailClient({
             <TagSelector leadId={lead.id} initialTags={tags} />
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <span className={`rounded-md border px-2 py-1 text-xs ${stageInfo.mutedClasses}`}>
-              {stageInfo.label}
+            <span className={`rounded-md border px-2 py-1 text-xs ${stageBadge.mutedClasses}`}>
+              {stageBadge.label}
             </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full',
+                    'text-xs font-medium border',
+                    heatConfig[heat].bg,
+                    heatConfig[heat].color,
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'h-1.5 w-1.5 rounded-full',
+                      heat === 'dead' && 'animate-pulse',
+                      heatConfig[heat].dot,
+                    )}
+                  />
+                  {heatConfig[heat].icon} {heatConfig[heat].label}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                {lead.lastContactedAt
+                  ? `Last contacted ${formatDistanceToNow(new Date(lead.lastContactedAt))} ago`
+                  : `No contact recorded yet — created ${formatDistanceToNow(
+                      lead.createdAt ? new Date(lead.createdAt) : new Date(),
+                    )} ago`}
+              </TooltipContent>
+            </Tooltip>
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
           </div>
         </div>
@@ -232,6 +292,11 @@ export default function LeadDetailClient({
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         {/* Left — lead info + pipeline */}
         <div className="space-y-6 xl:col-span-2">
+
+          <StudentJourney 
+            stage={primaryStage as any} 
+            onStepClick={(newStage) => handleStageToggle(String(newStage))} 
+          />
 
           {/* Info card */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
@@ -325,17 +390,28 @@ export default function LeadDetailClient({
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <h2 className="text-white font-medium mb-4">Pipeline Stage</h2>
             <div className="grid grid-cols-2 gap-2">
-              {PIPELINE_STAGES.map((s) => (
+              {(pipelineStages.length > 0
+                ? pipelineStages.map((s) => ({
+                    value: s.key,
+                    label: s.label,
+                    mutedClasses:
+                      styleByKey[s.key]?.mutedClasses ??
+                      'bg-gray-500/10 text-gray-400 border-gray-500/20',
+                  }))
+                : PIPELINE_STAGES
+              ).map((s: any) => (
                 <button
                   key={s.value}
-                  onClick={() => handleStageChange(s.value)}
+                  onClick={() => handleStageToggle(s.value)}
                   className={`text-left px-3 py-2 rounded-lg text-sm transition-colors border ${
-                    stage === s.value
+                    primaryStage === s.value
                       ? s.mutedClasses
-                      : 'border-gray-800 text-gray-500 hover:text-gray-300 hover:border-gray-600'
+                      : activeStages.includes(s.value)
+                        ? 'border-gray-600 text-gray-200 bg-gray-800/40'
+                        : 'border-gray-800 text-gray-500 hover:text-gray-300 hover:border-gray-600'
                   }`}
                 >
-                  {stage === s.value && <span className="mr-1">✓</span>}
+                  {activeStages.includes(s.value) && <span className="mr-1">✓</span>}
                   {s.label}
                 </button>
               ))}
@@ -408,71 +484,21 @@ export default function LeadDetailClient({
             <p className="text-gray-500 text-xs mb-4">
               Full timeline: who changed what, with email and exact date and time (newest first).
             </p>
-            <LeadActivityTimeline activities={initialActivities} />
+            <LeadActivityTimeline activities={initialActivities} stageLabels={stageLabelByKey} />
           </div>
 
 
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-white font-medium mb-4">Follow-up Reminders</h2>
-            <div className="space-y-2 mb-4">
-              <input
-                value={reminderTitle}
-                onChange={(e) => setReminderTitle(e.target.value)}
-                placeholder="Reminder title"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
-              />
-              <input
-                value={reminderNote}
-                onChange={(e) => setReminderNote(e.target.value)}
-                placeholder="Optional note"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
-              />
-              <input
-                type="datetime-local"
-                value={reminderDueAt}
-                onChange={(e) => setReminderDueAt(e.target.value)}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm"
-              />
-              <button
-                onClick={createReminder}
-                className="bg-yellow-600 hover:bg-yellow-500 text-white text-sm px-4 py-2 rounded-lg"
-              >
-                Add Reminder
-              </button>
-            </div>
+          <LeadReminders leadId={lead.id} />
 
-            {loadingReminders ? (
-              <div className="flex items-center justify-center py-2">
-                <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-              </div>
-            ) : reminders.length === 0 ? (
-              <p className="text-sm text-gray-500">No reminders yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {reminders.map((reminder) => (
-                  <div key={reminder.id} className="border border-gray-700 rounded-lg p-3">
-                    <div className="flex justify-between items-start gap-3">
-                      <div>
-                        <p className="text-sm text-white font-medium">{reminder.title}</p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          Due {reminder.dueAt ? new Date(reminder.dueAt).toLocaleString() : '—'}
-                        </p>
-                        {reminder.note && <p className="text-xs text-gray-500 mt-1">{reminder.note}</p>}
-                      </div>
-                      {reminder.status !== 'completed' && (
-                        <button
-                          onClick={() => completeReminder(reminder.id)}
-                          className="text-xs bg-emerald-700 hover:bg-emerald-600 text-white px-2 py-1 rounded"
-                        >
-                          Mark done
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <WhatsappLogger
+            leadId={lead.id}
+            tenantSlug={tenantSlug}
+            leadName={lead.fullName}
+            leadCountry={lead.country ?? null}
+            leadProgramme={lead.lastQualification ?? null}
+            currentStage={primaryStage}
+            leadPhone={lead.contactNumber}
+          />
         </div>
       </div>
         </TabsContent>

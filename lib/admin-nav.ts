@@ -7,6 +7,8 @@ export const ADMIN_ROUTES = {
   team: '/admin/team',
   leads: '/admin/leads',
   kanban: '/admin/kanban',
+  templates: '/admin/templates',
   requests: '/admin/requests',
   import: '/admin/import',
+  settings: '/admin/settings/general',
 } as const

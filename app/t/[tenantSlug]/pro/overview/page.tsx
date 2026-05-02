@@ -24,7 +24,14 @@ export default async function ProOverviewPage() {
   }
 
   const myLeads = await db
-    .select()
+    .select({
+      id: leads.id,
+      fullName: leads.fullName,
+      email: leads.email,
+      contactNumber: leads.contactNumber,
+      city: leads.city,
+      stage: leads.stage,
+    })
     .from(leads)
     .where(
       and(
@@ -47,7 +54,7 @@ export default async function ProOverviewPage() {
         </div>
         <div className="flex items-center gap-3 bg-white border border-gray-200 shadow-sm rounded-full pl-4 pr-1.5 py-1.5">
           <span className="text-sm font-medium text-gray-600">{dbUser.email}</span>
-          <UserMenu />
+          <UserMenu user={dbUser} />
         </div>
       </div>
 

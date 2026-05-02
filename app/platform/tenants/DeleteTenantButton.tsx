@@ -1,26 +1,67 @@
 'use client'
 
+import { useState, useTransition } from 'react'
 import { deleteWorkspaceAction } from '@/app/platform/actions'
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { toast } from 'sonner'
+import { Loader2 } from 'lucide-react'
 
 export function DeleteTenantButton({ tenantId }: { tenantId: string }) {
+  const [open, setOpen] = useState(false)
+  const [isPending, startTransition] = useTransition()
+
+  const handleDelete = () => {
+    startTransition(async () => {
+      try {
+        const formData = new FormData()
+        formData.append('tenantId', tenantId)
+        await deleteWorkspaceAction(formData)
+        toast.success('Workspace deleted successfully')
+        setOpen(false)
+      } catch (err) {
+        toast.error('Failed to delete workspace')
+      }
+    })
+  }
+
   return (
-    <form action={deleteWorkspaceAction}>
-      <input type="hidden" name="tenantId" value={tenantId} />
-      <button
-        type="submit"
-        className="rounded-[8px] border-[0.5px] border-[rgba(226,75,74,0.3)] bg-transparent px-3 py-1.5 text-[12px] text-[#E24B4A]"
-        onClick={(e) => {
-          if (
-            !confirm(
-              'Are you sure you want to delete this workspace? This action is reversible by an engineer but will hide the workspace from all users.'
-            )
-          ) {
-            e.preventDefault()
-          }
-        }}
-      >
-        Delete
-      </button>
-    </form>
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>
+        <button
+          type="button"
+          className="rounded-[8px] border-[0.5px] border-[rgba(226,75,74,0.3)] bg-transparent px-3 py-1.5 text-[12px] text-[#E24B4A] transition-colors hover:bg-red-50"
+        >
+          Delete
+        </button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete workspace?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will hide the workspace from users.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          <button
+            onClick={handleDelete}
+            disabled={isPending}
+            className="inline-flex h-10 items-center justify-center rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
+          >
+            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {isPending ? 'Deleting...' : 'Delete'}
+          </button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

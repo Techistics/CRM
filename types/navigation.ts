@@ -13,7 +13,6 @@ export type SidebarNavLink = {
 /** A settings-style link with a sub-description */
 export type SidebarSettingsLink = {
   name: string
-  description: string
   href: string
   icon: LucideIcon
 }

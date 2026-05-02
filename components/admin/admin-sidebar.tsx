@@ -109,9 +109,6 @@ export function AdminSidebar({ teamBadge }: { teamBadge: string }) {
                     <item.icon className="h-4 w-4 shrink-0" />
                     <span className="min-w-0">
                       <span className="block font-medium leading-none">{item.name}</span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
-                        {item.description}
-                      </span>
                     </span>
                   </Link>
                 )

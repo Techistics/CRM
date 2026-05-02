@@ -8,10 +8,12 @@ export async function sendInviteEmail({
   email,
   tenantName,
   inviteLink,
+  workspaceUrl,
 }: {
   email: string
   tenantName: string
   inviteLink: string
+  workspaceUrl?: string
 }) {
   try {
     const { data, error } = await resend.emails.send({
@@ -24,6 +26,7 @@ export async function sendInviteEmail({
           <p style="margin-top: 16px; font-size: 16px; color: #4b5563; line-height: 24px;">
             You have been invited to join the <strong>${tenantName}</strong> workspace on Edu CRM.
           </p>
+          ${workspaceUrl ? `<p style="margin-top: 8px; font-size: 14px; color: #6b7280;">Workspace URL: <a href="${workspaceUrl}" style="color: #2563eb; text-decoration: none;">${workspaceUrl}</a></p>` : ''}
           <div style="margin-top: 24px;">
             <a href="${inviteLink}" 
                style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block;">
@@ -189,7 +192,10 @@ export async function sendReminderEmail({
   agentEmail,
   agentName,
   reminderTitle,
+  reminderNote,
   leadName,
+  leadEmail,
+  leadPhone,
   dueAt,
   leadUrl,
   workspaceName,
@@ -197,7 +203,10 @@ export async function sendReminderEmail({
   agentEmail: string
   agentName: string
   reminderTitle: string
+  reminderNote?: string | null
   leadName: string
+  leadEmail?: string | null
+  leadPhone?: string | null
   dueAt: Date
   leadUrl: string
   workspaceName: string
@@ -213,7 +222,10 @@ export async function sendReminderEmail({
         intro: `Hi ${agentName}, this is a reminder for one of your leads.`,
         detailsHtml: `
           <p style="margin: 0 0 8px; color: #0f172a;"><strong>Reminder:</strong> ${reminderTitle}</p>
+          ${reminderNote ? `<p style="margin: 0 0 8px; color: #0f172a;"><strong>Note:</strong> ${reminderNote}</p>` : ''}
           <p style="margin: 0 0 8px; color: #0f172a;"><strong>Lead:</strong> ${leadName}</p>
+          ${leadEmail ? `<p style="margin: 0 0 8px; color: #0f172a;"><strong>Email:</strong> ${leadEmail}</p>` : ''}
+          ${leadPhone ? `<p style="margin: 0 0 8px; color: #0f172a;"><strong>Phone:</strong> ${leadPhone}</p>` : ''}
           <p style="margin: 0; color: #0f172a;"><strong>Due at:</strong> ${dueAt.toLocaleString()}</p>
         `,
         ctaLabel: 'View Lead',
@@ -240,12 +252,14 @@ export async function sendAccessApprovedEmail({
   roleName,
   workspaceName,
   signInUrl,
+  workspaceUrl,
 }: {
   userEmail: string
   userName: string
   roleName: string
   workspaceName: string
   signInUrl: string
+  workspaceUrl?: string
 }) {
   try {
     const { data, error } = await resend.emails.send({
@@ -258,6 +272,7 @@ export async function sendAccessApprovedEmail({
         intro: `Hi ${userName}, your workspace access request has been approved.`,
         detailsHtml: `
           <p style="margin: 0 0 8px; color: #0f172a;"><strong>Workspace:</strong> ${workspaceName}</p>
+          ${workspaceUrl ? `<p style="margin: 0 0 8px; color: #0f172a;"><strong>URL:</strong> <a href="${workspaceUrl}" style="color: #2563eb; text-decoration: none;">${workspaceUrl}</a></p>` : ''}
           <p style="margin: 0; color: #0f172a;"><strong>Role:</strong> ${roleName}</p>
         `,
         ctaLabel: 'Sign In',

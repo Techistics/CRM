@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { and, eq, gte, lte, sql } from 'drizzle-orm'
 import { db } from '@/db'
-import { leads, tenants } from '@/db/schema'
+import { leads, tenants, pipelineStages } from '@/db/schema'
 import { getSession } from '@/lib/auth'
 import { resolveTenantAccess } from '@/lib/tenant-access'
-import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -46,11 +45,18 @@ export async function GET(req: NextRequest) {
     filters.push(lte(leads.createdAt, toDate))
   }
 
-  const stageOrder = PIPELINE_STAGES.map((s, i) => `WHEN '${s.value}' THEN ${i + 1}`).join(' ')
+  const stageRows = await db
+    .select({ key: pipelineStages.key, label: pipelineStages.label, sortOrder: pipelineStages.sortOrder })
+    .from(pipelineStages)
+    .where(eq(pipelineStages.tenantId, tenant.id))
+    .orderBy(pipelineStages.sortOrder, pipelineStages.createdAt)
+
+  const stageOrder = stageRows.map((s, i) => `WHEN '${s.key}' THEN ${i + 1}`).join(' ')
+  const stageLabelByKey = new Map(stageRows.map((s) => [s.key, s.label] as const))
 
   const results = await db
     .select({
-      stage: leads.stage,
+      stage: leads.primaryStage,
       lead_count: sql<number>`count(*)`,
       total_value: sql<number>`coalesce(sum(${leads.dealValue}), 0)`,
       avg_value: sql<number>`coalesce(avg(${leads.dealValue}), 0)`,
@@ -58,15 +64,15 @@ export async function GET(req: NextRequest) {
     })
     .from(leads)
     .where(and(...filters))
-    .groupBy(leads.stage)
-    .orderBy(sql`CASE stage ${sql.raw(stageOrder)} ELSE ${PIPELINE_STAGES.length + 1} END`)
+    .groupBy(leads.primaryStage)
+    .orderBy(sql`CASE stage ${sql.raw(stageOrder)} ELSE ${stageRows.length + 1} END`)
 
   // Convert to CSV
   const headers = ['Stage', 'Lead Count', 'Total Deal Value', 'Avg Deal Value', 'Leads With Value']
   const csvRows = [
     headers.join(','),
     ...results.map((r) => {
-      const stageLabel = PIPELINE_STAGES.find((s) => s.value === r.stage)?.label || r.stage
+      const stageLabel = stageLabelByKey.get(String(r.stage)) || r.stage
       return [
         `"${stageLabel}"`,
         r.lead_count,

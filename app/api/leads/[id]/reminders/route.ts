@@ -3,7 +3,7 @@ import { and, asc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { db } from '@/db'
-import { leadActivities, leadReminders, users } from '@/db/schema'
+import { leadActivities, leadReminders, leads, users, tenantMembers } from '@/db/schema'
 import { reconcileOverdueRemindersForTenant } from '@/lib/lead-reminders-sync'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
 import { sendReminderEmail } from '@/lib/mail'
@@ -106,32 +106,48 @@ export async function POST(
       note: `Reminder created: ${title} (${dueAt.toLocaleString()})`,
     })
 
+    await db
+      .update(leads)
+      .set({ lastContactedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenant.id)))
+
     // Email logic: Always fire if there's an assigned agent
     if (lead.assignedTo) {
       const [agent] = await db
         .select({
           email: users.email,
           name: users.name,
+          role: tenantMembers.role,
         })
         .from(users)
-        .where(eq(users.id, lead.assignedTo))
+        .innerJoin(tenantMembers, eq(users.id, tenantMembers.userId))
+        .where(
+          and(
+            eq(users.id, lead.assignedTo),
+            eq(tenantMembers.tenantId, ctx.tenant.id)
+          )
+        )
         .limit(1)
 
       if (agent?.email) {
         try {
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
-          const leadUrl = `${baseUrl}/t/${ctx.tenant.slug}/admin/leads/${id}`
+          const rolePath = agent.role === 'ADMIN' ? 'admin' : 'pro'
+          const leadUrl = `${baseUrl}/t/${ctx.tenant.slug}/${rolePath}/leads/${id}`
+          
           await sendReminderEmail({
             agentEmail: agent.email,
             agentName: agent.name ?? 'Agent',
             reminderTitle: title.trim(),
+            reminderNote: note?.trim() || null,
             leadName: lead.fullName,
+            leadEmail: lead.email,
+            leadPhone: lead.contactNumber,
             dueAt,
             leadUrl,
             workspaceName: ctx.tenant.name,
           })
         } catch (err) {
-          // sendReminderEmail must never throw - wrap in try/catch
           console.error('[reminder] Email failed:', err)
         }
       }

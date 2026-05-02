@@ -78,6 +78,22 @@ export const PIPELINE_STAGES = [
     mutedClasses: 'bg-red-500/10 text-red-400 border-red-500/20'
   },
   { 
+    value: 'visa_applied', 
+    label: 'Visa Applied', 
+    chartColor: '#0ea5e9', 
+    kanbanBorder: 'border-t-sky-500',
+    badgeClasses: 'bg-sky-50 text-sky-700 border-sky-200 shadow-sm',
+    mutedClasses: 'bg-sky-500/10 text-sky-400 border-sky-500/20'
+  },
+  { 
+    value: 'visa_granted', 
+    label: 'Visa Granted', 
+    chartColor: '#22c55e', 
+    kanbanBorder: 'border-t-green-500',
+    badgeClasses: 'bg-green-50 text-green-700 border-green-200 shadow-sm',
+    mutedClasses: 'bg-green-500/10 text-green-400 border-green-500/20'
+  },
+  { 
     value: 'paid', 
     label: 'Paid', 
     chartColor: '#10b981', 

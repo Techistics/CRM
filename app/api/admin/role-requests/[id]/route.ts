@@ -105,6 +105,7 @@ export async function PATCH(
     try {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
       const signInUrl = `${baseUrl}/sign-in`
+      const workspaceUrl = `${baseUrl}/t/${ctx.tenant.slug}`
       
       // Format role name nicely
       const roleDisplayName = row.requestedRole === 'ADMIN' ? 'Team Admin' : 'Agent'
@@ -115,6 +116,7 @@ export async function PATCH(
         roleName: roleDisplayName,
         workspaceName: ctx.tenant.name || 'Workspace',
         signInUrl,
+        workspaceUrl,
       })
     } catch (err) {
       console.error('[role-approval] Email failed:', err)

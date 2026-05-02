@@ -13,9 +13,11 @@ const PUBLIC_ROUTES = [
   '/no-role',
   '/no-access',
   '/api/auth',
+  '/api/invite/accept',
   '/forgot-password',
   '/reset-password',
   '/invite/accept',
+  '/accept-invite',
 ]
 
 

@@ -1,8 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Clock, Check } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -22,6 +23,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { apiCall } from '@/lib/utils/api-handler'
 
 type TeamRole = 'ADMIN' | 'PRO'
@@ -47,6 +58,10 @@ export default function TeamManagementClient({
   const [members, setMembers] = useState(initialMembers)
   const [busyId, setBusyId] = useState<string | null>(null)
 
+  useEffect(() => {
+    setMembers(initialMembers)
+  }, [initialMembers])
+
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteName, setInviteName] = useState('')
@@ -59,6 +74,9 @@ export default function TeamManagementClient({
   const [resendOpen, setResendOpen] = useState(false)
   const [resendEmail, setResendEmail] = useState('')
   const [resendRole, setResendRole] = useState<TeamRole>('PRO')
+
+  const [removeOpen, setRemoveOpen] = useState(false)
+  const [removeId, setRemoveId] = useState<string | null>(null)
 
   const stats = useMemo(() => {
     const admins = members.filter((m) => m.role === 'ADMIN').length
@@ -170,13 +188,17 @@ export default function TeamManagementClient({
     router.refresh()
   }
 
-  async function removeMember(memberId: string) {
-    const ok = window.confirm('Remove this member from the workspace?')
-    if (!ok) return
+  function startRemove(memberId: string) {
+    setRemoveId(memberId)
+    setRemoveOpen(true)
+  }
 
-    setBusyId(memberId)
+  async function removeMember() {
+    if (!removeId) return
+
+    setBusyId(removeId)
     const data = await apiCall(async () => {
-      const res = await fetch(`/api/admin/team-members/${memberId}`, {
+      const res = await fetch(`/api/admin/team-members/${removeId}`, {
         method: 'DELETE',
       })
       return res.json()
@@ -187,7 +209,9 @@ export default function TeamManagementClient({
     setBusyId(null)
     if (!data) return
 
-    setMembers((prev) => prev.filter((m) => m.id !== memberId))
+    setMembers((prev) => prev.filter((m) => m.id !== removeId))
+    setRemoveOpen(false)
+    setRemoveId(null)
     router.refresh()
   }
 
@@ -240,15 +264,21 @@ export default function TeamManagementClient({
                   {m.totalLeads} total / {m.paidLeads} paid
                 </td>
                 <td className="px-4 py-3">
-                  <span
-                    className={`rounded-md px-2 py-1 text-xs ${
+                  <div
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium",
                       m.status === 'pending_invite'
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-emerald-100 text-emerald-800'
-                    }`}
+                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                        : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    )}
                   >
+                    {m.status === 'pending_invite' ? (
+                      <Clock className="h-3 w-3" />
+                    ) : (
+                      <Check className="h-3 w-3" strokeWidth={3} />
+                    )}
                     {m.status === 'pending_invite' ? 'Pending invite' : 'Active'}
-                  </span>
+                  </div>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
@@ -275,7 +305,7 @@ export default function TeamManagementClient({
                       size="sm"
                       variant="destructive"
                       disabled={busyId === m.id}
-                      onClick={() => removeMember(m.id)}
+                      onClick={() => startRemove(m.id)}
                     >
                       {busyId === m.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remove'}
                     </Button>
@@ -390,6 +420,25 @@ export default function TeamManagementClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={removeOpen} onOpenChange={setRemoveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove member?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the member from the workspace. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={removeMember}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

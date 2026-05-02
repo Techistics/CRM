@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server'
+import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/db'
-import { leadActivities } from '@/db/schema'
+import { leadActivities, leads } from '@/db/schema'
 import { requireTenantMemberApi } from '@/lib/tenant-api'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
@@ -47,6 +48,11 @@ export async function POST(
       type,
       note: note.trim(),
     })
+
+    await db
+      .update(leads)
+      .set({ lastContactedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenant.id)))
 
     return successResponse({ ok: true })
   })

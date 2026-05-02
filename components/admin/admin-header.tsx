@@ -8,8 +8,16 @@ import { useSidebar } from '@/components/sidebar-provider'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
 
-export function AdminHeader({ tenantSlug }: { tenantSlug: string }) {
-  void tenantSlug
+import { UserMenu } from '@/components/shared/UserMenu'
+import type { Tenant } from '@/types/models'
+
+export function AdminHeader({ 
+  tenant, 
+  user 
+}: { 
+  tenant: Tenant, 
+  user: { name: string, email: string } 
+}) {
   const { toggle } = useSidebar()
   const pathname = usePathname()
 
@@ -24,46 +32,49 @@ export function AdminHeader({ tenantSlug }: { tenantSlug: string }) {
   }, [pathname])
 
   return (
-    <header className="sticky top-0 z-30 h-[var(--topbar-height)] border-b-[0.5px] border-b-[var(--card-border-color)] bg-[var(--card-bg)]">
-      <div className="flex h-[var(--topbar-height)] items-center gap-4 px-5">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 rounded-[8px] p-0 lg:hidden"
-          onClick={toggle}
-          type="button"
-        >
-          <Menu className="h-5 w-5" />
-          <span className="sr-only">Open menu</span>
-        </Button>
+    <header className="sticky top-0 z-40 h-[var(--topbar-height)] border-b-[0.5px] border-b-[var(--card-border-color)] bg-[var(--sidebar-bg)]/80 backdrop-blur-md transition-all">
+      <div className="flex h-full items-center justify-between px-6 lg:px-10">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-full lg:hidden"
+            onClick={toggle}
+            type="button"
+          >
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Open Menu</span>
+          </Button>
 
-        <div className="w-[200px]">
-          <h1 className="text-[17px] font-medium text-[var(--text-strong)]">{pageTitle}</h1>
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="relative mx-auto w-[200px]">
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-[14px] w-[14px] -translate-y-1/2 text-[var(--muted-text)]" />
-            <input
-              type="search"
-              placeholder="Search..."
-              aria-label="Search"
-              className="h-8 w-[200px] rounded-[8px] border-[0.5px] border-[var(--card-border-color)] bg-[var(--main-bg)] pl-7 pr-2 text-[12px] font-normal text-[var(--text-strong)] outline-none placeholder:text-[var(--muted-text)]"
-            />
+          <div className="flex items-center gap-2">
+            <h1 className="text-[14px] font-bold tracking-tight text-[var(--text-strong)]">
+              {pageTitle}
+            </h1>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <ThemeToggle />
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="flex h-8 w-8 items-center justify-center rounded-[8px] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)]"
-          >
-            <Bell className="h-[15px] w-[15px] text-[var(--muted-text)]" />
-          </button>
-          <div className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-[var(--accent)] text-[12px] font-medium text-[var(--accent-text)]">
-            AD
+        <div className="flex flex-1 items-center justify-end gap-4">
+          <div className="relative hidden w-full max-w-sm md:block">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-text)]" />
+            <input
+              type="search"
+              placeholder="Search leads, users, or settings..."
+              className="h-9 w-full rounded-full border-[0.5px] border-[var(--card-border-color)] bg-[var(--main-bg)] pl-10 pr-4 text-[13px] font-medium text-[var(--text-strong)] outline-none transition-all focus:ring-2 focus:ring-[var(--accent-color)]/50 placeholder:text-[var(--muted-text)]"
+              aria-label="Search"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="h-4 w-[1px] bg-[var(--card-border-color)]" />
+            <ThemeToggle />
+            <button
+              type="button"
+              aria-label="Notifications"
+              className="flex h-9 w-9 items-center justify-center rounded-full border-[0.5px] border-[var(--card-border-color)] bg-transparent hover:bg-[var(--foreground)]/5 transition-all"
+            >
+              <Bell className="h-[16px] w-[16px] text-[var(--muted-text)]" />
+            </button>
+            <UserMenu user={user} />
           </div>
         </div>
       </div>

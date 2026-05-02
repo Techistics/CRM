@@ -1,18 +1,12 @@
 import { z } from 'zod'
 
-import { isValidLeadStage } from '@/constants/pipeline-stages'
-
 const optionalEmail = z
   .union([z.string().email().max(320), z.literal(''), z.null()])
   .optional()
 
 export const leadCreateBodySchema = z.object({
   fullName: z.string().trim().min(1, 'fullName is required').max(500),
-  stage: z
-    .string()
-    .optional()
-    .default('new_lead')
-    .refine(isValidLeadStage, 'Invalid stage'),
+  stage: z.string().min(1).default('new_lead'),
   contactNumber: z.string().trim().max(80).optional().nullable(),
   email: optionalEmail,
   city: z.string().trim().max(200).optional().nullable(),

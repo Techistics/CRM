@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { users, tenantMembers, invitations, auditLogs, leads } from '@/db/schema'
-import { requireTenantAdminApi } from '@/lib/tenant-api'
+import { requireTenantAdminApi, requireTenantMemberApi } from '@/lib/tenant-api'
 import { sendInviteEmail } from '@/lib/mail'
 import crypto from 'crypto'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
@@ -13,7 +13,7 @@ const rateLimitMap = new Map<string, { count: number; lastReset: number }>()
 
 export async function GET() {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requireTenantMemberApi()
     if (!ctx.ok) return ctx.response
 
     // Fetch Members with active lead count
@@ -91,7 +91,8 @@ export async function POST(req: NextRequest) {
       return errorResponse('Validation failed', 'VALIDATION_ERROR', 400)
     }
 
-    const { email, role } = parsed.data
+    const { email: rawEmail, role } = parsed.data
+    const email = rawEmail.toLowerCase().trim()
 
     // 1. Find user by email (case-insensitive)
     const [userInDb] = await db
@@ -133,11 +134,13 @@ export async function POST(req: NextRequest) {
           const rootOrigin = getRootOrigin()
           const targetPath = (role ?? existing.role) === 'ADMIN' ? 'admin/overview' : 'pro/overview'
           const loginLink = `${rootOrigin}/t/${ctx.tenant.slug}/${targetPath}`
+          const workspaceUrl = `${rootOrigin}/t/${ctx.tenant.slug}`
           
           await sendInviteEmail({
             email: userInDb.email,
             tenantName: ctx.tenant.name,
             inviteLink: loginLink,
+            workspaceUrl,
           })
 
           return successResponse({
@@ -157,11 +160,13 @@ export async function POST(req: NextRequest) {
         const rootOrigin = getRootOrigin()
         const targetPath = role === 'ADMIN' ? 'admin/overview' : 'pro/overview'
         const loginLink = `${rootOrigin}/t/${ctx.tenant.slug}/${targetPath}`
+        const workspaceUrl = `${rootOrigin}/t/${ctx.tenant.slug}`
         
         await sendInviteEmail({
           email: userInDb.email,
           tenantName: ctx.tenant.name,
           inviteLink: loginLink,
+          workspaceUrl,
         })
 
         return successResponse({
@@ -214,11 +219,13 @@ export async function POST(req: NextRequest) {
     // Send Email Link (Main Domain)
     const rootOrigin = getRootOrigin()
     const inviteLink = `${rootOrigin}/accept-invite?token=${token}`
+    const workspaceUrl = `${rootOrigin}/t/${ctx.tenant.slug}`
     
     const emailRes = await sendInviteEmail({
       email,
       tenantName: ctx.tenant.name,
       inviteLink,
+      workspaceUrl,
     })
 
     if (!emailRes.success) {
@@ -255,7 +262,8 @@ export async function PATCH(req: NextRequest) {
       return errorResponse('Validation failed', 'VALIDATION_ERROR', 400)
     }
 
-    const { email, role } = parsed.data
+    const { email: rawEmail, role } = parsed.data
+    const email = rawEmail.toLowerCase().trim()
 
     // Find existing invitation (Pending or Expired)
     const [invite] = await db
@@ -298,11 +306,13 @@ export async function PATCH(req: NextRequest) {
     // Resend Email
     const rootOrigin = getRootOrigin()
     const inviteLink = `${rootOrigin}/accept-invite?token=${newToken}`
+    const workspaceUrl = `${rootOrigin}/t/${ctx.tenant.slug}`
     
     const emailRes = await sendInviteEmail({
       email,
       tenantName: ctx.tenant.name,
       inviteLink,
+      workspaceUrl,
     })
 
     if (!emailRes.success) {

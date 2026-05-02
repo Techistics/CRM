@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/db'
 import { users, invitations, tenantMembers, auditLogs } from '@/db/schema'
@@ -32,14 +32,34 @@ export async function POST(req: NextRequest) {
     const email = rawEmail.toLowerCase().trim()
 
     // 1. Check for valid invitation
-    const [invite] = await db
-      .select()
-      .from(invitations)
-      .where(and(
-        eq(invitations.email, email), 
-        eq(invitations.status, 'PENDING')
-      ))
-      .limit(1)
+    let invite: typeof invitations.$inferSelect | undefined
+
+    if (invite_token) {
+      const [i] = await db
+        .select()
+        .from(invitations)
+        .where(and(
+          eq(invitations.token, invite_token),
+          eq(invitations.status, 'PENDING')
+        ))
+        .limit(1)
+      invite = i
+      
+      // Verify email matches if token is used (security)
+      if (invite && invite.email.toLowerCase() !== email) {
+        return errorResponse('This invitation is for a different email address.', 'EMAIL_MISMATCH', 403)
+      }
+    } else {
+      const [i] = await db
+        .select()
+        .from(invitations)
+        .where(and(
+          sql`lower(${invitations.email}) = ${email}`, 
+          eq(invitations.status, 'PENDING')
+        ))
+        .limit(1)
+      invite = i
+    }
 
     if (!invite || invite.expiresAt < new Date()) {
       return errorResponse('You must have a valid invitation to join this platform.', 'INVITE_REQUIRED', 403)
@@ -57,37 +77,37 @@ export async function POST(req: NextRequest) {
 
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // 2. Transactional User Creation + Optional Auto-Accept
-    const user = await db.transaction(async (tx) => {
-      const [u] = await tx
-        .insert(users)
-        .values({
-          email,
-          name,
-          password: hashedPassword,
-          globalRole: null
-        })
-        .returning()
+      // 2. Transactional User Creation + Auto-Accept Invitation
+      const user = await db.transaction(async (tx) => {
+        const [u] = await tx
+          .insert(users)
+          .values({
+            email,
+            name,
+            password: hashedPassword,
+            globalRole: null
+          })
+          .returning()
 
-      // If token matches this invite specifically, accept it now
-      if (invite_token && invite.token === invite_token) {
-        await tx.insert(tenantMembers).values({
-          tenantId: invite.tenantId,
-          userId: u.id,
-          role: invite.role,
-        })
-        await tx.update(invitations).set({ status: 'ACCEPTED' }).where(eq(invitations.id, invite.id))
-        await tx.insert(auditLogs).values({
+        // If we found a valid invitation for this email, accept it now
+        if (invite) {
+          await tx.insert(tenantMembers).values({
+            tenantId: invite.tenantId,
+            userId: u.id,
+            role: invite.role,
+          })
+          await tx.update(invitations).set({ status: 'ACCEPTED' }).where(eq(invitations.id, invite.id))
+          await tx.insert(auditLogs).values({
             actorUserId: u.id,
             targetUserEmail: email,
             tenantId: invite.tenantId,
             action: 'INVITE_ACCEPTED',
-            metadata: { autoAccepted: true }
-        })
-      }
+            metadata: { autoAccepted: true, tokenUsed: !!invite_token }
+          })
+        }
 
-      return u
-    })
+        return u
+      })
 
     const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000)
     const sessionToken = await encrypt({ 

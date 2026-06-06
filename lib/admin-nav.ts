@@ -11,4 +11,5 @@ export const ADMIN_ROUTES = {
   requests: '/admin/requests',
   import: '/admin/import',
   settings: '/admin/settings/general',
+  analytics: '/admin/analytics',
 } as const

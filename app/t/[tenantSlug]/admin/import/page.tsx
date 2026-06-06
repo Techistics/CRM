@@ -192,7 +192,7 @@ export default function ImportPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="w-full min-w-0 space-y-6 p-0 sm:p-2 lg:p-4">
       <div>
         <h1 className="text-2xl font-semibold text-[#223955]">Import Leads</h1>
       </div>
@@ -252,10 +252,15 @@ export default function ImportPage() {
                   <span>Accepted columns</span>
                 </div>
                 {[
-                  ['fullName', 'full name, fullname, name'],
+                  ['fullName (required)', 'full name, fullname, name'],
                   ['contactNumber', 'contact, phone, contactnumber, contact_number'],
                   ['email', 'email'],
-                  ['dealValue', 'deal value, dealvalue, deal_value'],
+                  ['intake (optional)', 'intake, intake month, intake_month, intakemonth'],
+                  ['stage (optional)', 'stage — uses first pipeline stage if blank'],
+                  ['city', 'city'],
+                  ['country', 'country'],
+                  ['source', 'source'],
+                  ['notes', 'notes → stored as qualification'],
                 ].map(([field, aliases]) => (
                   <div key={field} className="grid grid-cols-2 p-2 border-b last:border-b-0">
                     <span>{field}</span>
@@ -292,13 +297,13 @@ export default function ImportPage() {
               <table className="w-full text-sm">
                 <thead className="text-left border-b">
                   <tr>
-                    <th className="py-2">Name</th><th className="py-2">Contact</th><th className="py-2">Email</th><th className="py-2">City</th><th className="py-2">Country</th><th className="py-2">Stage</th><th className="py-2">Deal Value</th>
+                    <th className="py-2">Name</th><th className="py-2">Contact</th><th className="py-2">Email</th><th className="py-2">City</th><th className="py-2">Country</th><th className="py-2">Stage</th>
                   </tr>
                 </thead>
                 <tbody>
                   {parseResult.preview.map((row) => (
                     <tr key={`${row.fullName}-${row.contactNumber}`} className="border-b">
-                      <td className="py-2">{row.fullName}</td><td>{row.contactNumber}</td><td>{row.email ?? '—'}</td><td>{row.city ?? '—'}</td><td>{row.country ?? '—'}</td><td>{row.stage}</td><td>{row.dealValue ?? '—'}</td>
+                      <td className="py-2">{row.fullName}</td><td>{row.contactNumber}</td><td>{row.email ?? '—'}</td><td>{row.city ?? '—'}</td><td>{row.country ?? '—'}</td><td>{row.stage}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -307,7 +312,7 @@ export default function ImportPage() {
           </Card>
 
           <Card className="p-4 space-y-3">
-            <p className="font-medium">Agent assignment</p>
+            <p className="font-medium">Counselor assignment</p>
             {agents.map((agent) => {
               const checked = selectedAgentIds.has(agent.userId)
               return (
@@ -343,7 +348,7 @@ export default function ImportPage() {
             })}
             {selectedCount > 0 ? (
               <p className="text-sm text-muted-foreground">
-                Distribution preview: each selected agent will receive ~{distributionCount} leads
+                Distribution preview: each selected counselor will receive ~{distributionCount} leads
               </p>
             ) : (
               <p className="text-sm text-amber-600">All leads will be imported as Unassigned</p>
@@ -396,7 +401,7 @@ export default function ImportPage() {
           <div className="rounded-md border overflow-hidden">
             <table className="w-full text-sm">
               <thead className="border-b bg-muted/40">
-                <tr><th className="p-2 text-left">Agent</th><th className="p-2 text-left">Assigned</th></tr>
+                <tr><th className="p-2 text-left">Counselor</th><th className="p-2 text-left">Assigned</th></tr>
               </thead>
               <tbody>
                 {confirmResult.agentBreakdown.map((item) => (

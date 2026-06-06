@@ -14,6 +14,7 @@ import { getLeadForMemberAction, getLeadInTenant } from '@/lib/lead-tenant'
 import { requireTenantAdminApi, requireTenantMemberApi } from '@/lib/tenant-api'
 import { leadPatchBodySchema } from '@/lib/validators/lead'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
+import { stripDealFields } from '@/lib/leads/deal-access'
 
 export async function GET(
   _req: NextRequest,
@@ -34,7 +35,7 @@ export async function GET(
       return errorResponse('Lead not found', 'NOT_FOUND', 404)
     }
 
-    return successResponse({ lead })
+    return successResponse({ lead: stripDealFields(lead, ctx.role) })
   })
 }
 
@@ -43,7 +44,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requireTenantMemberApi()
     if (!ctx.ok) return ctx.response
 
     const { id } = await params
@@ -110,11 +111,35 @@ export async function PATCH(
           ? strOrNull(patch.lastQualification)
           : lead.lastQualification,
       grades: patch.grades !== undefined ? strOrNull(patch.grades) : lead.grades,
+      /* NEW – intake & destination fields */
+      intakeMonth:
+        patch.intakeMonth !== undefined
+          ? strOrNull(patch.intakeMonth)
+          : lead.intakeMonth,
+      destinationCountry:
+        patch.destinationCountry !== undefined
+          ? strOrNull(patch.destinationCountry)
+          : lead.destinationCountry,
+      programOfInterest:
+        patch.programOfInterest !== undefined
+          ? strOrNull(patch.programOfInterest)
+          : lead.programOfInterest,
       dealValue:
         patch.dealValue !== undefined
           ? patch.dealValue?.toString() ?? null
           : lead.dealValue,
       dealCurrency: patch.dealCurrency ?? lead.dealCurrency,
+      // NEW – dead‑status fields
+      isDeadManual:
+        patch.isDeadManual !== undefined
+          ? Boolean(patch.isDeadManual)
+          : lead.isDeadManual,
+      deadReason:
+        patch.isDeadManual === false
+          ? null
+          : patch.deadReason !== undefined
+            ? (patch.deadReason === '' ? null : String(patch.deadReason).trim())
+            : lead.deadReason,
       updatedAt: new Date(),
     }
 
@@ -145,8 +170,12 @@ export async function PATCH(
     if (patch.country !== undefined) changed.push('country')
     if (patch.lastQualification !== undefined) changed.push('qualification')
     if (patch.grades !== undefined) changed.push('grades')
+      if (patch.intakeMonth !== undefined) changed.push('intake month')
+      if (patch.destinationCountry !== undefined) changed.push('destination country')
+      if (patch.programOfInterest !== undefined) changed.push('program of interest')
     if (patch.dealValue !== undefined) changed.push('deal value')
     if (patch.dealCurrency !== undefined) changed.push('currency')
+    if (patch.isDeadManual !== undefined) changed.push('dead status')
 
     if (changed.length > 0) {
       await db.insert(leadActivities).values({

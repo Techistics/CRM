@@ -39,6 +39,9 @@
     --radius-card: 12px;
     --sidebar-width: 220px;
     --topbar-height: 56px;
+    --gap: 1rem;
+    --card-padding: 1rem;
+    --content-max-width: 1600px;
     
     --sidebar-bg: #ffffff;
     --main-bg: #f8fafc; /* Slate 50 */
@@ -122,15 +125,51 @@
   }
 }
 
+@media (min-width: 640px) {
+  :root {
+    --gap: 1.25rem;
+    --card-padding: 1.25rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --gap: 1.5rem;
+    --card-padding: 1.5rem;
+  }
+}
+
 @layer utilities {
+  .crm-page {
+    width: 100%;
+    min-width: 0;
+    max-width: var(--content-max-width);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .crm-table-scroll {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   /**
-   * Scales down dense dashboard UIs to feel like browser zoom ~67%.
-   * We keep layout width by expanding the scaled element's width.
+   * Scales down dense dashboard UIs on large desktops only.
+   * Disabled on tablet/mobile to preserve readable touch targets.
    */
   .ui-scale {
-    transform: scale(var(--ui-scale));
-    transform-origin: top left;
-    width: calc(100% / var(--ui-scale));
+    transform: none;
+    width: 100%;
+  }
+
+  @media (min-width: 1280px) {
+    .ui-scale {
+      transform: scale(var(--ui-scale));
+      transform-origin: top left;
+      width: calc(100% / var(--ui-scale));
+    }
   }
 
   .skeleton {

@@ -1,0 +1,49 @@
+# NEXUS CRM: EXECUTIVE BOLD DESIGN SPECIFICATION
+
+## 1. DESIGN VIBE: "EXECUTIVE BRUTALIST"
+This design is inspired by high-end financial terminals and editorial Swiss typography. It moves away from the "soft/bubbly" SaaS look towards a precision-engineered, high-contrast, and technical aesthetic.
+
+## 2. THEME PALETTE
+- Background (Deep): #0a0a0a (Rich Black)
+- Background (Surface): #141414 (Dark Gray)
+- Accent (Primary): #3b82f6 (Bright Blue)
+- Accent (Success): #34d399 (Emerald)
+- Accent (Warning): #fb923c (Orange)
+- Borders: rgba(255, 255, 255, 0.1) (Subtle White)
+- Text (Main): #ffffff (Pure White)
+- Text (Muted): rgba(255, 255, 255, 0.4) (Faded White)
+
+## 3. TYPOGRAPHY SYSTEM
+- Sans-Serif (Primary): "Inter", weight: 400, 700, 900.
+- Monospace (Data): "JetBrains Mono", weight: 500.
+- Massive Headings: 7xl (72px+), Font-Black (900), tracking-tighter.
+- Labels/Captions: 10px, Uppercase, Tracking-widest (0.2em), Font-Bold.
+- Table Headers: 10px, Uppercase, 30% Opacity.
+
+## 4. COMPONENTS & STYLING
+- Corners: 0px (Sharp Brutalist edges). No rounded corners on cards or buttons.
+- Borders: 1px Solid. No shadows.
+- Cards: bg-white/5 (Glassmorphism with extreme transparency).
+- Buttons: High-contrast (White background with Black text).
+- Data Visualization: Flat colors, vertical scaling bars, minimalist progress lines.
+
+## 5. LAYOUT PATTERNS
+- Modular Sidebar: Fixed width, high-contrast separation.
+- Executive Header: Minimalist search bar (border-only), focus on navigation markers.
+- Vertical Rhythm: Large gaps (p-10, space-y-12) to allow typography to breathe.
+
+---
+
+## REPLICATION PROMPT (FOR CURSOR / AI ASSISTANTS)
+
+Copy and paste this into Cursor or any AI coding tool to get this exact look:
+
+"Apply an 'Executive Brutalist' dark-mode theme to this application using Tailwind CSS. 
+Guidelines:
+1. Palette: Deep black (#0a0a0a) background, pure white text, and a vibrant primary blue (#3b82f6).
+2. Typography: Use Inter for UI and JetBrains Mono for numbers. Value displays should be massive (text-7xl) with font-black and tracking-tighter. All labels/headers should be 10px, uppercase, with 0.2em character tracking and 40% opacity.
+3. Shapes: Remove all rounded corners (rounded-none). Use 1px borders (border-white/10) instead of shadows.
+4. Glassmorphism: Set cards to white/5 background with 10% white borders.
+5. Buttons: Primary buttons should be solid white with pure black text, uppercase, and sharp edges.
+6. Animations: Use smooth scaleY and opacity transitions for data displays.
+7. Vibe: Think high-end editorial meets financial terminal. High contrast, aggressive typography, and surgical precision."

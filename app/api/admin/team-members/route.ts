@@ -7,7 +7,8 @@ import { sendInviteEmail } from '@/lib/mail'
 import crypto from 'crypto'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { teamInviteSchema, teamResendSchema } from '@/lib/validators/auth'
-import { getRootOrigin } from '@/lib/public-url'
+import { createInvitationAndSendEmail } from '@/lib/invitations/service';
+import { getRootOrigin } from '@/lib/public-url';
 
 const rateLimitMap = new Map<string, { count: number; lastReset: number }>()
 
@@ -113,29 +114,19 @@ export async function POST(req: NextRequest) {
         .limit(1)
 
       if (existing) {
-        // Option A: If already active, sync the role and "resend" a link
-        if (!existing.deletedAt) {
-          // If the role selected in the dialog is different, UPDATE IT
-          if (role && role !== existing.role) {
-            await db.update(tenantMembers)
-              .set({ role: role as 'ADMIN' | 'PRO' })
-              .where(eq(tenantMembers.id, existing.id))
-            
-            // Audit Log for role change
-            await db.insert(auditLogs).values({
-              actorUserId: ctx.dbUserId,
-              targetUserEmail: userInDb.email,
-              tenantId: ctx.tenant.id,
-              action: 'ROLE_CHANGED',
-              metadata: { from: existing.role, to: role }
-            })
-          }
+        // Soft‑deleted record? (deletedAt NOT NULL)
+        if (existing.deletedAt) {
+          // Restore the member and set the requested role
+          await db.update(tenantMembers)
+            .set({ deletedAt: null, role: role as 'ADMIN' | 'PRO' })
+            .where(eq(tenantMembers.id, existing.id))
 
+          // Send the invite link to the restored member
           const rootOrigin = getRootOrigin()
-          const targetPath = (role ?? existing.role) === 'ADMIN' ? 'admin/overview' : 'pro/overview'
+          const targetPath = role === 'ADMIN' ? 'admin/overview' : 'pro/overview'
           const loginLink = `${rootOrigin}/t/${ctx.tenant.slug}/${targetPath}`
           const workspaceUrl = `${rootOrigin}/t/${ctx.tenant.slug}`
-          
+
           await sendInviteEmail({
             email: userInDb.email,
             tenantName: ctx.tenant.name,
@@ -144,37 +135,19 @@ export async function POST(req: NextRequest) {
           })
 
           return successResponse({
-            message: `User is already a member. We have updated their role to ${role ?? existing.role} and resent their link.`,
+            message: 'Member restored and link sent.',
             email: userInDb.email,
-            role: role ?? existing.role,
-            status: 'ACTIVE'
+            role,
+            status: 'ACTIVE',
           })
         }
 
-        // Option B: If soft-deleted, RESTORE them
-        await db.update(tenantMembers)
-          .set({ deletedAt: null, role: role as 'ADMIN' | 'PRO' })
-          .where(eq(tenantMembers.id, existing.id))
-
-        // Send Link
-        const rootOrigin = getRootOrigin()
-        const targetPath = role === 'ADMIN' ? 'admin/overview' : 'pro/overview'
-        const loginLink = `${rootOrigin}/t/${ctx.tenant.slug}/${targetPath}`
-        const workspaceUrl = `${rootOrigin}/t/${ctx.tenant.slug}`
-        
-        await sendInviteEmail({
-          email: userInDb.email,
-          tenantName: ctx.tenant.name,
-          inviteLink: loginLink,
-          workspaceUrl,
-        })
-
-        return successResponse({
-          message: 'Member restored and link sent.',
-          email: userInDb.email,
-          role,
-          status: 'ACTIVE'
-        })
+        // Active record (deletedAt IS NULL) – reject the request
+        return errorResponse(
+          'User is already a member of this workspace',
+          'ALREADY_MEMBER',
+          400
+        )
       }
     }
 
@@ -193,42 +166,36 @@ export async function POST(req: NextRequest) {
       return errorResponse('A valid invitation is already pending for this email', 'INVITE_PENDING', 400)
     }
 
-    // Create invitation with secure token
-    const token = crypto.randomBytes(32).toString('hex')
-    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000) // 48 hours
-
-    await db.insert(invitations).values({
+    // Use service to create invitation and send email
+    const { invitationId, token, emailSent } = await createInvitationAndSendEmail({
       tenantId: ctx.tenant.id,
+      tenantSlug: ctx.tenant.slug,
+      tenantName: ctx.tenant.name,
       email,
       role: role as 'ADMIN' | 'PRO',
-      token,
-      expiresAt,
       invitedBy: ctx.dbUserId,
-      status: 'PENDING',
     })
 
-    // Audit Log
+    // Audit Log (preserve existing behavior)
     await db.insert(auditLogs).values({
       actorUserId: ctx.dbUserId,
       targetUserEmail: email,
       tenantId: ctx.tenant.id,
       action: 'INVITE_SENT',
-      metadata: { role, expiresAt }
+      metadata: { role, invitationId },
     })
 
-    // Send Email Link (Main Domain)
+    // Build invite link using legacy path
     const rootOrigin = getRootOrigin()
-    const inviteLink = `${rootOrigin}/accept-invite?token=${token}`
+    const inviteLink = `${rootOrigin}/invite/accept?token=${token}`
     const workspaceUrl = `${rootOrigin}/t/${ctx.tenant.slug}`
-    
-    const emailRes = await sendInviteEmail({
-      email,
-      tenantName: ctx.tenant.name,
-      inviteLink,
-      workspaceUrl,
-    })
 
-    if (!emailRes.success) {
+    // Email already sent by service; if service reported failure, log warning
+    if (!emailSent) {
+      console.error('[invite] email send failed', { invitationId, tenantId: ctx.tenant.id, email })
+    }
+
+    if (!emailSent) {
       return successResponse({ 
         ok: true, 
         warning: 'Invitation created but email failed to send. Please check Resend configuration.',

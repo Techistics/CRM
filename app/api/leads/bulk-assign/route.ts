@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
         await sendLeadAssignedEmail({
           agentEmail: member.email,
-          agentName: member.name ?? 'Agent',
+          agentName: member.name ?? 'Counselor',
           leadName: `${updatedRows.length} leads assigned to you`,
           contactNumber: '-',
           leadEmail: '-',

@@ -1,5 +1,10 @@
 export type HeatLevel = 'hot' | 'warm' | 'cold' | 'dead'
 
+/**
+ * Heat is derived from lastContactedAt (or createdAt if never contacted).
+ * Updated when WhatsApp is logged, notes/calls are added, reminders fire,
+ * or pipeline stage changes (all set lastContactedAt on the lead).
+ */
 export function getHeatLevel(lastContactedAt: Date | null, createdAt: Date): HeatLevel {
   const reference = lastContactedAt ?? createdAt
   const hours = (Date.now() - reference.getTime()) / (1000 * 60 * 60)

@@ -281,7 +281,7 @@ export default function KanbanBoard({
   }
 
   return (
-    <div className="p-3 bg-[#F8FAFC] flex flex-col h-full min-h-[calc(100vh-3rem)]">
+    <div className="flex h-full min-h-[calc(100dvh-var(--topbar-height))] flex-col bg-[#F8FAFC] p-2 sm:p-3">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
         <div>
           <h1 className="text-lg font-bold text-gray-900 tracking-tight leading-tight">Pipeline Board</h1>
@@ -298,13 +298,13 @@ export default function KanbanBoard({
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-2 overflow-x-auto pb-4 pt-1 select-none flex-1 min-h-0">
+        <div className="flex min-h-0 flex-1 select-none gap-2 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory">
           {stages.map((stage) => {
             const stageLeads = getLeadsByStage(stage.value)
             return (
               <div
                 key={stage.value}
-                className={`flex-shrink-0 w-[180px] bg-gray-50/80 border border-gray-200 rounded-lg border-t-2 ${stage.color} flex flex-col shadow-sm`}
+                className={`flex w-[min(280px,85vw)] shrink-0 snap-start flex-col rounded-lg border border-gray-200 border-t-2 bg-gray-50/80 shadow-sm sm:w-[220px] lg:w-[240px] ${stage.color}`}
               >
                 <div className="px-2.5 py-1.5 border-b border-gray-200 bg-white/50 rounded-t-lg">
                   <div className="flex items-center justify-between">

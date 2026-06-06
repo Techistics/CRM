@@ -30,8 +30,8 @@ export function AdminHeader({
 
   return (
     <header className="sticky top-0 z-40 h-[var(--topbar-height)] border-b-[0.5px] border-b-[var(--card-border-color)] bg-[var(--sidebar-bg)]/80 backdrop-blur-md transition-all">
-      <div className="flex h-full items-center justify-between px-6 lg:px-10">
-        <div className="flex items-center gap-4">
+      <div className="flex h-full min-w-0 items-center justify-between gap-2 px-4 sm:px-6 lg:px-10">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-4">
           <Button
             variant="ghost"
             size="icon"
@@ -50,8 +50,8 @@ export function AdminHeader({
           </div>
         </div>
 
-        <div className="flex flex-1 items-center justify-end gap-4">
-          <div className="relative hidden w-full max-w-sm md:block">
+        <div className="flex shrink-0 items-center justify-end gap-2 sm:gap-4">
+          <div className="relative hidden w-full max-w-sm lg:block">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-text)]" />
             <input
               type="search"

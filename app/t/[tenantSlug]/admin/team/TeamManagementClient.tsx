@@ -216,8 +216,8 @@ export default function TeamManagementClient({
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="w-full min-w-0 p-0 sm:p-2 lg:p-4">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-[#223955]">Teams</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -239,7 +239,8 @@ export default function TeamManagementClient({
       </div>
 
       <div className="overflow-hidden rounded-xl border bg-white">
-        <table className="w-full text-sm">
+        <div className="crm-table-scroll">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="border-b bg-muted/40 text-left text-muted-foreground">
               <th className="px-4 py-3 font-medium">Name</th>
@@ -322,6 +323,7 @@ export default function TeamManagementClient({
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>

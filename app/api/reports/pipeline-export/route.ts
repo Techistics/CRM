@@ -65,7 +65,11 @@ export async function GET(req: NextRequest) {
     .from(leads)
     .where(and(...filters))
     .groupBy(leads.primaryStage)
-    .orderBy(sql`CASE stage ${sql.raw(stageOrder)} ELSE ${stageRows.length + 1} END`)
+    .orderBy(
+      stageRows.length > 0
+        ? sql`CASE ${leads.primaryStage} ${sql.raw(stageOrder)} ELSE ${stageRows.length + 1} END`
+        : leads.primaryStage,
+    )
 
   // Convert to CSV
   const headers = ['Stage', 'Lead Count', 'Total Deal Value', 'Avg Deal Value', 'Leads With Value']

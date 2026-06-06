@@ -2,15 +2,19 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import {
   CreditCard,
   Grid3X3,
   List,
+  Menu,
   Settings,
   Users,
+  X,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 import { crmConfig } from '@/lib/config/theme'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
@@ -54,6 +58,7 @@ function isActive(pathname: string, item: NavItem) {
 
 export function AdminShell({ children }: AdminShellProps) {
   const pathname = usePathname()
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   const breadcrumb = useMemo(() => {
     if (pathname.startsWith('/platform/tenants/new')) return 'Platform / New workspace'
@@ -68,18 +73,8 @@ export function AdminShell({ children }: AdminShellProps) {
   const adminName = 'Platform Admin'
   const adminInitials = initialsFromName(adminName)
 
-  return (
-    <div className="min-h-screen bg-[var(--main-bg)] text-[var(--text-main)]">
-      <div className="flex min-h-screen">
-        <aside className="flex w-[var(--sidebar-width)] shrink-0 flex-col border-r-[0.5px] border-r-[var(--card-border-color)] bg-[var(--sidebar-bg)]">
-          <div className="flex h-[var(--topbar-height)] items-center gap-2.5 border-b-[0.5px] border-b-[var(--card-border-color)] px-4">
-            <Image src={crmConfig.brand.logo} alt={crmConfig.brand.name} width={26} height={26} />
-            <span className="text-[14px] font-semibold text-[var(--text-strong)]">{crmConfig.brand.name}</span>
-            <span className="rounded-[4px] bg-[var(--accent-color)]/20 px-1.5 py-0.5 text-[10px] font-bold text-[var(--accent-text)]">
-              ADMIN
-            </span>
-          </div>
-
+  const sidebarNav = (
+    <>
           <nav className="flex-1 space-y-6 p-3">
             <div className="space-y-1.5">
               <p className="px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted-text)]">Platform</p>
@@ -89,6 +84,7 @@ export function AdminShell({ children }: AdminShellProps) {
                   <Link
                     key={item.label}
                     href={item.href}
+                    onClick={() => setMobileNavOpen(false)}
                     className={`flex items-center gap-2.5 rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium transition-all ${
                       active
                         ? 'bg-[var(--accent-color)]/15 text-[var(--accent-text)]'
@@ -110,6 +106,7 @@ export function AdminShell({ children }: AdminShellProps) {
                   <Link
                     key={item.label}
                     href={item.href}
+                    onClick={() => setMobileNavOpen(false)}
                     className={`flex items-center gap-2.5 rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium transition-all ${
                       active
                         ? 'bg-[var(--accent-color)]/15 text-[var(--accent-text)]'
@@ -135,23 +132,69 @@ export function AdminShell({ children }: AdminShellProps) {
               </div>
             </div>
           </div>
+    </>
+  )
+
+  return (
+    <div className="min-h-screen bg-[var(--main-bg)] text-[var(--text-main)]">
+      <div
+        className={cn(
+          'fixed inset-0 z-40 bg-[var(--overlay)] lg:hidden',
+          mobileNavOpen ? 'block' : 'hidden',
+        )}
+        onClick={() => setMobileNavOpen(false)}
+        aria-hidden
+      />
+      <div className="flex min-h-screen min-w-0">
+        <aside
+          className={cn(
+            'fixed inset-y-0 left-0 z-50 flex w-[var(--sidebar-width)] flex-col border-r-[0.5px] border-r-[var(--card-border-color)] bg-[var(--sidebar-bg)] transition-transform duration-200 lg:static lg:translate-x-0',
+            mobileNavOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+          )}
+        >
+          <div className="flex h-[var(--topbar-height)] items-center gap-2.5 border-b-[0.5px] border-b-[var(--card-border-color)] px-4">
+            <Image src={crmConfig.brand.logo} alt={crmConfig.brand.name} width={26} height={26} />
+            <span className="text-[14px] font-semibold text-[var(--text-strong)]">{crmConfig.brand.name}</span>
+            <span className="rounded-[4px] bg-[var(--accent-color)]/20 px-1.5 py-0.5 text-[10px] font-bold text-[var(--accent-text)]">
+              ADMIN
+            </span>
+          </div>
+
+          {sidebarNav}
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col bg-[var(--main-bg)]">
-          <header className="flex h-[var(--topbar-height)] items-center justify-between border-b-[0.5px] border-b-[var(--card-border-color)] bg-[var(--sidebar-bg)] px-6">
-            <p className="text-[13px] font-medium text-[var(--muted-text)]">{breadcrumb}</p>
-            <div className="flex items-center gap-4">
+        <div className="flex min-w-0 flex-1 flex-col bg-[var(--main-bg)] lg:pl-0">
+          <header className="flex h-[var(--topbar-height)] min-w-0 items-center justify-between gap-2 border-b-[0.5px] border-b-[var(--card-border-color)] bg-[var(--sidebar-bg)] px-4 sm:px-6">
+            <div className="flex min-w-0 items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0 lg:hidden"
+                onClick={() => setMobileNavOpen((open) => !open)}
+                type="button"
+              >
+                {mobileNavOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                <span className="sr-only">Toggle menu</span>
+              </Button>
+              <p className="truncate text-[13px] font-medium text-[var(--muted-text)]">{breadcrumb}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2 sm:gap-4">
               <ThemeToggle />
-              <TopNavSearch />
+              <div className="hidden sm:block">
+                <TopNavSearch />
+              </div>
               <Link
                 href="/platform/tenants/new"
-                className="rounded-[8px] bg-[var(--accent-color)] px-[16px] py-[8px] text-[13px] font-semibold text-[var(--accent-text)] shadow-sm transition-all hover:brightness-95 active:scale-95"
+                className="rounded-[8px] bg-[var(--accent-color)] px-3 py-2 text-xs font-semibold text-[var(--accent-text)] shadow-sm transition-all hover:brightness-95 active:scale-95 sm:px-4 sm:text-[13px]"
               >
-                New workspace
+                <span className="hidden sm:inline">New workspace</span>
+                <span className="sm:hidden">New</span>
               </Link>
             </div>
           </header>
-          <main className="flex-1 overflow-y-auto px-[32px] py-8">{children}</main>
+          <main className="crm-page w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+            {children}
+          </main>
         </div>
       </div>
     </div>

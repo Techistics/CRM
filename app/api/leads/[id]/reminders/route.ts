@@ -137,7 +137,7 @@ export async function POST(
           
           await sendReminderEmail({
             agentEmail: agent.email,
-            agentName: agent.name ?? 'Agent',
+            agentName: agent.name ?? 'Counselor',
             reminderTitle: title.trim(),
             reminderNote: note?.trim() || null,
             leadName: lead.fullName,

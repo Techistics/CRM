@@ -15,6 +15,7 @@ import {
 import { Doughnut, Line } from 'react-chartjs-2'
 import { useRouter, usePathname, useSearchParams, useParams } from 'next/navigation'
 import { Download, Loader2, FileDown, ChevronDown } from 'lucide-react'
+import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -116,8 +117,10 @@ export default function AnalyticsOverviewClient({
       link.click()
       link.remove()
       window.URL.revokeObjectURL(downloadUrl)
+      toast.success(`${type === 'pipeline' ? 'Pipeline' : 'Counselor'} report downloaded`)
     } catch (error) {
-      console.error('Export error:', error)
+      const message = error instanceof Error ? error.message : 'Export failed'
+      toast.error(message)
     } finally {
       setLoader(false)
     }
@@ -172,13 +175,13 @@ export default function AnalyticsOverviewClient({
 
   return (
     <div className="space-y-[var(--gap)]">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--text-strong)] tracking-tight">Overview</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Track your pipeline and team performance in real-time</p>
+      <div className="mb-2 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold tracking-tight text-[var(--text-strong)] sm:text-2xl">Overview</h1>
+          <p className="mt-0.5 text-xs text-gray-500">Track your pipeline and team performance in real-time</p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto lg:justify-end">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -208,15 +211,17 @@ export default function AnalyticsOverviewClient({
                 className="gap-2 cursor-pointer"
               >
                 {exportingAgent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                Agent Report
+                Counselor Report
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <DateRangePicker value={dateRange} onChange={handleRangeChange} />
+          <div className="w-full min-w-0 sm:w-auto">
+            <DateRangePicker value={dateRange} onChange={handleRangeChange} />
+          </div>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-[var(--gap)] lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-[var(--gap)] sm:grid-cols-2 xl:grid-cols-4">
         {metricCards.map((metric) => (
           <div
             key={metric.label}
@@ -244,14 +249,15 @@ export default function AnalyticsOverviewClient({
             Team Performance
           </CardTitle>
           <CardDescription>
-            Live agent accountability — sorted by leads needing attention
+            Live counselor accountability — sorted by leads needing attention
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6">
+          <div className="crm-table-scroll">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Agent</TableHead>
+                <TableHead>Counselor</TableHead>
                 <TableHead className="text-center">Total</TableHead>
                 <TableHead className="text-center">Won</TableHead>
                 <TableHead className="text-center">
@@ -320,10 +326,11 @@ export default function AnalyticsOverviewClient({
               ))}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-[var(--gap)] xl:grid-cols-[1.6fr_1fr]">
+      <div className="grid grid-cols-1 gap-[var(--gap)] 2xl:grid-cols-[1.6fr_1fr]">
         <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] p-[var(--card-padding)]">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-[13px] font-medium text-[var(--text-strong)]">Revenue</h2>
@@ -369,8 +376,8 @@ export default function AnalyticsOverviewClient({
           <div className="mb-3">
             <h2 className="text-[13px] font-medium text-[var(--text-strong)]">Deals by source</h2>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="h-[180px] w-[180px]">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+            <div className="h-[160px] w-[160px] shrink-0 sm:h-[180px] sm:w-[180px]">
               <Doughnut
                 data={{
                   labels: sourceLabels,
@@ -473,7 +480,7 @@ export default function AnalyticsOverviewClient({
         <h2 className="mb-3 text-[13px] font-medium text-[var(--text-strong)]">Team snapshot</h2>
         <div className="grid grid-cols-1 gap-[var(--gap)] md:grid-cols-3">
           <div>
-            <p className="text-[11px] text-[var(--muted-text)]">Agents</p>
+            <p className="text-[11px] text-[var(--muted-text)]">Counselors</p>
             <p className="text-[22px] font-medium leading-none">{agentStats.length}</p>
           </div>
           <div>

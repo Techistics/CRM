@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   integer,
+  date,
   jsonb,
   boolean,
   decimal,
@@ -173,8 +174,13 @@ export const leads = pgTable('leads', {
   createdBy: uuid('created_by').references(() => users.id),
   dealValue: decimal('deal_value', { precision: 12, scale: 2 }),
   dealCurrency: varchar('deal_currency', { length: 3 }).default('USD').notNull(),
+  intakeMonth: text('intake_month'), // e.g. "Sep 2026", "Jan 2027"
+  destinationCountry: text('destination_country'), // nullable
+  programOfInterest: text('program_of_interest'), // nullable
+  deadReason: text('dead_reason'), // nullable
+  isDeadManual: boolean('is_dead_manual').default(false), // defaults to false
   createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow()
 }, (t) => ({
   unq_email: unique('unq_leads_email_tenant').on(t.tenantId, t.email),
   unq_phone: unique('unq_leads_phone_tenant').on(t.tenantId, t.contactNumber),
@@ -477,6 +483,24 @@ export const leadTagAssignmentRelations = relations(leadTagAssignments, ({ one }
     references: [leadTags.id],
   }),
 }))
+
+
+// ─── Tenant Timesheets ────────────────────────────────────────────────────────
+export const tenantTimesheets = pgTable('tenant_timesheets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  /** Updated type to match tenants.id (uuid) **/
+  tenantId: uuid('tenant_id')
+    .references(() => tenants.id, { onDelete: 'cascade' })
+    .notNull(),
+  userId: uuid('user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .notNull(),
+  punchIn: timestamp('punch_in', { withTimezone: true }).notNull(),
+  punchOut: timestamp('punch_out', { withTimezone: true }), // nullable
+  totalMinutes: integer('total_minutes'), // nullable, to be computed on punchOut
+  date: date('date').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+})
 
 export const invitationRelations = relations(invitations, ({ one }) => ({
   tenant: one(tenants, {

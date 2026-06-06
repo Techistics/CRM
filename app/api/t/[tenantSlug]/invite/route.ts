@@ -7,7 +7,8 @@ import { requireTenantAdminApi } from '@/lib/tenant-api'
 import { sendInviteEmail } from '@/lib/mail'
 import { createInvitationAndSendEmail } from '@/lib/invitations/service'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
-
+import { eq, and, isNull, isNotNull } from 'drizzle-orm'
+import { getRootOrigin } from '@/lib/public-url'
 const inviteSchema = z.object({
   email: z.string().email(),
   role: z.enum(['ADMIN', 'PRO']),
@@ -36,36 +37,81 @@ export async function POST(
     })
 
     if (existingUser) {
-      // Check if already a member of THIS tenant
+      // 1️⃣ Find an existing tenantMember, **excluding** soft‑deleted rows
       const member = await db.query.tenantMembers.findFirst({
-        where: (tm, { and, eq }) =>
-          and(eq(tm.tenantId, ctx.tenant.id), eq(tm.userId, existingUser.id)),
-      })
+        where: (tm, { and, eq, isNull }) =>
+          and(
+            eq(tm.tenantId, ctx.tenant.id),
+            eq(tm.userId, existingUser.id),
+            isNull(tm.deletedAt), // only active members
+          ),
+      });
 
+      // 2️⃣ If an **active** member exists → reject (unchanged behaviour)
       if (member) {
-        return errorResponse('User is already a member of this workspace', 'ALREADY_MEMBER', 409)
+        return errorResponse(
+          'User is already a member of this workspace',
+          'ALREADY_MEMBER',
+          409
+        );
       }
 
-      // User exists but not in this tenant -> Add them directly
+      // 3️⃣ Check for a **soft‑deleted** record (deletedAt NOT NULL)
+      const softDeleted = await db.query.tenantMembers.findFirst({
+        where: (tm, { and, eq, isNotNull }) =>
+          and(
+            eq(tm.tenantId, ctx.tenant.id),
+            eq(tm.userId, existingUser.id),
+            isNotNull(tm.deletedAt), // soft‑deleted
+          ),
+      });
+
+      if (softDeleted) {
+        // Restore the member and set the requested role
+        await db
+          .update(tenantMembers)
+          .set({ deletedAt: null, role: role as 'ADMIN' | 'PRO' })
+          .where(eq(tenantMembers.id, softDeleted.id));
+
+        // Build the invite link (no token in this flow, use workspace URL)
+        const baseUrl = getRootOrigin();
+        const inviteLink = `${baseUrl}/t/${ctx.tenant.slug}/pro/overview`;
+
+        try {
+          await sendInviteEmail({
+            email: normalizedEmail,
+            tenantName: ctx.tenant.name,
+            inviteLink,
+          });
+        } catch (err) {
+          console.error('[invite] Restore email failed:', err);
+        }
+
+        return successResponse({ restored: true }, 200);
+      }
+
+      // 4️⃣ User exists but **not** a member of this tenant → add them directly
       await db.insert(tenantMembers).values({
         tenantId: ctx.tenant.id,
         userId: existingUser.id,
         role,
-      })
+      });
 
-      // Send notification email
+      // Build the invite link for a freshly‑added user (no token, use workspace URL)
+      const baseUrl = getRootOrigin();
+      const inviteLink = `${baseUrl}/t/${ctx.tenant.slug}/pro/overview`;
+
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
         await sendInviteEmail({
           email: normalizedEmail,
           tenantName: ctx.tenant.name,
-          inviteLink: `${baseUrl}/?highlight=${ctx.tenant.slug}`, 
-        })
+          inviteLink,
+        });
       } catch (err) {
-        console.error('[invite] Direct add email failed:', err)
+        console.error('[invite] Direct add email failed:', err);
       }
 
-      return successResponse({ added: true }, 200)
+      return successResponse({ added: true }, 200);
     }
 
     // 2. User does not exist -> Create invitation

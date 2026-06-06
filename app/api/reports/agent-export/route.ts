@@ -50,9 +50,9 @@ export async function GET(req: NextRequest) {
       agent_name: users.name,
       agent_email: users.email,
       total_assigned: sql<number>`count(${leads.id})`,
-      won: sql<number>`count(${leads.id}) filter (where ${leads.stage} = 'paid')`,
-      conversion_rate: sql<number>`round(count(${leads.id}) filter (where ${leads.stage} = 'paid')::numeric / nullif(count(${leads.id}), 0) * 100, 1)`,
-      revenue: sql<number>`coalesce(sum(${leads.dealValue}) filter (where ${leads.stage} = 'paid'), 0)`,
+      won: sql<number>`count(${leads.id}) filter (where ${leads.primaryStage} = 'paid')`,
+      conversion_rate: sql<number>`round(count(${leads.id}) filter (where ${leads.primaryStage} = 'paid')::numeric / nullif(count(${leads.id}), 0) * 100, 1)`,
+      revenue: sql<number>`coalesce(sum(${leads.dealValue}) filter (where ${leads.primaryStage} = 'paid'), 0)`,
     })
     .from(users)
     .leftJoin(leads, and(eq(leads.assignedTo, users.id), ...leadFilters))
@@ -69,12 +69,12 @@ export async function GET(req: NextRequest) {
     .orderBy(sql`revenue DESC`)
 
   // Convert to CSV
-  const headers = ['Agent Name', 'Agent Email', 'Leads Assigned', 'Leads Won', 'Conversion Rate %', 'Revenue']
+  const headers = ['Counselor Name', 'Counselor Email', 'Leads Assigned', 'Leads Won', 'Conversion Rate %', 'Revenue']
   const csvRows = [
     headers.join(','),
     ...results.map((r) => [
-      `"${r.agent_name}"`,
-      `"${r.agent_email}"`,
+      `"${String(r.agent_name ?? '').replace(/"/g, '""')}"`,
+      `"${String(r.agent_email ?? '').replace(/"/g, '""')}"`,
       r.total_assigned,
       r.won,
       r.conversion_rate || 0,

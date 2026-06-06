@@ -1,26 +1,26 @@
-'use client'
+'use client';
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useParams } from 'next/navigation'
-import { DollarSign, Loader2 } from 'lucide-react'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
+import { DollarSign, Loader2, Check } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import type { Lead } from '@/types/models'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
-import { TagSelector } from '@/components/lead/TagSelector'
+import { TagSelector } from '@/components/leads/TagSelector'
 import { CURRENCIES } from '@/constants/lead-options'
-import { LeadReminders } from '@/components/lead/LeadReminders'
+import { LeadReminders } from '@/components/leads/LeadReminders'
 
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 import type { ActivityRow, UserRow } from '@/types/leads'
 import { tenantPath } from '@/lib/tenant-path'
 import { getHeatLevel, heatConfig } from '@/lib/leads/heat'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { LeadDocumentsPanel } from '@/components/lead/LeadDocumentsPanel'
+import { LeadDocumentsPanel } from '@/components/leads/LeadDocumentsPanel'
 import { apiCall } from '@/lib/utils/api-handler'
 import { WhatsappLogger } from '@/components/leads/WhatsappLogger'
 import { StudentJourney } from '@/components/leads/StudentJourney'
@@ -41,11 +41,21 @@ export default function LeadDetailClient({
   const router = useRouter()
   const params = useParams()
   const tenantSlug = String(params?.tenantSlug ?? '')
+  // URL‑driven tab state (persist across refresh / deep‑link)
+  const searchParams = useSearchParams()
+  const activeTab = searchParams?.get('tab') ?? 'overview'
+
+  const setActiveTab = (tab: string) => {
+    const newParams = new URLSearchParams(searchParams?.toString())
+    newParams.set('tab', tab)
+    router.replace(`?${newParams.toString()}`)
+  }
+
   const [primaryStage, setPrimaryStage] = useState<string>(
     lead.primaryStage ?? lead.stage ?? 'new_lead',
   )
   const [activeStages, setActiveStages] = useState<string[]>(
-    activeStagesProp?.length ? activeStagesProp : [(lead.primaryStage ?? lead.stage ?? 'new_lead')],
+    activeStagesProp?.length ? activeStagesProp : [(lead.primaryStage ?? lead.stage ?? 'new_lead')]
   )
   const [pipelineStages, setPipelineStages] = useState<Array<{ key: string; label: string }>>([])
   const [assignedTo, setAssignedTo] = useState(lead.assignedTo ?? '')
@@ -54,6 +64,12 @@ export default function LeadDetailClient({
   const [saving, setSaving] = useState(false)
   const [addingNote, setAddingNote] = useState(false)
   const [editingLead, setEditingLead] = useState(false)
+  // NEW – dead‑status UI state
+  const [isDeadState, setIsDeadState] = useState<boolean>(lead.isDeadManual ?? false)
+  const [isDead, setIsDead] = useState<boolean>(lead.isDeadManual ?? false)
+  const [deadReason, setDeadReason] = useState<string>(lead.deadReason ?? '')
+  const [savingDead, setSavingDead] = useState(false)
+  const [copiedId, setCopiedId] = useState(false)
   const [profileForm, setProfileForm] = useState({
     fullName: lead.fullName ?? '',
     email: lead.email ?? '',
@@ -62,6 +78,9 @@ export default function LeadDetailClient({
     country: lead.country ?? DEFAULT_LEAD_COUNTRY,
     lastQualification: lead.lastQualification ?? '',
     grades: lead.grades ?? '',
+    intakeMonth: lead.intakeMonth ?? '',
+    destinationCountry: lead.destinationCountry ?? '',
+    programOfInterest: lead.programOfInterest ?? '',
     dealValue: lead.dealValue ?? '',
     dealCurrency: lead.dealCurrency ?? 'USD',
   })
@@ -89,9 +108,8 @@ export default function LeadDetailClient({
     }
   }, [primaryStage, stageLabelByKey, styleByKey])
 
-
   useEffect(() => {
-    ;(async () => {
+    ; (async () => {
       try {
         const res = await fetch('/api/pipeline-stages')
         const data = await res.json()
@@ -102,6 +120,11 @@ export default function LeadDetailClient({
       }
     })()
   }, [])
+
+  useEffect(() => {
+    setIsDead(lead.isDeadManual ?? false)
+    setDeadReason(lead.deadReason ?? '')
+  }, [lead.isDeadManual, lead.deadReason])
 
   async function persistStages(nextPrimary: string, nextActive: string[]) {
     setSaving(true)
@@ -120,36 +143,17 @@ export default function LeadDetailClient({
   }
 
   async function handleStageToggle(stageKey: string) {
-    const prevPrimary = primaryStage
-    const prevActive = activeStages
-
-    const nextActive = prevActive.includes(stageKey)
-      ? prevActive.filter((s) => s !== stageKey)
-      : [...prevActive, stageKey]
-
-    // Always keep at least one active stage.
-    if (nextActive.length === 0) return
-
-    // If removing the current primary, promote the last stage in list.
-    let nextPrimary = prevPrimary
-    if (!nextActive.includes(nextPrimary)) {
-      nextPrimary = nextActive[nextActive.length - 1]
-    }
-
-    // If adding a stage, make it primary (simple rule).
-    if (!prevActive.includes(stageKey)) {
-      nextPrimary = stageKey
-    }
-
-    setPrimaryStage(nextPrimary)
-    setActiveStages(nextActive)
-
-    const ok = await persistStages(nextPrimary, nextActive)
-    if (!ok) {
-      setPrimaryStage(prevPrimary)
-      setActiveStages(prevActive)
-    }
+  if (stageKey === primaryStage) return
+  const prevPrimary = primaryStage
+  const prevActive = activeStages
+  setPrimaryStage(stageKey)
+  setActiveStages([stageKey])
+  const ok = await persistStages(stageKey, [stageKey])
+  if (!ok) {
+    setPrimaryStage(prevPrimary)
+    setActiveStages(prevActive)
   }
+}
 
   async function handleAssign(newAssignedTo: string) {
     setAssignedTo(newAssignedTo)
@@ -190,7 +194,10 @@ export default function LeadDetailClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...profileForm,
-          dealValue: profileForm.dealValue === '' ? null : Number(profileForm.dealValue)
+          intakeMonth: profileForm.intakeMonth?.trim() || null,
+          destinationCountry: profileForm.destinationCountry?.trim() || null,
+          programOfInterest: profileForm.programOfInterest?.trim() || null,
+          dealValue: profileForm.dealValue === '' ? null : Number(profileForm.dealValue),
         }),
       })
       return res.json()
@@ -200,15 +207,35 @@ export default function LeadDetailClient({
     router.refresh()
   }
 
+  async function handleMarkDead() {
+    setSavingDead(true)
+    const payloadIsDead = isDeadState ? false : isDead;
+    const payloadReason = payloadIsDead ? deadReason : null;
 
+    const data = await apiCall(async () => {
+      const res = await fetch(`/api/leads/${lead.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isDeadManual: payloadIsDead, deadReason: payloadReason }),
+      })
+      return res.json()
+    }, { successMsg: payloadIsDead ? 'Lead marked as dead' : 'Lead reopened', errorMsg: 'Status update failed' })
+    setSavingDead(false)
+    if (data) {
+      setIsDeadState(payloadIsDead);
+      setIsDead(payloadIsDead);
+      if (!payloadIsDead) setDeadReason('');
+      router.refresh()
+    }
+  }
 
   const heat = getHeatLevel(
     lead.lastContactedAt ? new Date(lead.lastContactedAt) : null,
     lead.createdAt ? new Date(lead.createdAt) : new Date(),
   )
 
-  return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+  return (<TooltipProvider>
+    <div className="mx-auto w-full min-w-0 max-w-6xl px-0 py-4 sm:px-2 sm:py-6 lg:px-4 lg:py-8">
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -220,8 +247,8 @@ export default function LeadDetailClient({
           >
             ← Back to Leads
           </Link>
-          <div className="flex items-center gap-4 mt-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          <div className="mt-2 flex flex-wrap items-center gap-3 sm:gap-4">
+            <h1 className="min-w-0 break-words text-xl font-semibold tracking-tight text-foreground sm:text-2xl lg:text-3xl">
               {lead.fullName}
             </h1>
             {lead.dealValue && (
@@ -231,13 +258,47 @@ export default function LeadDetailClient({
               </div>
             )}
           </div>
+
+          {/* NEW – Student ID */}
+          <div className="mt-1 flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Student ID:</span>
+            <span className="text-xs font-mono text-muted-foreground" title={lead.id}>
+              {lead.id.slice(0, 7)}...
+            </span>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(lead.id)
+                setCopiedId(true)
+                setTimeout(() => setCopiedId(false), 2000)
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+              title="Copy full Student ID"
+            >
+              {copiedId ? (
+                <span className="flex items-center text-green-500">
+                  <Check className="w-3 h-3 mr-0.5" /> Copied
+                </span>
+              ) : (
+                'Copy'
+              )}
+            </button>
+          </div>
+
           <div className="mt-4">
             <TagSelector leadId={lead.id} initialTags={tags} />
           </div>
+
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <span className={`rounded-md border px-2 py-1 text-xs ${stageBadge.mutedClasses}`}>
               {stageBadge.label}
             </span>
+            {/* NEW – dead badge */}
+            {isDead && (
+              <span className="ml-2 rounded-md bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-1 text-xs">
+                Dead
+              </span>
+            )}
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <span
@@ -262,8 +323,8 @@ export default function LeadDetailClient({
                 {lead.lastContactedAt
                   ? `Last contacted ${formatDistanceToNow(new Date(lead.lastContactedAt))} ago`
                   : `No contact recorded yet — created ${formatDistanceToNow(
-                      lead.createdAt ? new Date(lead.createdAt) : new Date(),
-                    )} ago`}
+                    lead.createdAt ? new Date(lead.createdAt) : new Date(),
+                  )} ago`}
               </TooltipContent>
             </Tooltip>
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
@@ -271,139 +332,224 @@ export default function LeadDetailClient({
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="mb-6 grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
+      {isDeadState && (
+        <div className="mb-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20 px-4 py-2 text-sm text-yellow-600 text-center">
+          This lead is marked as dead. Reopen it to make changes.
+        </div>
+      )}
+      <Tabs value={activeTab} className="w-full">
+        <TabsList className="mb-6 grid w-full grid-cols-2 sm:inline-flex sm:w-auto sticky top-0 z-10 bg-background">
+          <TabsTrigger value="overview" onClick={() => setActiveTab('overview')}>Overview</TabsTrigger>
+          <TabsTrigger value="documents" onClick={() => setActiveTab('documents')}>Documents</TabsTrigger>
+          <TabsTrigger value="pipeline" onClick={() => setActiveTab('pipeline')}>Pipeline</TabsTrigger>
+          <TabsTrigger value="activity" onClick={() => setActiveTab('activity')}>Activity</TabsTrigger>
+          <TabsTrigger value="reminders" onClick={() => setActiveTab('reminders')}>Reminders</TabsTrigger>
+          <TabsTrigger value="whatsapp" onClick={() => setActiveTab('whatsapp')}>WhatsApp</TabsTrigger>
         </TabsList>
 
+        {/* ==== Documents ==== */}
         <TabsContent value="documents" className="outline-none">
           <LeadDocumentsPanel leadId={lead.id} />
         </TabsContent>
 
+        {/* ==== Overview ==== (kept) */}
         <TabsContent value="overview" className="outline-none">
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        {/* Left — lead info + pipeline */}
-        <div className="space-y-6 xl:col-span-2">
+            {/* Left side – Journey + Contact + Edit fields */}
+            <div className="space-y-6 xl:col-span-2">
+              <StudentJourney
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                stage={primaryStage as any}
+                onStepClick={(newStage) => handleStageToggle(String(newStage))}
+              />
 
-          <StudentJourney 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            stage={primaryStage as any} 
-            onStepClick={(newStage) => handleStageToggle(String(newStage))} 
-          />
-
-          {/* Info card */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-white font-medium mb-4">Contact Info</h2>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              {[
-                { label: 'Email', value: lead.email },
-                { label: 'Phone', value: lead.contactNumber },
-                { label: 'City', value: lead.city },
-                  { label: 'Country', value: lead.country },
-                { label: 'Qualification', value: lead.lastQualification },
-                { label: 'Grades', value: lead.grades },
-                { label: 'Source', value: lead.source },
-                { label: 'Deal Value', value: lead.dealValue ? `${lead.dealCurrency} ${Number(lead.dealValue).toLocaleString()}` : '—' },
-              ].map(({ label, value }) => (
-                <div key={label}>
-                  <p className="text-gray-500">{label}</p>
-                  <p className="text-white mt-0.5">{value ?? '—'}</p>
+              {/* Contact Info card */}
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                <h2 className="text-white font-medium mb-4">Contact Info</h2>
+                <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+                  {[
+                    { label: 'Email', value: lead.email },
+                    { label: 'Phone', value: lead.contactNumber },
+                    { label: 'City', value: lead.city },
+                    { label: 'Country', value: lead.country },
+                    { label: 'Qualification', value: lead.lastQualification },
+                    { label: 'Grades', value: lead.grades },
+                    { label: 'Source', value: lead.source },
+                    {
+                      label: 'Deal Value',
+                      value: lead.dealValue ? `${lead.dealCurrency} ${Number(lead.dealValue).toLocaleString()}` : '—',
+                    },
+                    { label: 'Intake', value: lead.intakeMonth ?? '—' },
+                    { label: 'Study Destination', value: lead.destinationCountry ?? '—' },
+                    { label: 'Program of Interest', value: lead.programOfInterest ?? '—' },
+                  ].map(({ label, value }) => (
+                    <div key={label}>
+                      <p className="text-gray-500">{label}</p>
+                      <p className="text-white mt-0.5">{value ?? '—'}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-white font-medium mb-4">Edit Lead Fields</h2>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              {(
-                [
-                  ['fullName', 'Full Name'],
-                  ['email', 'Email'],
-                  ['contactNumber', 'Phone'],
-                  ['city', 'City'],
-                  ['country', 'Country'],
-                  ['lastQualification', 'Qualification'],
-                  ['grades', 'Grades'],
-                ] as const
-              ).map(([key, label]) => (
-                <label key={key} className="flex flex-col gap-1">
-                  <span className="text-xs text-gray-400">{label}</span>
+              {/* Edit Lead Fields card */}
+              <div className={`bg-gray-900 border border-gray-800 rounded-xl p-6 ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
+                <h2 className="text-white font-medium mb-4">Edit Lead Fields</h2>
+                <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                  {(
+                    [
+                      ['fullName', 'Full Name'],
+                      ['email', 'Email'],
+                      ['contactNumber', 'Phone'],
+                      ['city', 'City'],
+                      ['country', 'Country'],
+                      ['lastQualification', 'Qualification'],
+                      ['grades', 'Grades'],
+                      ['intakeMonth', 'Intake'],
+                      ['destinationCountry', 'Study Destination'],
+                      ['programOfInterest', 'Program of Interest'],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <label key={key} className="flex flex-col gap-1">
+                      <span className="text-xs text-gray-400">{label}</span>
+                      <input
+                        value={profileForm[key]}
+                        onChange={(e) =>
+                          setProfileForm((prev) => ({ ...prev, [key]: e.target.value }))
+                        }
+                        className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                      />
+                    </label>
+                  ))}
+                  <div className="col-span-2 grid grid-cols-3 gap-3">
+                    <label className="col-span-1 flex flex-col gap-1">
+                      <span className="text-xs text-gray-400">Currency</span>
+                      <select
+                        value={profileForm.dealCurrency}
+                        onChange={(e) =>
+                          setProfileForm((prev) => ({ ...prev, dealCurrency: e.target.value }))
+                        }
+                        className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white flex-1"
+                      >
+                        {CURRENCIES.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="col-span-2 flex flex-col gap-1">
+                      <span className="text-xs text-gray-400">
+                        Deal Value <span className="text-muted-foreground">(optional)</span>
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={profileForm.dealValue}
+                        onChange={(e) =>
+                          setProfileForm((prev) => ({ ...prev, dealValue: e.target.value }))
+                        }
+                        className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                      />
+                    </label>
+                  </div>
+                </div>
+                <button
+                  onClick={handleSaveLeadProfile}
+                  disabled={editingLead || isDeadState}
+                  className="mt-3 bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50"
+                >
+                  {editingLead ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Lead Profile'}
+                </button>
+              </div>
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                <label className="flex items-center gap-2 text-sm text-white">
                   <input
-                    value={profileForm[key]}
-                    onChange={(e) =>
-                      setProfileForm((prev) => ({ ...prev, [key]: e.target.value }))
-                    }
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                    type="checkbox"
+                    checked={isDead}
+                    disabled={isDeadState}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setIsDead(checked);
+                      if (!checked) setDeadReason('');
+                    }}
+                    className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
                   />
+                  Mark Lead as Dead
                 </label>
-              ))}
-              
-              <div className="col-span-2 grid grid-cols-3 gap-3">
-                <label className="col-span-1 flex flex-col gap-1">
-                  <span className="text-xs text-gray-400">Currency</span>
-                  <select
-                    value={profileForm.dealCurrency}
-                    onChange={(e) =>
-                      setProfileForm((prev) => ({ ...prev, dealCurrency: e.target.value }))
-                    }
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white flex-1"
+                {isDead && !isDeadState && (
+                  <textarea
+                    value={deadReason}
+                    onChange={(e) => setDeadReason(e.target.value)}
+                    placeholder="Reason for marking dead…"
+                    className="mt-2 w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600"
+                    rows={3}
+                  />
+                )}
+                {isDeadState && (
+                  <div className="mt-2 text-sm text-gray-400">
+                    <span className="font-medium">Reason:</span> {deadReason || 'No reason provided'}
+                  </div>
+                )}
+                {(isDead || isDeadState) && (
+                  <button
+                    onClick={handleMarkDead}
+                    disabled={savingDead || (isDead && !isDeadState && !deadReason.trim())}
+                    className="mt-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white px-4 py-2 rounded"
                   >
-                    {CURRENCIES.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="col-span-2 flex flex-col gap-1">
-                  <span className="text-xs text-gray-400">Deal Value <span className="text-muted-foreground">(optional)</span></span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={profileForm.dealValue}
-                    onChange={(e) =>
-                      setProfileForm((prev) => ({ ...prev, dealValue: e.target.value }))
-                    }
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
-                  />
-                </label>
+                    {savingDead ? <Loader2 className="h-4 w-4 animate-spin" /> : isDeadState ? 'Re-open' : 'Save'}
+                  </button>
+                )}
+              </div>
+              {/* Assigned To card */}
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                <h2 className="text-white font-medium mb-4">Assigned To</h2>
+                <select
+                  value={assignedTo}
+                  onChange={(e) => handleAssign(e.target.value)}
+                  disabled={isDeadState}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-gray-500"
+                >
+                  <option value="">Unassigned</option>
+                  {proUsers.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </select>
+                {proUsers.length === 0 && (
+                  <p className="text-gray-600 text-xs mt-2">
+                    No pro counselors yet. Add them in Team settings.
+                  </p>
+                )}
               </div>
             </div>
-            <button
-              onClick={handleSaveLeadProfile}
-              disabled={editingLead}
-              className="mt-3 bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50"
-            >
-              {editingLead ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Lead Profile'}
-            </button>
           </div>
+        </TabsContent>
 
-          {/* Pipeline stage selector */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+        {/* ==== Pipeline ==== */}
+        <TabsContent value="pipeline" className="outline-none">
+          <div className={`bg-gray-900 border border-gray-800 rounded-xl p-6 ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
             <h2 className="text-white font-medium mb-4">Pipeline Stage</h2>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {(pipelineStages.length > 0
                 ? pipelineStages.map((s) => ({
-                    value: s.key,
-                    label: s.label,
-                    mutedClasses:
-                      styleByKey[s.key]?.mutedClasses ??
-                      'bg-gray-500/10 text-gray-400 border-gray-500/20',
-                  }))
+                  value: s.key,
+                  label: s.label,
+                  mutedClasses:
+                    styleByKey[s.key]?.mutedClasses ??
+                    'bg-gray-500/10 text-gray-400 border-gray-500/20',
+                }))
                 : PIPELINE_STAGES
               ).map((s) => (
                 <button
                   key={s.value}
                   onClick={() => handleStageToggle(s.value)}
-                  className={`text-left px-3 py-2 rounded-lg text-sm transition-colors border ${
-                    primaryStage === s.value
-                      ? s.mutedClasses
-                      : activeStages.includes(s.value)
-                        ? 'border-gray-600 text-gray-200 bg-gray-800/40'
-                        : 'border-gray-800 text-gray-500 hover:text-gray-300 hover:border-gray-600'
-                  }`}
+                  className={`text-left px-3 py-2 rounded-lg text-sm transition-colors border ${primaryStage === s.value
+                    ? s.mutedClasses
+                    : activeStages.includes(s.value)
+                      ? 'border-gray-600 text-gray-200 bg-gray-800/40'
+                      : 'border-gray-800 text-gray-500 hover:text-gray-300 hover:border-gray-600'
+                    }`}
                 >
                   {activeStages.includes(s.value) && <span className="mr-1">✓</span>}
                   {s.label}
@@ -411,8 +557,11 @@ export default function LeadDetailClient({
               ))}
             </div>
           </div>
+        </TabsContent>
 
-          {/* Add note */}
+        {/* ==== Activity ==== */}
+        <TabsContent value="activity" className="outline-none">
+          {/* Add Activity UI */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <h2 className="text-white font-medium mb-4">Add Activity</h2>
             <div className="flex gap-2 mb-3">
@@ -420,11 +569,10 @@ export default function LeadDetailClient({
                 <button
                   key={t}
                   onClick={() => setNoteType(t)}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors capitalize ${
-                    noteType === t
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                      : 'border-gray-700 text-gray-500 hover:text-gray-300'
-                  }`}
+                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors capitalize ${noteType === t
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                    : 'border-gray-700 text-gray-500 hover:text-gray-300'
+                    }`}
                 >
                   {t}
                 </button>
@@ -435,69 +583,52 @@ export default function LeadDetailClient({
               onChange={(e) => setNote(e.target.value)}
               placeholder={`Add a ${noteType}...`}
               rows={3}
+              disabled={isDeadState}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 resize-none focus:outline-none focus:border-gray-500"
             />
             <button
               onClick={handleAddNote}
-              disabled={!note.trim() || addingNote}
+              disabled={isDeadState || !note.trim() || addingNote}
               className="mt-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-800 disabled:text-gray-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
               {addingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
             </button>
           </div>
-        </div>
 
-        {/* Right — assign + activity */}
-        <div className="space-y-6">
-
-          {/* Assign */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-white font-medium mb-4">Assigned To</h2>
-            <select
-              value={assignedTo}
-              onChange={(e) => handleAssign(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-gray-500"
-            >
-              <option value="">Unassigned</option>
-              {proUsers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-            {proUsers.length === 0 && (
-              <p className="text-gray-600 text-xs mt-2">
-                No pro agents yet. Add them in Team settings.
-              </p>
-            )}
-          </div>
-
-          {/* Activity log */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+          {/* Activity Log */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mt-6">
             <h2 className="text-white font-medium mb-4">Activity Log</h2>
             <p className="text-gray-500 text-xs mb-4">
               Full timeline: who changed what, with email and exact date and time (newest first).
             </p>
             <LeadActivityTimeline activities={initialActivities} stageLabels={stageLabelByKey} />
           </div>
-
-
-          <LeadReminders leadId={lead.id} />
-
-          <WhatsappLogger
-            leadId={lead.id}
-            tenantSlug={tenantSlug}
-            leadName={lead.fullName}
-            leadCountry={lead.country ?? null}
-            leadProgramme={lead.lastQualification ?? null}
-            currentStage={primaryStage}
-            leadPhone={lead.contactNumber}
-          />
-        </div>
-      </div>
         </TabsContent>
-      </Tabs>
 
+        {/* ==== Reminders ==== */}
+        <TabsContent value="reminders" className="outline-none">
+          <div className={isDeadState ? 'pointer-events-none opacity-50' : ''}>
+            <LeadReminders leadId={lead.id} />
+          </div>
+        </TabsContent>
+
+        {/* ==== WhatsApp ==== */}
+        <TabsContent value="whatsapp" className="outline-none">
+          <div className={isDeadState ? 'pointer-events-none opacity-50' : ''}>
+            <WhatsappLogger
+              leadId={lead.id}
+              tenantSlug={tenantSlug}
+              leadName={lead.fullName}
+              leadCountry={lead.country ?? null}
+              leadProgramme={lead.lastQualification ?? null}
+              currentStage={primaryStage}
+              leadPhone={lead.contactNumber}
+            />
+          </div>
+        </TabsContent>
+
+      </Tabs>
     </div>
+  </TooltipProvider>
   )
 }

@@ -46,14 +46,14 @@ export default async function ProOverviewPage() {
   const followUps = myLeads.filter((l) => l.stage === 'follow_up')
 
   return (
-    <div className="p-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Overview</h1>
+    <div className="w-full min-w-0 p-0">
+      <div className="mb-6 flex flex-col justify-between gap-4 sm:mb-8 sm:flex-row sm:items-center">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">Overview</h1>
           <p className="text-gray-500 text-sm mt-1">Welcome back, {dbUser.name}</p>
         </div>
-        <div className="flex items-center gap-3 bg-white border border-gray-200 shadow-sm rounded-full pl-4 pr-1.5 py-1.5">
-          <span className="text-sm font-medium text-gray-600">{dbUser.email}</span>
+        <div className="flex w-full min-w-0 items-center gap-3 rounded-full border border-gray-200 bg-white py-1.5 pl-4 pr-1.5 shadow-sm sm:w-auto">
+          <span className="min-w-0 truncate text-sm font-medium text-gray-600">{dbUser.email}</span>
           <UserMenu user={dbUser} />
         </div>
       </div>
@@ -96,13 +96,13 @@ export default async function ProOverviewPage() {
             <p className="mt-1">You haven&apos;t been assigned any leads yet.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="crm-table-scroll">
+            <table className="w-full min-w-[560px] text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/80">
                   <th className="text-left text-gray-500 font-medium px-6 py-4">Name</th>
                   <th className="text-left text-gray-500 font-medium px-6 py-4">Contact</th>
-                  <th className="text-left text-gray-500 font-medium px-6 py-4">City</th>
+                  <th className="hidden text-left text-gray-500 font-medium px-6 py-4 md:table-cell">City</th>
                   <th className="text-left text-gray-500 font-medium px-6 py-4">Stage</th>
                   <th className="text-left text-gray-500 font-medium px-6 py-4">Action</th>
                 </tr>
@@ -117,7 +117,7 @@ export default async function ProOverviewPage() {
                       )}
                     </td>
                     <td className="px-6 py-4 text-gray-600 font-medium">{lead.contactNumber ?? '—'}</td>
-                    <td className="px-6 py-4 text-gray-600">{lead.city ?? '—'}</td>
+                    <td className="hidden px-6 py-4 text-gray-600 md:table-cell">{lead.city ?? '—'}</td>
                     <td className="px-6 py-4">
                       <span className="text-xs bg-white border border-gray-200 text-gray-700 font-medium px-2.5 py-1.5 rounded-lg shadow-sm">
                         {LEAD_STAGE_LABELS[lead.stage ?? 'new_lead']}

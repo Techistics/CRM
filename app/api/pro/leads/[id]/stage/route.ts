@@ -8,13 +8,18 @@ import { requireTenantMemberApi } from '@/lib/tenant-api'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { getTenantPipeline, isPairAllowed } from '@/lib/pipeline/config'
+import { validateStageTransition } from '@/lib/lead-stage-validation'
 
 const bodySchema = z.union([
-  z.object({ stage: z.string().min(1) }).strict(),
+  z.object({ 
+    stage: z.string().min(1),
+    deadReason: z.string().optional()
+  }).strict(),
   z
     .object({
       primaryStage: z.string().min(1),
       activeStages: z.array(z.string().min(1)).min(1).max(60),
+      deadReason: z.string().optional()
     })
     .strict(),
 ])
@@ -83,7 +88,21 @@ export async function PATCH(
       return errorResponse('Lead not found or no access', 'NOT_FOUND', 404)
     }
 
+    const validation = validateStageTransition(
+      lead.primaryStage, 
+      primaryStage, 
+      pipeline.stages, 
+      parsed.data.deadReason
+    )
+    if (!validation.valid) {
+      return errorResponse(validation.error!, 'INVALID_TRANSITION', 400)
+    }
+
     if (lead.primaryStage === primaryStage && activeStages.length === 1) {
+      await db
+        .update(leads)
+        .set({ lastContactedAt: new Date(), updatedAt: new Date() })
+        .where(dbAnd(dbEq(leads.id, id), dbEq(leads.tenantId, ctx.tenant.id)))
       return successResponse({ ok: true, unchanged: true })
     }
 
@@ -94,6 +113,7 @@ export async function PATCH(
           primaryStage,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           stage: primaryStage as any,
+          lastContactedAt: new Date(),
           updatedAt: new Date(),
         })
         .where(dbAnd(dbEq(leads.id, id), dbEq(leads.tenantId, ctx.tenant.id)))

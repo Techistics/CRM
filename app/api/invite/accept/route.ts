@@ -117,9 +117,10 @@ export async function POST(req: NextRequest) {
       expiresAt,
     })
 
-    const response = successResponse({ 
-      success: true, 
-      tenantSlug: tenant.slug 
+    const response = successResponse({
+      success: true,
+      tenantSlug: tenant.slug,
+      role: invite.role,
     })
 
     response.cookies.set({

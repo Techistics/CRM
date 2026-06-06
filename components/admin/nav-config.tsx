@@ -3,6 +3,7 @@ import {
   Users,
   Wallet,
   BarChart3,
+  LineChart,
   KeyRound,
   Import,
   Sparkles,
@@ -47,6 +48,12 @@ export const adminMainNav: AdminNavLink[] = [
     name: 'Kanban',
     href: ADMIN_ROUTES.kanban,
     icon: BarChart3,
+    matchPrefix: true,
+  },
+  {
+    name: 'Analytics',
+    href: ADMIN_ROUTES.analytics,
+    icon: LineChart,
     matchPrefix: true,
   },
 ]

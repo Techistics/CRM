@@ -10,6 +10,7 @@ import { leadCreateBodySchema } from '@/lib/validators/lead'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 import { rateLimit } from '@/lib/rate-limit'
+import { stripDealFieldsFromList } from '@/lib/leads/deal-access'
 
 export async function GET(req: NextRequest) {
   return withApiErrorHandling(async () => {
@@ -37,6 +38,7 @@ export async function GET(req: NextRequest) {
           ilike(leads.fullName, `%${q}%`),
           ilike(leads.email, `%${q}%`),
           ilike(leads.contactNumber, `%${q}%`),
+          sql`${leads.id}::text ILIKE ${`%${q}%`}`,
         )!
       )
     }
@@ -150,8 +152,11 @@ export async function GET(req: NextRequest) {
         .orderBy(desc(leads.updatedAt))
         .limit(pageSize)
         .offset(offset)
-      const rowsWithTags = await attachTagsToLeads(rows)
-      
+      const rowsWithTags = stripDealFieldsFromList(
+        await attachTagsToLeads(rows),
+        ctx.role,
+      )
+
       return successResponse({
         leads: rowsWithTags,
         total: Number(totalRow?.c ?? 0),
@@ -185,8 +190,11 @@ export async function GET(req: NextRequest) {
       .from(leads)
       .where(where)
       .orderBy(desc(leads.updatedAt))
-    const rowsWithTags = await attachTagsToLeads(rows)
-    
+    const rowsWithTags = stripDealFieldsFromList(
+      await attachTagsToLeads(rows),
+      ctx.role,
+    )
+
     return successResponse({ leads: rowsWithTags })
   })
 }
@@ -268,6 +276,10 @@ export async function POST(req: NextRequest) {
           assignedTo: data.assignedTo ?? null,
           dealValue: data.dealValue?.toString() ?? null,
           dealCurrency: data.dealCurrency,
+          // NEW – intake & destination fields
+          intakeMonth: data.intakeMonth?.trim() || null,
+          destinationCountry: data.destinationCountry?.trim() || null,
+          programOfInterest: data.programOfInterest?.trim() || null,
           createdBy: ctx.dbUserId,
           primaryStage: nextStage,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any

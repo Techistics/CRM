@@ -91,7 +91,7 @@ export async function PATCH(
           const leadUrl = `${baseUrl}/t/${ctx.tenant.slug}/admin/leads/${id}`
           await sendLeadAssignedEmail({
             agentEmail: agent.email,
-            agentName: agent.name ?? 'Agent',
+            agentName: agent.name ?? 'Counselor',
             leadName: lead.fullName,
             contactNumber: lead.contactNumber ?? '',
             leadEmail: lead.email ?? '',

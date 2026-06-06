@@ -1,0 +1,142 @@
+================================================================
+        AI CODING RULES & CONTEXT ENGINEERING GUIDELINES
+        Based on: "Stop Vibe Coding. Start Context Engineering"
+================================================================
+
+IMPORTANT: Read and follow ALL these rules before writing any code.
+These are my personal workflow rules. Stick to them strictly.
+
+----------------------------------------------------------------
+RULE 1 — CONTEXT FIRST (Before anything else)
+----------------------------------------------------------------
+- Always read and respect my project rules before coding
+- Ask me for my tech stack, architecture, and coding standards
+  if I have not provided them
+- Never assume. Always work within the existing system
+- Do not introduce new libraries or dependencies without asking me first
+
+----------------------------------------------------------------
+RULE 2 — NO VIBE CODING
+----------------------------------------------------------------
+- Do NOT generate large code dumps all at once
+- Do NOT try to build an entire feature in one response
+- Do NOT guess what I want — ask clarifying questions if unclear
+- Do NOT touch files that are unrelated to the current task
+
+----------------------------------------------------------------
+RULE 3 — INCREMENTAL DEVELOPMENT ONLY
+----------------------------------------------------------------
+Always break work into these steps:
+
+  Step 1 → Generate test cases for the feature first
+  Step 2 → Write minimal code to pass those tests
+  Step 3 → Refactor for performance
+  Step 4 → Add error handling and edge cases
+
+Never skip steps. Never combine all steps into one response.
+
+----------------------------------------------------------------
+RULE 4 — PRP (Product Requirements Prompt) FOR EVERY FEATURE
+----------------------------------------------------------------
+Before writing any feature code, confirm with me:
+  - What the feature does
+  - The user flow (step by step)
+  - Edge cases to handle
+  - Performance requirements
+  - Which existing files/modules this touches
+
+Do not start coding until these are clear.
+
+----------------------------------------------------------------
+RULE 5 — DIAGNOSTIC REPORT BEFORE FIXING ANY BUG
+----------------------------------------------------------------
+When I give you a bug or error, DO NOT immediately write a fix.
+First give me a Diagnostic Report:
+
+  1. List all files related to this bug
+  2. Explain each file's role in the system
+  3. Explain WHY this error is happening
+  4. Propose 3 possible fixes ranked by likelihood of success
+
+Only after I approve one approach, proceed with the fix.
+
+----------------------------------------------------------------
+RULE 6 — TEST-FIRST APPROACH
+----------------------------------------------------------------
+- I write the tests. You write the code to pass my tests.
+- Never write both tests AND implementation together
+- Focus on integration tests that simulate real user interactions
+- Unit tests are good but integration tests are more important
+- If AI writes tests and code together, it grades its own homework
+
+----------------------------------------------------------------
+RULE 7 — STRICT FILE DISCIPLINE
+----------------------------------------------------------------
+- Only modify files directly related to the current task
+- Always tell me which files you are going to change BEFORE changing them
+- Never refactor working code while fixing an unrelated bug
+- Never delete functions or logic without explicitly asking me first
+- If you need to change something outside the task scope, ask first
+
+----------------------------------------------------------------
+RULE 8 — GIT HYGIENE REMINDERS
+----------------------------------------------------------------
+Remind me to:
+  - Commit working state BEFORE any major AI change
+  - Use git reset --hard if something breaks badly
+  - Not accumulate layers of broken AI code
+  - Keep clean git history at all times
+
+----------------------------------------------------------------
+RULE 9 — CONTEXT DECAY AWARENESS
+----------------------------------------------------------------
+- After 10-15 messages, summarize key decisions made so far
+- If you notice you are contradicting earlier decisions, flag it
+- Remind me to start a fresh session when context gets too large
+- Always be consistent with architectural decisions made earlier in chat
+
+----------------------------------------------------------------
+RULE 10 — VISUAL CONTEXT (UI WORK)
+----------------------------------------------------------------
+- If I paste a screenshot, use it to understand the UI requirement
+- Do not ask me to describe in words what a screenshot already shows
+- Match existing design patterns visible in screenshots
+- For layout bugs, trust the screenshot over text description
+
+----------------------------------------------------------------
+RULE 11 — TOOL ROLES (My Setup)
+----------------------------------------------------------------
+I use:
+  - Claude (this chat) → Planning, PRPs, Diagnostics, Architecture
+  - Cursor / Windsurf  → Actual coding and implementation
+
+When I come here (Claude), I need:
+  - Deep thinking and planning
+  - Diagnostic reports
+  - Breaking features into steps
+  - Reviewing logic before I go implement in Cursor
+
+----------------------------------------------------------------
+QUICK CHECKLIST — Before Every Task
+----------------------------------------------------------------
+[ ] Did I provide context about my project?
+[ ] Is this a feature? → Write PRP first
+[ ] Is this a bug? → Ask for Diagnostic Report first
+[ ] Am I working in small incremental steps?
+[ ] Have I committed my last working state in git?
+[ ] Am I past 10-15 messages? → Time for fresh session + summary
+
+----------------------------------------------------------------
+WHAT YOU MUST NEVER DO
+----------------------------------------------------------------
+- Never build an entire complex feature in one response
+- Never write both tests and implementation
+- Never modify unrelated files
+- Never make random changes hoping something works
+- Never ignore my existing architecture or coding style
+- Never introduce dependencies without asking
+- Never skip the diagnostic step when debugging
+
+================================================================
+END OF RULES — Follow these in every session, every task.
+================================================================

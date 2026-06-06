@@ -20,7 +20,7 @@ export default async function AdminRoleRequestsPage() {
     .orderBy(desc(roleRequests.createdAt))
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="w-full min-w-0 max-w-5xl p-0 sm:p-2 lg:p-4">
       <h1 className="text-2xl font-semibold text-foreground">Access requests</h1>
       <p className="text-muted-foreground text-sm mt-1">
         Approve to add the user to this workspace with the requested role.

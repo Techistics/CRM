@@ -28,6 +28,9 @@ const parsedLeadSchema = z.object({
   source: z.string().optional().nullable(),
   dealValue: z.number().optional().nullable(),
   notes: z.string().optional().nullable(),
+  intakeMonth: z.string().optional().nullable(),
+  destinationCountry: z.string().optional().nullable(),
+  programOfInterest: z.string().optional().nullable(),
 })
 
 const confirmBodySchema = z.object({
@@ -54,15 +57,33 @@ const COLUMN_MAP: Record<string, keyof z.infer<typeof parsedLeadSchema>> = {
   country: 'country',
   stage: 'stage',
   source: 'source',
-  'deal value': 'dealValue',
-  dealvalue: 'dealValue',
-  deal_value: 'dealValue',
   notes: 'notes',
+  // Intake
+  intake: 'intakeMonth',
+  'intake month': 'intakeMonth',
+  intake_month: 'intakeMonth',
+  intakemonth: 'intakeMonth',
+  // Destination Country
+  destination: 'destinationCountry',
+  'destination country': 'destinationCountry',
+  destination_country: 'destinationCountry',
+  'study destination': 'destinationCountry',
+  study_destination: 'destinationCountry',
+  destinationcountry: 'destinationCountry',
+  // Program of Interest
+  program: 'programOfInterest',
+  programme: 'programOfInterest',
+  'program of interest': 'programOfInterest',
+  program_of_interest: 'programOfInterest',
+  'programme of interest': 'programOfInterest',
+  programofinterest: 'programOfInterest',
 }
 
-function normalizeStageValue(value: unknown): string {
+function normalizeStageValue(value: unknown): string | null {
   const stageRaw = String(value ?? '').trim().toLowerCase()
+  if (!stageRaw) return null
   const compact = stageRaw.replace(/[\s_-]+/g, ' ').trim()
+  if (!compact) return null
 
   if (compact === 'new' || compact === 'new lead' || compact === 'new_lead') return 'new_lead'
   if (compact === 'contacted' || compact === 'contact') return 'contacted'
@@ -73,7 +94,7 @@ function normalizeStageValue(value: unknown): string {
   if (compact === 'paid' || compact === 'won' || compact === 'closed') return 'paid'
   if (compact === 'lost' || compact === 'cancelled' || compact === 'canceled') return 'cancelled'
 
-  return 'new_lead'
+  return null
 }
 
 function parseRows(fileName: string, fileData: string): Record<string, unknown>[] {
@@ -158,14 +179,10 @@ export async function POST(req: NextRequest) {
             : null
 
         const stageNormalized = normalizeStageValue(mapped.stage)
-        const stage = pipeline.stageKeys.has(stageNormalized) ? stageNormalized : defaultStageKey
-
-        const dealValueRaw = String(mapped.dealValue ?? '').trim()
-        const dealValueCandidate = dealValueRaw.length > 0 ? Number(dealValueRaw) : null
-        const dealValue =
-          dealValueCandidate != null && !Number.isNaN(dealValueCandidate)
-            ? dealValueCandidate
-            : null
+        const stage =
+          stageNormalized && pipeline.stageKeys.has(stageNormalized)
+            ? stageNormalized
+            : defaultStageKey
 
         parsedRows.push({
           rowNumber,
@@ -176,8 +193,11 @@ export async function POST(req: NextRequest) {
           country: String(mapped.country ?? '').trim() || null,
           stage,
           source: String(mapped.source ?? '').trim() || null,
-          dealValue,
+          dealValue: null,
           notes: String(mapped.notes ?? '').trim() || null,
+          intakeMonth: String(mapped.intakeMonth ?? '').trim() || null,
+          destinationCountry: String(mapped.destinationCountry ?? '').trim() || null,
+          programOfInterest: String(mapped.programOfInterest ?? '').trim() || null,
         })
       })
 
@@ -303,10 +323,13 @@ export async function POST(req: NextRequest) {
           stage: stageKey as any,
           source: leadRow.source ?? 'csv_import',
           lastQualification: leadRow.notes ?? null,
-          dealValue: leadRow.dealValue != null ? leadRow.dealValue.toString() : null,
+          dealValue: null,
           createdBy: ctx.dbUserId,
           assignedTo,
           updatedAt: new Date(),
+          intakeMonth: leadRow.intakeMonth,
+          destinationCountry: leadRow.destinationCountry,
+          programOfInterest: leadRow.programOfInterest,
         }
       })
 
@@ -356,7 +379,7 @@ export async function POST(req: NextRequest) {
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
           await sendLeadAssignedEmail({
             agentEmail: member.email,
-            agentName: member.name ?? 'Agent',
+            agentName: member.name ?? 'Counselor',
             leadName: `${count} leads assigned to you via CSV import`,
             contactNumber: '-',
             leadEmail: '-',

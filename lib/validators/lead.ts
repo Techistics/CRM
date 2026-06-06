@@ -13,6 +13,10 @@ export const leadCreateBodySchema = z.object({
   country: z.string().trim().max(120).optional().nullable(),
   lastQualification: z.string().trim().max(500).optional().nullable(),
   grades: z.string().trim().max(200).optional().nullable(),
+  /* NEW – intake & destination fields */
+  intakeMonth: z.string().trim().max(100).optional().nullable(),
+  destinationCountry: z.string().trim().max(120).optional().nullable(),
+  programOfInterest: z.string().trim().max(500).optional().nullable(),
   source: z.string().trim().max(120).optional().nullable(),
   assignedTo: z.string().uuid().optional().nullable(),
   dealValue: z.coerce.number().positive().optional().nullable(),
@@ -30,8 +34,14 @@ export const leadPatchBodySchema = z
     country: z.string().trim().max(120).optional().nullable(),
     lastQualification: z.string().trim().max(500).optional().nullable(),
     grades: z.string().trim().max(200).optional().nullable(),
+    intakeMonth: z.string().trim().max(100).optional().nullable(),
+    destinationCountry: z.string().trim().max(120).optional().nullable(),
+    programOfInterest: z.string().trim().max(500).optional().nullable(),
     dealValue: z.coerce.number().positive().optional().nullable(),
     dealCurrency: z.enum(['USD', 'GBP', 'EUR', 'PKR', 'AED', 'CAD', 'AUD']).optional(),
+    // NEW – dead status fields
+    isDeadManual: z.boolean().optional(),
+    deadReason: z.string().trim().max(500).optional().nullable(),
   })
   .refine((o) => Object.keys(o).length > 0, {
     message: 'At least one field is required',

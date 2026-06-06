@@ -7,10 +7,12 @@ import { leads, leadActivities, leadStageAssignments } from '@/db/schema'
 import { errorResponse, successResponse, withApiErrorHandling } from '@/lib/api-response'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
 import { getTenantPipeline } from '@/lib/pipeline/config'
+import { validateStageTransition } from '@/lib/lead-stage-validation'
 
 const bodySchema = z.object({
   leadIds: z.array(z.string().uuid()).min(1).max(500),
   stage: z.string(),
+  deadReason: z.string().optional(),
   tenantSlug: z.string().min(1),
 })
 
@@ -38,11 +40,24 @@ export async function POST(req: NextRequest) {
       .from(leads)
       .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.id, parsed.data.leadIds)))
 
+    for (const lead of affected) {
+      const validation = validateStageTransition(lead.fromStage, stage, pipeline.stages, parsed.data.deadReason)
+      if (!validation.valid) {
+        return errorResponse(`Lead ${lead.id}: ${validation.error}`, 'INVALID_TRANSITION', 400)
+      }
+    }
+
     const updated = await db.transaction(async (tx) => {
       const updatedRows = await tx
         .update(leads)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .set({ primaryStage: stage, stage: stage as any, updatedAt: new Date() })
+        .set({
+          primaryStage: stage,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          stage: stage as any,
+          lastContactedAt: new Date(),
+          updatedAt: new Date(),
+        })
         .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.id, parsed.data.leadIds)))
         .returning({ id: leads.id })
 

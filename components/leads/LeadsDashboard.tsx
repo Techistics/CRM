@@ -21,8 +21,8 @@ import SearchInput from '@/components/SearchInput'
 import PageSizeDropdown from '@/components/PageSizeDropdown'
 import { getStageInfo } from '@/constants/pipeline-stages'
 import { tenantPath } from '@/lib/tenant-path'
-import { TagFilter } from '@/components/lead/TagFilter'
-import { CreateLeadDialog } from '@/components/lead/CreateLeadDialog'
+import { TagFilter } from '@/components/leads/TagFilter'
+import { CreateLeadDialog } from '@/components/leads/CreateLeadDialog'
 import { getHeatLevel, heatConfig } from '@/lib/leads/heat'
 import { cn } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -375,14 +375,16 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 p-1.5 rounded-xl shadow-xl border-gray-100">
-              <DropdownMenuItem 
-                onClick={handleExportAll} 
-                disabled={bulkActionLoading}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer"
-              >
-                <Download className="h-4 w-4 text-gray-500" />
-                <span>Export All CSV</span>
-              </DropdownMenuItem>
+              {isAdmin && (
+                <DropdownMenuItem 
+                  onClick={handleExportAll} 
+                  disabled={bulkActionLoading}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer"
+                >
+                  <Download className="h-4 w-4 text-gray-500" />
+                  <span>Export All CSV</span>
+                </DropdownMenuItem>
+              )}
               {isAdmin && (
                 <DropdownMenuItem asChild className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer">
                   <Link href={tenantPath(tenantSlug, '/admin/import')}>
@@ -401,7 +403,7 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
       {selectedCount > 0 && (
         <div
           className={cn(
-            'flex items-center gap-2 px-4 py-2.5 rounded-lg mb-3',
+            'mb-3 flex flex-wrap items-center gap-2 rounded-lg px-3 py-2.5 sm:px-4',
             'bg-primary/5 border border-primary/20',
             'animate-in slide-in-from-top-2 duration-200',
           )}
@@ -462,10 +464,12 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => void handleBulkExport()} disabled={bulkActionLoading}>
-            <Download className="h-3.5 w-3.5" />
-            Export CSV
-          </Button>
+          {isAdmin && (
+            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => void handleBulkExport()} disabled={bulkActionLoading}>
+              <Download className="h-3.5 w-3.5" />
+              Export CSV
+            </Button>
+          )}
 
           {isAdmin && (
             <Button
@@ -505,9 +509,9 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
           No leads match this heat filter.
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1)]">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm whitespace-nowrap">
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] transition-all duration-300 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1)]">
+          <div className="crm-table-scroll">
+            <table className="w-full min-w-[720px] text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="text-left text-gray-600 font-semibold px-3 py-4 uppercase tracking-wider text-xs w-8">
@@ -525,11 +529,11 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
                   </th>
                   <th className="text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs">Name</th>
                   <th className="text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs">Contact</th>
-                  <th className="text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs">City</th>
-                  <th className="text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs">Qualification</th>
+                  <th className="hidden text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs md:table-cell">City</th>
+                  <th className="hidden text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs lg:table-cell">Qualification</th>
                   <th className="text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs">Stage</th>
                   <th className="text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs">Heat</th>
-                  <th className="text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs">Assigned To</th>
+                  <th className="hidden text-left text-gray-600 font-semibold px-6 py-4 uppercase tracking-wider text-xs sm:table-cell">Assigned To</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -597,10 +601,10 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
                       <td className="px-6 py-4 text-gray-600">
                         {lead.contactNumber ?? '—'}
                       </td>
-                      <td className="px-6 py-4 text-gray-600">
+                      <td className="hidden px-6 py-4 text-gray-600 md:table-cell">
                         {lead.city ?? '—'}
                       </td>
-                      <td className="px-6 py-4 text-gray-600">
+                      <td className="hidden px-6 py-4 text-gray-600 lg:table-cell">
                         {lead.lastQualification ?? '—'}
                       </td>
                       <td className="px-6 py-4">
@@ -622,7 +626,7 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="hidden px-6 py-4 sm:table-cell">
                         {lead.assignedTo ? (
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { db } from '@/db'
-import { leads, leadActivities, users } from '@/db/schema'
+import { leads, leadActivities, users, tenantMembers } from '@/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import ProLeadDetailClient from './ProLeadDetailClient'
 import { requireTenantSession } from '@/lib/tenant-server'
@@ -30,18 +30,22 @@ export default async function ProLeadDetailPage({
       assignedTo: leads.assignedTo,
       tenantId: leads.tenantId,
       createdBy: leads.createdBy,
-      dealValue: leads.dealValue,
-      dealCurrency: leads.dealCurrency,
       createdAt: leads.createdAt,
       updatedAt: leads.updatedAt,
       lastContactedAt: leads.lastContactedAt,
+      intakeMonth: leads.intakeMonth,
+      destinationCountry: leads.destinationCountry,
+      programOfInterest: leads.programOfInterest,
+      isDeadManual: leads.isDeadManual,
+      deadReason: leads.deadReason,
+      dealValue: leads.dealValue,
+      dealCurrency: leads.dealCurrency,
     })
     .from(leads)
     .where(
       and(
         eq(leads.id, id),
         eq(leads.tenantId, tenant.id),
-        eq(leads.assignedTo, dbUserId),
       ),
     )
 
@@ -68,5 +72,22 @@ export default async function ProLeadDetailPage({
     )
     .orderBy(desc(leadActivities.createdAt))
 
-  return <ProLeadDetailClient lead={lead} activities={activities} />
+  const allUsers = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      role: tenantMembers.role,
+    })
+    .from(tenantMembers)
+    .innerJoin(users, eq(tenantMembers.userId, users.id))
+    .where(eq(tenantMembers.tenantId, tenant.id))
+
+  return (
+    <ProLeadDetailClient
+      lead={lead}
+      activities={activities}
+      allUsers={allUsers}
+      currentUser={{ id: dbUserId }}
+    />
+  )
 }

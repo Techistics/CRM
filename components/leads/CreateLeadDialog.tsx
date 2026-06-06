@@ -50,6 +50,9 @@ const createLeadSchema = z.object({
   dealValue: z.number().nullable().optional(),
   dealCurrency: z.string().min(3).max(3),
   notes: z.string().trim().max(500).optional().nullable(),
+  intakeMonth: z.string().trim().optional().nullable(),
+  destinationCountry: z.string().trim().optional().nullable(),
+  programOfInterest: z.string().trim().optional().nullable(),
 })
 
 type FormValues = z.infer<typeof createLeadSchema>
@@ -350,7 +353,7 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
                             <Loader2 className="h-3 w-3 animate-spin" />
                           </div>
                         ) : (
-                          <SelectValue placeholder="Select agent" />
+                          <SelectValue placeholder="Select counselor" />
                         )}
                       </SelectTrigger>
                     </FormControl>
@@ -422,11 +425,11 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
                 <FormItem className="col-span-2">
                   <FormLabel>Notes</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Add any additional details..." 
-                      className="resize-none" 
-                      rows={3} 
-                      {...field} 
+                    <Textarea
+                      placeholder="Add any additional details..."
+                      className="resize-none"
+                      rows={3}
+                      {...field}
                       value={field.value ?? ''}
                     />
                   </FormControl>
@@ -435,8 +438,53 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
               )}
             />
 
-            <Button 
-              type="submit" 
+            {/* Intake */}
+            <FormField
+              control={form.control}
+              name="intakeMonth"
+              render={({ field }) => (
+                <FormItem className="col-span-1">
+                  <FormLabel>Intake</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. Sep 2026" {...field} value={field.value || ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Destination Country */}
+            <FormField
+              control={form.control}
+              name="destinationCountry"
+              render={({ field }) => (
+                <FormItem className="col-span-1">
+                  <FormLabel>Destination Country</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. Canada" {...field} value={field.value || ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Program of Interest */}
+            <FormField
+              control={form.control}
+              name="programOfInterest"
+              render={({ field }) => (
+                <FormItem className="col-span-2">
+                  <FormLabel>Program of Interest</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. MBA" {...field} value={field.value || ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Button
+              type="submit"
               className="col-span-2 w-full bg-[#223955] hover:bg-[#1a2b40] mt-2"
               disabled={isSubmitting}
             >

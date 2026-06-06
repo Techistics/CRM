@@ -81,7 +81,7 @@ function AcceptInviteContent() {
     })
 
     if (result?.tenantSlug) {
-      router.push(`/t/${result.tenantSlug}`)
+      router.push(`/t/${result.tenantSlug}?role=${result.role}`)
     } else {
       router.push('/sign-in')
     }
@@ -133,7 +133,7 @@ function AcceptInviteContent() {
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Welcome to {inviteData.workspaceName}</h1>
           <p className="text-slate-500 mt-2">
-            {inviteData.inviterName} has invited you to join as an <span className="font-semibold text-primary">{inviteData.role === 'ADMIN' ? 'Admin' : 'Agent'}</span>.
+            {inviteData.inviterName} has invited you to join as an <span className="font-semibold text-primary">{inviteData.role === 'ADMIN' ? 'Admin' : 'Counselor'}</span>.
           </p>
         </div>
 
@@ -205,13 +205,37 @@ function AcceptInviteContent() {
 }
 
 export default function AcceptInvitePage() {
+  const [hasSession, setHasSession] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    // Simple session check via auth API (adjust endpoint as needed)
+    fetch('/api/auth/session')
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json();
+          setHasSession(!!data.session);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setChecking(false));
+  }, []);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     }>
-      <AcceptInviteContent />
+        <AcceptInviteContent />
     </Suspense>
-  )
+  );
 }

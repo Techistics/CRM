@@ -158,7 +158,7 @@ export function TenantListClient({
                     defaultValue="PRO"
                     className="h-10 rounded-[8px] border-[0.5px] border-[var(--card-border-color)] bg-[var(--main-bg)] px-4 text-[13px] font-medium text-[var(--text-strong)] outline-none transition-all focus:ring-2 focus:ring-[var(--accent-color)]/50"
                   >
-                    <option value="PRO">Pro (Agent)</option>
+                    <option value="PRO">Pro (Counselor)</option>
                     <option value="ADMIN">Admin (Workspace Owner)</option>
                   </select>
                 </div>

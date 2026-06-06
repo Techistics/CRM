@@ -1,9 +1,13 @@
 import crypto from 'crypto'
+import { getSession } from '@/lib/auth'
+import { tenantMembers, tenants } from '@/db/schema'
+
 
 import { db } from '@/db'
 import { invitations } from '@/db/schema'
 import { sendInviteEmail } from '@/lib/mail'
 import { getRootOrigin } from '@/lib/public-url'
+import { and, eq } from 'drizzle-orm'
 
 type InviteRole = 'ADMIN' | 'PRO'
 
@@ -56,7 +60,50 @@ export async function createInvitationAndSendEmail({
   }
 
   return {
+    token,
     invitationId: invitation.id,
     emailSent: emailResult.success,
   }
+}
+
+// Accept an invitation for a logged-in user
+export async function acceptInvitationForUser(invitationId: string) {
+  const session = await getSession()
+  if (!session) throw new Error('Unauthorized')
+
+  // Fetch invitation
+  const [invite] = await db
+    .select()
+    .from(invitations)
+    .where(and(eq(invitations.id, invitationId), eq(invitations.status, 'PENDING')))
+    .limit(1)
+
+  if (!invite) throw new Error('Invitation not found or already accepted')
+
+  // Verify email matches session user
+  const user = await db.query.users.findFirst({
+    where: (u, { eq }) => eq(u.id, session.userId),
+  })
+  if (!user) throw new Error('User not found')
+  if (invite.email.toLowerCase().trim() !== user.email.toLowerCase().trim()) {
+    throw new Error('This invitation was sent to a different email address.')
+  }
+
+  // Transaction: add membership and mark accepted
+  await db.transaction(async (tx) => {
+    await tx.insert(tenantMembers).values({
+      tenantId: invite.tenantId,
+      userId: session.userId,
+      role: invite.role,
+    }).onConflictDoNothing()
+    await tx.update(invitations)
+      .set({ status: 'ACCEPTED' })
+      .where(eq(invitations.id, invite.id))
+  })
+
+  const [tenant] = await db.select({ slug: tenants.slug }).from(tenants).where(eq(tenants.id, invite.tenantId)).limit(1)
+  if (!tenant) throw new Error('Tenant not found')
+
+  const targetPath = invite.role === 'ADMIN' ? 'admin/overview' : 'pro/overview'
+  return { success: true, redirectPath: `/t/${tenant.slug}/${targetPath}` }
 }

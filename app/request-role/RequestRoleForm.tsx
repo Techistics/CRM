@@ -58,7 +58,7 @@ export default function RequestRoleForm({
           }
           className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
         >
-          <option value="PRO">Pro (Agent)</option>
+          <option value="PRO">Pro (Counselor)</option>
           <option value="ADMIN">Admin (Owner)</option>
         </select>
         <p className="text-muted-foreground text-xs mt-1.5">

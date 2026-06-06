@@ -108,7 +108,7 @@ export async function PATCH(
       const workspaceUrl = `${baseUrl}/t/${ctx.tenant.slug}`
       
       // Format role name nicely
-      const roleDisplayName = row.requestedRole === 'ADMIN' ? 'Team Admin' : 'Agent'
+      const roleDisplayName = row.requestedRole === 'ADMIN' ? 'Team Admin' : 'Counselor'
       
       await sendAccessApprovedEmail({
         userEmail: user.email,

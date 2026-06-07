@@ -1,4 +1,5 @@
 import './globals.css'
+import { DM_Sans } from 'next/font/google'
 // Removed Google Font import to avoid build-time network fetch issues
 import Script from 'next/script'
 import { Toaster } from '@/components/ui/sonner'
@@ -10,13 +11,19 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 
 const inter = { variable: '', className: '' } // fallback when Inter font cannot be loaded
 
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-sans',
+})
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" className={`${inter.variable} ${dmSans.variable}`} suppressHydrationWarning>
       <head>
         <script id="theme-init" dangerouslySetInnerHTML={{ __html: `(() => {
             try {

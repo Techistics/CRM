@@ -16,7 +16,7 @@
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 221 83% 53%;
+    --primary: 199 89% 48%;
     --primary-foreground: 0 0% 100%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222 47% 11%;
@@ -28,23 +28,90 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221 83% 53%;
+    --ring: 199 89% 48%;
     --radius: 0.75rem;
 
-    /* Custom Design Tokens */
+    /* Design system — brand */
+    --color-primary: #0ea5e9;
+    --color-primary-hover: #0284c7;
+    --color-primary-light: #e0f2fe;
+    --color-primary-text: #0c4a6e;
+
+    /* Design system — backgrounds */
+    --color-bg-page: #f1f5f9;
+    --color-bg-surface: #ffffff;
+    --color-bg-subtle: #f8fafc;
+    --color-bg-hover: #f1f5f9;
+
+    /* Design system — text */
+    --color-text-primary: #0f172a;
+    --color-text-secondary: #475569;
+    --color-text-muted: #94a3b8;
+    --color-text-inverse: #ffffff;
+
+    /* Design system — borders */
+    --color-border: #e2e8f0;
+    --color-border-strong: #cbd5e1;
+
+    /* Design system — semantic */
+    --color-success: #10b981;
+    --color-success-light: #d1fae5;
+    --color-success-text: #065f46;
+    --color-warning: #f59e0b;
+    --color-warning-light: #fef3c7;
+    --color-warning-text: #78350f;
+    --color-danger: #ef4444;
+    --color-danger-light: #fee2e2;
+    --color-danger-text: #7f1d1d;
+    --color-info: #3b82f6;
+    --color-info-light: #dbeafe;
+    --color-info-text: #1e3a8a;
+    --color-neutral: #64748b;
+    --color-neutral-light: #f1f5f9;
+    --color-neutral-text: #1e293b;
+
+    /* Design system — sidebar */
+    --color-sidebar-bg: #ffffff;
+    --color-sidebar-border: #e2e8f0;
+    --color-sidebar-icon: #64748b;
+    --color-sidebar-active-bg: #e0f2fe;
+    --color-sidebar-active-text: #0284c7;
+    --color-sidebar-active-icon: #0284c7;
+    --color-sidebar-hover-bg: #f1f5f9;
+
+    /* Design system — radius & shadow */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-full: 9999px;
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.07), 0 4px 6px rgba(0, 0, 0, 0.04);
+
+    /* Design system — spacing */
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+
+    /* Legacy / app tokens */
     --accent-color: #CBEF7F;
     --accent-text: #2C5000;
     --accent-hover: #b8e05a;
-    --font-app: 'Inter', sans-serif;
+    --font-app: var(--font-sans), system-ui, sans-serif;
     --radius-card: 12px;
-    --sidebar-width: 220px;
-    --topbar-height: 56px;
+    --sidebar-width: 240px;
+    --topbar-height: 60px;
     --gap: 1rem;
     --card-padding: 1rem;
-    --content-max-width: 1600px;
+    --content-max-width: 1280px;
     
-    --sidebar-bg: #ffffff;
-    --main-bg: #f8fafc; /* Slate 50 */
+    --sidebar-bg: var(--color-sidebar-bg);
+    --main-bg: var(--color-bg-subtle);
     --card-bg: #ffffff;
     --card-border-color: rgba(15, 23, 42, 0.08); /* Slate 900 based */
     --divider-color: rgba(15, 23, 42, 0.06);
@@ -104,7 +171,10 @@
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: var(--font-app);
-    font-size: 13px;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
   /* Interactive elements pointer */
@@ -197,4 +267,14 @@
 *::-webkit-scrollbar-thumb {
   background: var(--card-border-color);
   border-radius: 3px;
+}
+
+/* ── CRM Focus & Transitions ── */
+:focus-visible {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+}
+
+button, a, input, select, textarea {
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, opacity 150ms ease;
 }

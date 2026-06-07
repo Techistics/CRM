@@ -46,37 +46,33 @@ export default async function ProOverviewPage() {
   const followUps = myLeads.filter((l) => l.stage === 'follow_up')
 
   return (
-    <div className="w-full min-w-0 p-0">
-      <div className="mb-6 flex flex-col justify-between gap-4 sm:mb-8 sm:flex-row sm:items-center">
+    <div className="w-full min-w-0">
+      <div className="flex items-center justify-between mb-6">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">Overview</h1>
-          <p className="text-gray-500 text-sm mt-1">Welcome back, {dbUser.name}</p>
-        </div>
-        <div className="flex w-full min-w-0 items-center gap-3 rounded-full border border-gray-200 bg-white py-1.5 pl-4 pr-1.5 shadow-sm sm:w-auto">
-          <span className="min-w-0 truncate text-sm font-medium text-gray-600">{dbUser.email}</span>
-          <UserMenu user={dbUser} />
+          <h1 className="text-xl font-semibold text-slate-900">Overview</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Welcome back, {dbUser.name}</p>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {[
           { label: 'My Total Leads', value: myLeads.length },
           { label: 'Active', value: activeLeads.length },
           { label: 'Follow Ups', value: followUps.length },
         ].map((stat) => (
-          <div key={stat.label} className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:-translate-y-1">
-            <p className="text-gray-500 text-sm font-medium">{stat.label}</p>
-            <p className="text-gray-900 text-4xl font-bold mt-2">{stat.value}</p>
+          <div key={stat.label} className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{stat.label}</p>
+            <p className="text-2xl font-semibold text-slate-900 mt-2">{stat.value}</p>
           </div>
         ))}
       </div>
 
       {/* My leads table */}
-      <div className="bg-white border border-gray-200 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1)]">
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-gray-900 font-semibold text-lg flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+      <div className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+          <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-brand-light text-brand flex items-center justify-center">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
             </div>
             Recent Leads
@@ -84,49 +80,48 @@ export default async function ProOverviewPage() {
           
           <Link
             href={tenantPath(tenant.slug, '/pro/leads')}
-            className="text-blue-600 font-medium text-sm hover:text-blue-700 transition-colors bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100"
+            className="text-sm font-medium text-brand hover:text-brand-hover bg-brand-light hover:bg-sky-100 px-3 py-1.5 rounded-lg transition-colors"
           >
             View all →
           </Link>
         </div>
         {myLeads.length === 0 ? (
-          <div className="px-6 py-16 text-center text-gray-500 text-sm">
-            <div className="text-4xl mb-4 transition-transform hover:scale-110 duration-300 inline-block">📭</div>
-            <p className="font-medium text-gray-900 text-lg">No leads found</p>
-            <p className="mt-1">You haven&apos;t been assigned any leads yet.</p>
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <p className="text-base font-medium text-slate-700 mb-1">No leads found</p>
+            <p className="text-sm text-slate-500">You haven&apos;t been assigned any leads yet.</p>
           </div>
         ) : (
           <div className="crm-table-scroll">
             <table className="w-full min-w-[560px] text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/80">
-                  <th className="text-left text-gray-500 font-medium px-6 py-4">Name</th>
-                  <th className="text-left text-gray-500 font-medium px-6 py-4">Contact</th>
-                  <th className="hidden text-left text-gray-500 font-medium px-6 py-4 md:table-cell">City</th>
-                  <th className="text-left text-gray-500 font-medium px-6 py-4">Stage</th>
-                  <th className="text-left text-gray-500 font-medium px-6 py-4">Action</th>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</th>
+                  <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 md:table-cell">City</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Stage</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {myLeads.slice(0, 5).map((lead) => (
-                  <tr key={lead.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/80 transition-colors">
-                    <td className="px-6 py-4">
-                      <p className="text-gray-900 font-medium">{lead.fullName}</p>
+                  <tr key={lead.id} className="hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-slate-900">{lead.fullName}</p>
                       {lead.email && (
-                        <p className="text-gray-500 text-xs mt-0.5">{lead.email}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{lead.email}</p>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-gray-600 font-medium">{lead.contactNumber ?? '—'}</td>
-                    <td className="hidden px-6 py-4 text-gray-600 md:table-cell">{lead.city ?? '—'}</td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs bg-white border border-gray-200 text-gray-700 font-medium px-2.5 py-1.5 rounded-lg shadow-sm">
+                    <td className="px-4 py-3 text-sm text-slate-600">{lead.contactNumber ?? '—'}</td>
+                    <td className="hidden px-4 py-3 text-sm text-slate-600 md:table-cell">{lead.city ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
                         {LEAD_STAGE_LABELS[lead.stage ?? 'new_lead']}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3">
                       <Link
                         href={tenantPath(tenant.slug, `/pro/leads/${lead.id}`)}
-                        className="text-xs bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:text-gray-900 font-medium px-3 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1 w-max"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:text-brand-hover transition-colors"
                       >
                         Details
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>

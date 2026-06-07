@@ -262,14 +262,14 @@ export default function ProLeadDetailClient({
         <div>
           <Link
             href={tenantSlug ? tenantPath(tenantSlug, '/pro/leads') : '/pro/leads'}
-            className="text-blue-600 font-medium text-sm hover:text-blue-700 transition flex items-center gap-1 w-max bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100"
+            className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             Back to My Leads
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900 mt-4 tracking-tight">{lead.fullName}</h1>
+          <h1 className="text-2xl font-semibold text-slate-900 mt-3">{lead.fullName}</h1>
           <div className="flex items-center gap-3 mt-3">
-            <span className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium bg-white shadow-sm ${currentStageColor}`}>{currentStageLabel}</span>{isDeadState && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{currentStageLabel}</span>{isDeadState && (
               <span className="ml-2 rounded-md bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-1 text-xs">
                 Dead
               </span>
@@ -311,13 +311,13 @@ export default function ProLeadDetailClient({
           )}
           <Tabs value={activeTab} className="w-full">
         {/* Sticky tab list */}
-        <TabsList className="mb-8 p-1 bg-gray-100/80 backdrop-blur rounded-xl border border-gray-200 inline-flex sticky top-0 z-10 bg-background">
-          <TabsTrigger value="overview" onClick={() => setActiveTab('overview')} className="px-6 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all">Overview</TabsTrigger>
-          <TabsTrigger value="documents" onClick={() => setActiveTab('documents')} className="px-6 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all">Documents</TabsTrigger>
-          <TabsTrigger value="pipeline" onClick={() => setActiveTab('pipeline')} className="px-6 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all">Pipeline</TabsTrigger>
-          <TabsTrigger value="activity" onClick={() => setActiveTab('activity')} className="px-6 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all">Activity</TabsTrigger>
-          <TabsTrigger value="reminders" onClick={() => setActiveTab('reminders')} className="px-6 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all">Reminders</TabsTrigger>
-          <TabsTrigger value="whatsapp" onClick={() => setActiveTab('whatsapp')} className="px-6 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all">WhatsApp</TabsTrigger>
+        <TabsList className="mb-6 inline-flex w-auto sticky top-[60px] z-10 bg-white border-b border-slate-200 pb-0">
+          <TabsTrigger value="overview" onClick={() => setActiveTab('overview')}>Overview</TabsTrigger>
+          <TabsTrigger value="documents" onClick={() => setActiveTab('documents')}>Documents</TabsTrigger>
+          <TabsTrigger value="pipeline" onClick={() => setActiveTab('pipeline')}>Pipeline</TabsTrigger>
+          <TabsTrigger value="activity" onClick={() => setActiveTab('activity')}>Activity</TabsTrigger>
+          <TabsTrigger value="reminders" onClick={() => setActiveTab('reminders')}>Reminders</TabsTrigger>
+          <TabsTrigger value="whatsapp" onClick={() => setActiveTab('whatsapp')}>WhatsApp</TabsTrigger>
         </TabsList>
 
         {/* ==== Documents ==== */}
@@ -338,9 +338,9 @@ export default function ProLeadDetailClient({
                 onStepClick={(newStage) => handleStageChange(newStage as any)}
               />
               {/* Contact Info */}
-              <div className={`bg-white border border-gray-200 shadow-sm rounded-2xl p-6 ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
-                <h2 className="text-gray-900 font-semibold mb-5 flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm">
+              <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
+                <h2 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-md bg-brand-light text-brand flex items-center justify-center">
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                   </span>
                   Contact Info
@@ -359,16 +359,16 @@ export default function ProLeadDetailClient({
                     { label: 'Program of Interest', value: lead.programOfInterest ?? '—' },
                   ].map(({ label, value }) => (
                     <div key={label}>
-                      <p className="text-gray-500 font-medium">{label}</p>
-                      <p className="text-gray-900 font-medium mt-1 bg-gray-50 px-2 py-1.5 rounded-md border border-gray-100">{value ?? '—'}</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+                      <p className="text-sm font-medium text-slate-900 mt-0.5">{value ?? '—'}</p>
                     </div>
                   ))}
                 </div>
               </div>
               {/* Edit Lead Fields card */}
-              <div className={`mt-4 bg-white border border-gray-200 shadow-sm rounded-xl p-6 ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
-                <h2 className="text-gray-900 font-semibold mb-5 flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-sm">
+              <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
+                <h2 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center">
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                   </span>
                   Edit Lead Fields
@@ -389,27 +389,27 @@ export default function ProLeadDetailClient({
                     ] as const
                   ).map(([key, label]) => (
                     <label key={key} className="flex flex-col gap-1">
-                      <span className="text-xs text-gray-500 font-medium">{label}</span>
+                      <span className="text-xs font-medium text-slate-600">{label}</span>
                       <input
                         value={profileForm[key]}
                         onChange={(e) =>
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
                           setProfileForm((prev: any) => ({ ...prev, [key]: e.target.value }))
                         }
-                        className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
                       />
                     </label>
                   ))}
                   <div className="col-span-2 grid grid-cols-3 gap-3">
                     <label className="col-span-1 flex flex-col gap-1">
-                      <span className="text-xs text-gray-500 font-medium">Currency</span>
+                      <span className="text-xs font-medium text-slate-600">Currency</span>
                       <select
                         value={profileForm.dealCurrency}
                         onChange={(e) =>
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
                           setProfileForm((prev: any) => ({ ...prev, dealCurrency: e.target.value }))
                         }
-                        className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 flex-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
                       >
                         {['USD','EUR','GBP','CAD','AUD','INR'].map(c => (
                           <option key={c} value={c}>{c}</option>
@@ -417,7 +417,7 @@ export default function ProLeadDetailClient({
                       </select>
                     </label>
                     <label className="col-span-2 flex flex-col gap-1">
-                      <span className="text-xs text-gray-500 font-medium">
+                      <span className="text-xs font-medium text-slate-600">
                         Deal Value <span className="text-gray-400 font-normal">(optional)</span>
                       </span>
                       <input
@@ -430,7 +430,7 @@ export default function ProLeadDetailClient({
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
                           setProfileForm((prev: any) => ({ ...prev, dealValue: e.target.value }))
                         }
-                        className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
                       />
                     </label>
                   </div>
@@ -456,20 +456,20 @@ export default function ProLeadDetailClient({
                     if (data) router.refresh()
                   }}
                   disabled={editingLead}
-                  className="mt-4 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50 transition-colors"
+                  className="mt-4 h-9 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
                 >
                   {editingLead ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Lead Profile'}
                 </button>
               </div>
 
               {/* NEW – Assigned To UI */}
-              <div className="mt-4 bg-white border border-gray-200 shadow-sm rounded-xl p-6">
-                <h2 className="text-gray-900 font-semibold mb-3">Assigned To</h2>
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm">
+                <h2 className="text-sm font-semibold text-slate-900 mb-3">Assigned To</h2>
                 <select
                   value={assignedTo}
                   disabled={isDeadState || lead.assignedTo !== currentUser.id}
                   onChange={(e) => handleAssign(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="">Unassigned</option>
                   {adminUsers.map((u) => (
@@ -477,13 +477,13 @@ export default function ProLeadDetailClient({
                   ))}
                 </select>
                 {lead.assignedTo !== currentUser.id && (
-                  <p className="mt-2 text-xs text-amber-600">You can only transfer leads that you currently own.</p>
+                  <p className="mt-1.5 text-xs text-amber-600">You can only transfer leads that you currently own.</p>
                 )}
               </div>
 
               {/* NEW – Mark as Dead UI */}
-              <div className="mt-4 bg-white border border-gray-200 shadow-sm rounded-xl p-6">
-                <label className="flex items-center gap-2 text-sm text-gray-900">
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm">
+                <label className="flex items-center gap-2 text-sm text-slate-900">
                   <input
                     type="checkbox"
                     checked={isDead}
@@ -502,12 +502,12 @@ export default function ProLeadDetailClient({
                     value={deadReason}
                     onChange={(e) => setDeadReason(e.target.value)}
                     placeholder="Reason for marking dead…"
-                    className="mt-2 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 text-sm placeholder-gray-400"
+                    className="mt-2 w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
                     rows={3}
                   />
                 )}
                 {isDeadState && (
-                  <div className="mt-2 text-sm text-gray-500">
+                  <div className="mt-2 text-sm text-slate-500">
                     <span className="font-medium text-gray-700">Reason:</span> {deadReason || 'No reason provided'}
                   </div>
                 )}
@@ -527,9 +527,9 @@ export default function ProLeadDetailClient({
 
         {/* ==== Pipeline ==== */}
         <TabsContent value="pipeline" className="outline-none">
-          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6">
-            <h2 className="text-gray-900 font-semibold mb-5 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-md bg-purple-50 text-purple-600 flex items-center justify-center shadow-sm">
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm">
+            <h2 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-md bg-purple-50 text-purple-600 flex items-center justify-center">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
               </span>
               Pipeline Stage
@@ -545,12 +545,12 @@ export default function ProLeadDetailClient({
                     disabled={isDeadState}
                     className={`text-left px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all border ${
                       isSelected
-                        ? 'bg-gray-50 shadow-sm border-gray-300 ring-1 ring-gray-200 text-gray-900'
-                        : 'bg-white border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-300 hover:shadow-sm'
+                        ? 'bg-brand-light border-brand/30 text-brand'
+                        : 'bg-white border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${isSelected ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-300'}`}>
+                      <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${isSelected ? 'border-brand bg-brand text-white' : 'border-gray-300'}`}>
                         {isSelected && <svg className="w-2 h-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                       </div>
                       {stageLabel}
@@ -565,20 +565,20 @@ export default function ProLeadDetailClient({
         {/* ==== Activity ==== */}
         <TabsContent value="activity" className="outline-none">
           {/* Add Activity UI */}
-          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6">
-            <h2 className="text-gray-900 font-semibold mb-4 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-sm">
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm">
+            <h2 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
               </span>
               Add Activity
             </h2>
-            <div className="flex gap-2 mb-3 bg-gray-50 p-1.5 rounded-xl w-max border border-gray-100">
+            <div className="flex gap-2 mb-3 bg-slate-50 p-1 rounded-lg w-max border border-slate-200">
               {(['note', 'call', 'message'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setNoteType(t)}
                   className={`text-xs px-3.5 py-1.5 rounded-lg transition-all font-medium capitalize shadow-sm ${
-                    noteType === t ? 'bg-white text-gray-900 border border-gray-200' : 'border border-transparent text-gray-500 hover:text-gray-700'
+                    noteType === t ? 'bg-white text-slate-900 border border-slate-200 shadow-sm' : 'border border-transparent text-slate-500 hover:text-slate-700'
                   }`}
                 >
                   {t}
@@ -590,7 +590,7 @@ export default function ProLeadDetailClient({
               onChange={(e) => setNote(e.target.value)}
               placeholder={`Add a ${noteType} for future reference...`}
               rows={3}
-              className="w-full bg-white border border-gray-200 shadow-sm rounded-xl px-4 py-3 text-gray-900 text-sm placeholder-gray-400 resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium"
+              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
             />
             <div className="flex justify-end mt-3">
               <button
@@ -603,7 +603,7 @@ export default function ProLeadDetailClient({
             </div>
           </div>
           {/* Activity Log */}
-          <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6 h-fit mt-6">
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm mt-4">
             <h2 className="text-gray-900 font-semibold mb-2">Activity Log</h2>
             <p className="text-gray-500 text-xs mb-6 font-medium">Historical timeline of status changes, calls, notes, and messages.</p>
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">

@@ -59,7 +59,7 @@ export function RoleSidebar({
     <>
       <div
         className={cn(
-          'fixed inset-0 z-40 bg-[var(--overlay)] lg:hidden',
+          'fixed inset-0 z-40 bg-slate-900/40 lg:hidden',
           isOpen ? 'block' : 'hidden',
         )}
         onClick={toggle}
@@ -69,19 +69,19 @@ export function RoleSidebar({
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex w-[var(--sidebar-width)] flex-col',
-          'border-r-[0.5px] border-r-[var(--card-border-color)] bg-[var(--sidebar-bg)]',
+          'border-r border-slate-200 bg-white dark:bg-[#0b0f19] dark:border-slate-800',
           'transition-transform duration-200 ease-out',
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
         data-role={role}
       >
-        <div className="flex h-[var(--topbar-height)] shrink-0 items-center gap-2 px-3">
-          <Image src={logoSrc} alt={brandName} width={26} height={26} className="rounded-sm object-contain" />
-          <span className="text-[14px] font-semibold text-[var(--text-strong)] truncate">{brandName}</span>
+        <div className="flex h-[60px] shrink-0 items-center gap-2.5 border-b border-slate-200 dark:border-slate-800 px-4">
+          <Image src={logoSrc} alt={brandName} width={26} height={26} className="rounded-lg object-contain" />
+          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{brandName}</span>
           <Button
             variant="ghost"
             size="icon"
-            className="ml-auto h-8 w-8 rounded-[8px] p-0 lg:hidden"
+            className="ml-auto h-8 w-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 lg:hidden"
             onClick={toggle}
             type="button"
           >
@@ -91,10 +91,10 @@ export function RoleSidebar({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="px-4 pb-2 pt-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--muted-text)]">
+          <div className="px-3 pt-4 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
             Main
           </div>
-          <nav className="flex-1 space-y-1 overflow-y-auto px-2 pb-4">
+          <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
             {mainNav.map((item) => {
               const href = tenantPath(tenantSlug, item.href)
               const active = isActive(pathname, href, item.matchPrefix)
@@ -106,18 +106,21 @@ export function RoleSidebar({
                   key={item.href}
                   href={href}
                   className={cn(
-                    'flex items-center gap-3 rounded-[8px] px-3 py-[8px] text-[13px] transition-all',
+                    'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors',
                     active
-                      ? 'bg-[var(--accent-color)]/15 text-[var(--accent-text)]'
-                      : 'text-[var(--text-main)] hover:bg-[var(--foreground)]/5 hover:text-[var(--text-strong)]',
+                      ? 'font-semibold text-brand bg-brand-light dark:bg-brand/10'
+                      : 'font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100',
                   )}
                 >
                   <item.icon
-                    className={cn('h-[16px] w-[16px] shrink-0', active ? 'opacity-100' : 'opacity-60')}
+                    className={cn(
+                      'h-[16px] w-[16px] shrink-0',
+                      active ? 'text-brand' : 'text-slate-400',
+                    )}
                   />
                   <span className={cn('font-medium')}>{item.name}</span>
                   {badge ? (
-                    <span className="ml-auto flex min-w-[22px] items-center justify-center rounded-[999px] bg-[var(--danger)] px-[6px] py-[1px] text-[10px] font-bold text-white shadow-sm">
+                    <span className="ml-auto flex min-w-[20px] items-center justify-center rounded-full bg-danger px-1.5 py-0.5 text-[10px] font-bold text-white">
                       {badge}
                     </span>
                   ) : null}
@@ -126,12 +129,12 @@ export function RoleSidebar({
             })}
           </nav>
 
-          <div className="border-t-[0.5px] border-t-[var(--card-border-color)] px-2 py-3">
-            <p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--muted-text)]">
+          <div className="border-t border-slate-200 dark:border-slate-800 px-2 py-3">
+            <p className="px-3 pt-4 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
               Settings
             </p>
             {settingsLinks.length ? (
-              <nav className="space-y-1">
+              <nav className="space-y-0.5">
                 {settingsLinks.map((item) => {
                   const href = tenantPath(tenantSlug, item.href)
                   const active = pathname === href.split('#')[0]
@@ -140,16 +143,16 @@ export function RoleSidebar({
                       key={item.name}
                       href={href}
                       className={cn(
-                        'flex items-center gap-3 rounded-[8px] px-3 py-[8px] text-[13px] transition-all',
+                        'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors',
                         active
-                          ? 'bg-[var(--accent-color)]/15 text-[var(--accent-text)]'
-                          : 'text-[var(--text-main)] hover:bg-[var(--foreground)]/5 hover:text-[var(--text-strong)]',
+                          ? 'font-semibold text-brand bg-brand-light dark:bg-brand/10'
+                          : 'font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100',
                       )}
                     >
                       <item.icon
                         className={cn(
                           'h-[16px] w-[16px] shrink-0',
-                          active ? 'opacity-100' : 'opacity-60',
+                          active ? 'text-brand' : 'text-slate-400',
                         )}
                       />
                       <span className="block min-w-0">
@@ -168,7 +171,7 @@ export function RoleSidebar({
             )}
           </div>
 
-          <div className="border-t-[0.5px] border-t-[var(--card-border-color)] px-2 py-3">
+          <div className="border-t border-slate-200 dark:border-slate-800 px-2 py-3">
             <button
               type="button"
               onClick={async () => {
@@ -176,12 +179,12 @@ export function RoleSidebar({
                 router.push('/sign-in')
                 router.refresh()
               }}
-              className="flex w-full items-center gap-3 rounded-[8px] px-3 py-[8px] text-left text-[13px] font-medium text-[var(--muted-text)] transition-all hover:bg-[var(--foreground)]/5 hover:text-[var(--text-strong)]"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors"
             >
-              <LogOut className="h-[16px] w-[16px] shrink-0 opacity-60" />
+              <LogOut className="h-[16px] w-[16px] shrink-0" />
               <span className="min-w-0">
                 <span className="block leading-none">Logout</span>
-                <span className="mt-1 block text-[11px] font-medium text-[var(--muted-text)]">
+                <span className="mt-0.5 block text-xs text-slate-400 dark:text-slate-500">
                   Exit the app
                 </span>
               </span>

@@ -79,13 +79,13 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
   return (
     <div className="max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[var(--text-strong)] tracking-tight">Workspace Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">Manage your organization&apos;s identity and branding</p>
+        <h1 className="text-xl font-semibold text-slate-900">Workspace Settings</h1>
+        <p className="text-sm text-slate-500 mt-0.5">Manage your organization&apos;s identity and branding</p>
       </div>
 
       <div className="grid gap-6">
-        <Card className="border-none shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-          <CardHeader className="border-b bg-gray-50/50 dark:bg-slate-800/50 px-6 py-4">
+        <Card className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden">
+          <CardHeader className="border-b border-slate-200 bg-slate-50 px-6 py-4">
             <div className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-blue-500" />
               <div>
@@ -96,21 +96,21 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             <div className="grid gap-2">
-              <Label htmlFor="name" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Workspace Name</Label>
+              <Label htmlFor="name" className="text-sm font-medium text-slate-700">Workspace Name</Label>
               <div className="relative">
                 <Input
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Acme Immigration"
-                  className="pl-3 h-10 border-gray-200 focus:ring-blue-500/20 transition-all"
+                  className="h-9 border-slate-200 focus:ring-sky-500/20 focus:border-sky-500"
                 />
               </div>
-              <p className="text-[11px] text-gray-400">This name will appear in the sidebar and navigation headers.</p>
+              <p className="text-xs text-slate-400">This name will appear in the sidebar and navigation headers.</p>
             </div>
 
             <div className="grid gap-2 opacity-60 cursor-not-allowed">
-              <Label htmlFor="slug" className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+              <Label htmlFor="slug" className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
                 Workspace Slug
                 <span title="Protected field" className="inline-flex">
                   <ShieldCheck className="h-3 w-3 text-gray-400" />
@@ -122,13 +122,13 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
                 disabled
                 className="h-10 bg-gray-50 border-gray-100"
               />
-              <p className="text-[11px] text-gray-400">The slug is used in your unique URL and cannot be changed.</p>
+              <p className="text-xs text-slate-400">The slug is used in your unique URL and cannot be changed.</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-          <CardHeader className="border-b bg-gray-50/50 dark:bg-slate-800/50 px-6 py-4">
+        <Card className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden">
+          <CardHeader className="border-b border-slate-200 bg-slate-50 px-6 py-4">
             <div className="flex items-center gap-2">
               <ImageIcon className="h-5 w-5 text-purple-500" />
               <div>
@@ -158,7 +158,7 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
 
                 <div className="flex-1 w-full space-y-4">
                   <div className="grid gap-2">
-                    <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Upload New Logo</Label>
+                    <Label className="text-sm font-medium text-slate-700">Upload New Logo</Label>
                     <div className="flex items-center gap-2">
                       <Button
                         type="button"
@@ -186,13 +186,13 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor="logo" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Logo URL (Alternative)</Label>
+                    <Label htmlFor="logo" className="text-sm font-medium text-slate-700">Logo URL (Alternative)</Label>
                     <Input
                       id="logo"
                       value={logoUrl}
                       onChange={(e) => setLogoUrl(e.target.value)}
                       placeholder="https://example.com/logo.png"
-                      className="h-10 border-gray-200 focus:ring-blue-500/20 transition-all"
+                      className="h-9 border-slate-200 focus:ring-sky-500/20 focus:border-sky-500"
                     />
                   </div>
                 </div>
@@ -213,7 +213,7 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
           <Button
             onClick={handleSave}
             disabled={loading}
-            className="min-w-[120px] bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/10 transition-all"
+            className="min-w-[120px] bg-brand hover:bg-brand-hover text-white transition-colors"
           >
             {loading ? (
               <>

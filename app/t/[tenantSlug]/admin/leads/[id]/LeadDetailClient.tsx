@@ -235,7 +235,7 @@ export default function LeadDetailClient({
   )
 
   return (<TooltipProvider>
-    <div className="mx-auto w-full min-w-0 max-w-6xl px-0 py-4 sm:px-2 sm:py-6 lg:px-4 lg:py-8">
+    <div className="mx-auto w-full min-w-0 max-w-6xl">
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -243,12 +243,12 @@ export default function LeadDetailClient({
             href={
               tenantSlug ? tenantPath(tenantSlug, '/admin/leads') : '/admin/leads'
             }
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 transition-colors"
           >
             ← Back to Leads
           </Link>
           <div className="mt-2 flex flex-wrap items-center gap-3 sm:gap-4">
-            <h1 className="min-w-0 break-words text-xl font-semibold tracking-tight text-foreground sm:text-2xl lg:text-3xl">
+            <h1 className="min-w-0 break-words text-2xl font-semibold text-slate-900">
               {lead.fullName}
             </h1>
             {lead.dealValue && (
@@ -338,7 +338,7 @@ export default function LeadDetailClient({
         </div>
       )}
       <Tabs value={activeTab} className="w-full">
-        <TabsList className="mb-6 grid w-full grid-cols-2 sm:inline-flex sm:w-auto sticky top-0 z-10 bg-background">
+        <TabsList className="mb-6 inline-flex w-auto sticky top-[60px] z-10 bg-white border-b border-slate-200 pb-0">
           <TabsTrigger value="overview" onClick={() => setActiveTab('overview')}>Overview</TabsTrigger>
           <TabsTrigger value="documents" onClick={() => setActiveTab('documents')}>Documents</TabsTrigger>
           <TabsTrigger value="pipeline" onClick={() => setActiveTab('pipeline')}>Pipeline</TabsTrigger>
@@ -364,8 +364,8 @@ export default function LeadDetailClient({
               />
 
               {/* Contact Info card */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-                <h2 className="text-white font-medium mb-4">Contact Info</h2>
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm">
+                <h2 className="text-sm font-semibold text-slate-900 mb-4">Contact Info</h2>
                 <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                   {[
                     { label: 'Email', value: lead.email },
@@ -384,16 +384,16 @@ export default function LeadDetailClient({
                     { label: 'Program of Interest', value: lead.programOfInterest ?? '—' },
                   ].map(({ label, value }) => (
                     <div key={label}>
-                      <p className="text-gray-500">{label}</p>
-                      <p className="text-white mt-0.5">{value ?? '—'}</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+                      <p className="text-sm font-medium text-slate-900 mt-0.5">{value ?? '—'}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Edit Lead Fields card */}
-              <div className={`bg-gray-900 border border-gray-800 rounded-xl p-6 ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
-                <h2 className="text-white font-medium mb-4">Edit Lead Fields</h2>
+              <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
+                <h2 className="text-sm font-semibold text-slate-900 mb-4">Edit Lead Fields</h2>
                 <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                   {(
                     [
@@ -410,25 +410,25 @@ export default function LeadDetailClient({
                     ] as const
                   ).map(([key, label]) => (
                     <label key={key} className="flex flex-col gap-1">
-                      <span className="text-xs text-gray-400">{label}</span>
+                      <span className="text-xs font-medium text-slate-600">{label}</span>
                       <input
                         value={profileForm[key]}
                         onChange={(e) =>
                           setProfileForm((prev) => ({ ...prev, [key]: e.target.value }))
                         }
-                        className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                        className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
                       />
                     </label>
                   ))}
                   <div className="col-span-2 grid grid-cols-3 gap-3">
                     <label className="col-span-1 flex flex-col gap-1">
-                      <span className="text-xs text-gray-400">Currency</span>
+                      <span className="text-xs font-medium text-slate-600">Currency</span>
                       <select
                         value={profileForm.dealCurrency}
                         onChange={(e) =>
                           setProfileForm((prev) => ({ ...prev, dealCurrency: e.target.value }))
                         }
-                        className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white flex-1"
+                        className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
                       >
                         {CURRENCIES.map(c => (
                           <option key={c} value={c}>{c}</option>
@@ -436,7 +436,7 @@ export default function LeadDetailClient({
                       </select>
                     </label>
                     <label className="col-span-2 flex flex-col gap-1">
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs font-medium text-slate-600">
                         Deal Value <span className="text-muted-foreground">(optional)</span>
                       </span>
                       <input
@@ -448,7 +448,7 @@ export default function LeadDetailClient({
                         onChange={(e) =>
                           setProfileForm((prev) => ({ ...prev, dealValue: e.target.value }))
                         }
-                        className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                        className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
                       />
                     </label>
                   </div>
@@ -456,13 +456,13 @@ export default function LeadDetailClient({
                 <button
                   onClick={handleSaveLeadProfile}
                   disabled={editingLead || isDeadState}
-                  className="mt-3 bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg disabled:opacity-50"
+                  className="mt-4 h-9 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
                 >
                   {editingLead ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Lead Profile'}
                 </button>
               </div>
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-                <label className="flex items-center gap-2 text-sm text-white">
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm">
+                <label className="flex items-center gap-2 text-sm text-slate-900">
                   <input
                     type="checkbox"
                     checked={isDead}
@@ -472,7 +472,7 @@ export default function LeadDetailClient({
                       setIsDead(checked);
                       if (!checked) setDeadReason('');
                     }}
-                    className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500"
+                    className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-sky-500"
                   />
                   Mark Lead as Dead
                 </label>
@@ -481,12 +481,12 @@ export default function LeadDetailClient({
                     value={deadReason}
                     onChange={(e) => setDeadReason(e.target.value)}
                     placeholder="Reason for marking dead…"
-                    className="mt-2 w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600"
+                    className="mt-2 w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
                     rows={3}
                   />
                 )}
                 {isDeadState && (
-                  <div className="mt-2 text-sm text-gray-400">
+                  <div className="mt-2 text-sm text-slate-500">
                     <span className="font-medium">Reason:</span> {deadReason || 'No reason provided'}
                   </div>
                 )}
@@ -501,13 +501,13 @@ export default function LeadDetailClient({
                 )}
               </div>
               {/* Assigned To card */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-                <h2 className="text-white font-medium mb-4">Assigned To</h2>
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm">
+                <h2 className="text-sm font-semibold text-slate-900 mb-4">Assigned To</h2>
                 <select
                   value={assignedTo}
                   onChange={(e) => handleAssign(e.target.value)}
                   disabled={isDeadState}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-gray-500"
+                  className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
                 >
                   <option value="">Unassigned</option>
                   {proUsers.map((u) => (
@@ -517,7 +517,7 @@ export default function LeadDetailClient({
                   ))}
                 </select>
                 {proUsers.length === 0 && (
-                  <p className="text-gray-600 text-xs mt-2">
+                  <p className="text-xs text-slate-400 mt-2">
                     No pro counselors yet. Add them in Team settings.
                   </p>
                 )}
@@ -528,8 +528,8 @@ export default function LeadDetailClient({
 
         {/* ==== Pipeline ==== */}
         <TabsContent value="pipeline" className="outline-none">
-          <div className={`bg-gray-900 border border-gray-800 rounded-xl p-6 ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
-            <h2 className="text-white font-medium mb-4">Pipeline Stage</h2>
+          <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
+            <h2 className="text-sm font-semibold text-slate-900 mb-4">Pipeline Stage</h2>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {(pipelineStages.length > 0
                 ? pipelineStages.map((s) => ({
@@ -547,8 +547,8 @@ export default function LeadDetailClient({
                   className={`text-left px-3 py-2 rounded-lg text-sm transition-colors border ${primaryStage === s.value
                     ? s.mutedClasses
                     : activeStages.includes(s.value)
-                      ? 'border-gray-600 text-gray-200 bg-gray-800/40'
-                      : 'border-gray-800 text-gray-500 hover:text-gray-300 hover:border-gray-600'
+                      ? 'border-brand/30 text-brand bg-brand-light'
+                      : 'border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50'
                     }`}
                 >
                   {activeStages.includes(s.value) && <span className="mr-1">✓</span>}
@@ -562,16 +562,16 @@ export default function LeadDetailClient({
         {/* ==== Activity ==== */}
         <TabsContent value="activity" className="outline-none">
           {/* Add Activity UI */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <h2 className="text-white font-medium mb-4">Add Activity</h2>
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm">
+            <h2 className="text-sm font-semibold text-slate-900 mb-4">Add Activity</h2>
             <div className="flex gap-2 mb-3">
               {(['note', 'call', 'message'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setNoteType(t)}
                   className={`text-xs px-3 py-1.5 rounded-lg border transition-colors capitalize ${noteType === t
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                    : 'border-gray-700 text-gray-500 hover:text-gray-300'
+                    ? 'bg-brand-light text-brand border-brand/20'
+                    : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                     }`}
                 >
                   {t}
@@ -584,21 +584,21 @@ export default function LeadDetailClient({
               placeholder={`Add a ${noteType}...`}
               rows={3}
               disabled={isDeadState}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-600 resize-none focus:outline-none focus:border-gray-500"
+              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
             />
             <button
               onClick={handleAddNote}
               disabled={isDeadState || !note.trim() || addingNote}
-              className="mt-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-800 disabled:text-gray-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              className="mt-2 h-9 px-4 bg-brand hover:bg-brand-hover disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
             >
               {addingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
             </button>
           </div>
 
           {/* Activity Log */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mt-6">
-            <h2 className="text-white font-medium mb-4">Activity Log</h2>
-            <p className="text-gray-500 text-xs mb-4">
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm mt-4">
+            <h2 className="text-sm font-semibold text-slate-900 mb-4">Activity Log</h2>
+            <p className="text-xs text-slate-500 mb-4">
               Full timeline: who changed what, with email and exact date and time (newest first).
             </p>
             <LeadActivityTimeline activities={initialActivities} stageLabels={stageLabelByKey} />

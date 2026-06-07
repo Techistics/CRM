@@ -174,7 +174,7 @@ export default function AnalyticsOverviewClient({
   ]
 
   return (
-    <div className="space-y-[var(--gap)]">
+    <div className="space-y-6">
       <div className="mb-2 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <h1 className="text-xl font-bold tracking-tight text-[var(--text-strong)] sm:text-2xl">Overview</h1>
@@ -187,7 +187,7 @@ export default function AnalyticsOverviewClient({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-9 gap-2 border-gray-200 bg-white shadow-sm hover:bg-gray-50 text-gray-700 font-medium px-4"
+                className="h-9 gap-2 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium px-4"
               >
                 <FileDown className="h-4 w-4 text-blue-600" />
                 Reports
@@ -221,14 +221,14 @@ export default function AnalyticsOverviewClient({
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-[var(--gap)] sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {metricCards.map((metric) => (
           <div
             key={metric.label}
-            className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] px-4 py-[14px]"
+            className="bg-white border border-slate-200 rounded-xl p-6 shadow-crm-sm dark:bg-[#0b0f19] dark:border-slate-800"
           >
-            <p className="mb-[6px] text-[11px] font-normal text-[var(--muted-text)]">{metric.label}</p>
-            <p className="text-[22px] font-medium leading-none text-[var(--text-strong)]">{metric.value}</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">{metric.label}</p>
+            <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100 mt-1">{metric.value}</p>
             <div
               className="mt-[10px] flex items-center gap-2 text-[11px] font-normal"
               style={{ color: metric.positive ? 'var(--positive)' : 'var(--negative)' }}
@@ -243,31 +243,31 @@ export default function AnalyticsOverviewClient({
         ))}
       </div>
 
-      <Card className="rounded-xl border shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">
+      <div className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden dark:bg-[#0b0f19] dark:border-slate-800">
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             Team Performance
-          </CardTitle>
-          <CardDescription>
+          </h2>
+          <p className="mt-0.5 text-sm text-slate-500">
             Live counselor accountability — sorted by leads needing attention
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0 sm:p-6">
+          </p>
+        </div>
+        <div className="p-6">
           <div className="crm-table-scroll">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Counselor</TableHead>
-                <TableHead className="text-center">Total</TableHead>
-                <TableHead className="text-center">Won</TableHead>
-                <TableHead className="text-center">
+            <TableHeader className="bg-slate-50 border-b border-slate-200">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Counselor</TableHead>
+                <TableHead className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 text-center">Total</TableHead>
+                <TableHead className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 text-center">Won</TableHead>
+                <TableHead className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 text-center">
                   <span className="text-orange-600">Cold (3d+)</span>
                 </TableHead>
-                <TableHead className="text-center">
+                <TableHead className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 text-center">
                   <span className="text-red-600">Dead (7d+)</span>
                 </TableHead>
-                <TableHead className="text-center">Conv %</TableHead>
-                <TableHead>Last Activity</TableHead>
+                <TableHead className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 text-center">Conv %</TableHead>
+                <TableHead className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Last Activity</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -275,11 +275,12 @@ export default function AnalyticsOverviewClient({
                 <TableRow
                   key={agent.id}
                   className={cn(
+                    'hover:bg-slate-50',
                     agent.dead_leads > 0 && 'bg-red-50/50 dark:bg-red-900/10',
                     agent.cold_leads > 5 && agent.dead_leads === 0 && 'bg-orange-50/50 dark:bg-orange-900/10',
                   )}
                 >
-                  <TableCell>
+                  <TableCell className="px-4 py-3 text-sm text-slate-700">
                     <div className="flex items-center gap-2">
                       <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold">
                         {(agent.name?.[0] ?? 'U').toUpperCase()}
@@ -287,15 +288,15 @@ export default function AnalyticsOverviewClient({
                       <span className="font-medium text-sm">{agent.name}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-center text-sm">
+                  <TableCell className="px-4 py-3 text-sm text-slate-700 text-center">
                     {Number(agent.total_leads ?? 0)}
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="px-4 py-3 text-sm text-slate-700 text-center">
                     <span className="text-sm text-green-600 font-medium">
                       {Number(agent.won ?? 0)}
                     </span>
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="px-4 py-3 text-sm text-slate-700 text-center">
                     <span
                       className={cn(
                         'text-sm font-medium',
@@ -305,7 +306,7 @@ export default function AnalyticsOverviewClient({
                       {Number(agent.cold_leads ?? 0)}
                     </span>
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="px-4 py-3 text-sm text-slate-700 text-center">
                     {Number(agent.dead_leads ?? 0) > 0 ? (
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-100 px-2 py-0.5 rounded-full">
                         ❄️ {Number(agent.dead_leads ?? 0)}
@@ -314,10 +315,10 @@ export default function AnalyticsOverviewClient({
                       <span className="text-sm text-muted-foreground">0</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-center text-sm">
+                  <TableCell className="px-4 py-3 text-sm text-slate-700 text-center">
                     {(agent.conversion_rate ?? 0)}%
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="px-4 py-3 text-sm text-slate-700">
                     {agent.last_activity
                       ? `${formatDistanceToNow(new Date(agent.last_activity))} ago`
                       : 'Never'}
@@ -327,15 +328,16 @@ export default function AnalyticsOverviewClient({
             </TableBody>
           </Table>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 gap-[var(--gap)] 2xl:grid-cols-[1.6fr_1fr]">
-        <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] p-[var(--card-padding)]">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[13px] font-medium text-[var(--text-strong)]">Revenue</h2>
-            <span className="text-[11px] font-normal text-[var(--muted-text)]">Last 7 days</span>
+      <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[1.6fr_1fr]">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden dark:bg-[#0b0f19] dark:border-slate-800">
+          <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Revenue</h2>
+            <span className="text-xs text-slate-500">Last 7 days</span>
           </div>
+          <div className="p-6">
           <div className="h-[230px]">
             <Line
               data={{
@@ -371,11 +373,13 @@ export default function AnalyticsOverviewClient({
               }}
             />
           </div>
-        </div>
-        <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] p-[var(--card-padding)]">
-          <div className="mb-3">
-            <h2 className="text-[13px] font-medium text-[var(--text-strong)]">Deals by source</h2>
           </div>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden dark:bg-[#0b0f19] dark:border-slate-800">
+          <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Deals by source</h2>
+          </div>
+          <div className="p-6">
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
             <div className="h-[160px] w-[160px] shrink-0 sm:h-[180px] sm:w-[180px]">
               <Doughnut
@@ -422,12 +426,16 @@ export default function AnalyticsOverviewClient({
               })}
             </div>
           </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-[var(--gap)] xl:grid-cols-2">
-        <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] p-[var(--card-padding)]">
-          <h2 className="mb-3 text-[13px] font-medium text-[var(--text-strong)]">Pipeline stages</h2>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden dark:bg-[#0b0f19] dark:border-slate-800">
+          <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Pipeline stages</h2>
+          </div>
+          <div className="p-6">
           <div className="space-y-3">
             {stageList.slice(0, 6).map((stage, index) => {
               const pct = windowSnapshot.totalLeads > 0 ? Math.round((stage.count / windowSnapshot.totalLeads) * 100) : 0
@@ -448,10 +456,14 @@ export default function AnalyticsOverviewClient({
               )
             })}
           </div>
+          </div>
         </div>
 
-        <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] p-[var(--card-padding)]">
-          <h2 className="mb-3 text-[13px] font-medium text-[var(--text-strong)]">Recent activity</h2>
+        <div className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden dark:bg-[#0b0f19] dark:border-slate-800">
+          <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Recent activity</h2>
+          </div>
+          <div className="p-6">
           <div>
             {activityItems.map((item, index) => (
               <div
@@ -473,24 +485,29 @@ export default function AnalyticsOverviewClient({
               </div>
             ))}
           </div>
+          </div>
         </div>
       </div>
 
-      <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] p-[var(--card-padding)]">
-        <h2 className="mb-3 text-[13px] font-medium text-[var(--text-strong)]">Team snapshot</h2>
-        <div className="grid grid-cols-1 gap-[var(--gap)] md:grid-cols-3">
+      <div className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden dark:bg-[#0b0f19] dark:border-slate-800">
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Team snapshot</h2>
+        </div>
+        <div className="p-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
-            <p className="text-[11px] text-[var(--muted-text)]">Counselors</p>
-            <p className="text-[22px] font-medium leading-none">{agentStats.length}</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Counselors</p>
+            <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100 mt-1">{agentStats.length}</p>
           </div>
           <div>
-            <p className="text-[11px] text-[var(--muted-text)]">Pipeline value</p>
-            <p className="text-[22px] font-medium leading-none">${pipelineValue.toLocaleString()}</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Pipeline value</p>
+            <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100 mt-1">${pipelineValue.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-[11px] text-[var(--muted-text)]">Conversion</p>
-            <p className="text-[22px] font-medium leading-none">{conversionRate}%</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Conversion</p>
+            <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100 mt-1">{conversionRate}%</p>
           </div>
+        </div>
         </div>
       </div>
     </div>

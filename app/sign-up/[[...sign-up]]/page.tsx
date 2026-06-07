@@ -63,10 +63,10 @@ function SignUpForm() {
   const authQueryString = authQueryParams.toString()
 
   return (
-    <div className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-sm">
+    <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 p-8 shadow-crm-md">
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-bold">Create Account</h1>
-        <p className="text-sm text-muted-foreground mt-2">
+        <h1 className="text-xl font-semibold text-slate-900">Create Account</h1>
+        <p className="text-sm text-slate-500 mt-1">
           Join the Edu CRM platform
         </p>
       </div>
@@ -80,6 +80,7 @@ function SignUpForm() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
+            className="h-10 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:ring-sky-500/20"
           />
         </div>
         <div className="space-y-2">
@@ -91,6 +92,7 @@ function SignUpForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            className="h-10 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:ring-sky-500/20"
           />
         </div>
         <div className="space-y-2">
@@ -100,6 +102,7 @@ function SignUpForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            className="h-10 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-sky-500"
           />
         </div>
 
@@ -121,12 +124,12 @@ function SignUpForm() {
           </div>
         )}
 
-        <Button type="submit" className="w-full" disabled={loading}>
+        <Button type="submit" className="w-full h-10 font-medium" style={{ backgroundColor: '#0ea5e9', color: 'white' }} disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Account'}
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-muted-foreground">
+      <p className="mt-6 text-center text-sm text-slate-500">
         Already have an account?{' '}
         <Link 
           href={`/sign-in${authQueryString ? `?${authQueryString}` : ''}`} 
@@ -141,7 +144,7 @@ function SignUpForm() {
 
 export default function SignUpPage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-muted/50 px-4">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-100 px-4">
       <Suspense fallback={<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}>
         <SignUpForm />
       </Suspense>

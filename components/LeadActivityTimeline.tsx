@@ -51,7 +51,7 @@ export default function LeadActivityTimeline({
   stageLabels?: Record<string, string>
 }) {
   if (activities.length === 0) {
-    return <p className="text-gray-600 text-sm">No activity yet.</p>
+    return <p className="text-slate-500 text-sm">No activity yet.</p>
   }
 
   const label = (value: string | null | undefined) => {
@@ -61,7 +61,7 @@ export default function LeadActivityTimeline({
 
   return (
     <div className="relative">
-      <div className="absolute left-[7px] top-3 bottom-3 w-px bg-gray-700" aria-hidden />
+      <div className="absolute left-[7px] top-3 bottom-3 w-px bg-slate-200" aria-hidden />
       <ul className="space-y-0 list-none m-0 p-0">
         {activities.map((a) => {
           const icon = ICONS[a.type ?? 'note'] ?? '✎'
@@ -74,42 +74,42 @@ export default function LeadActivityTimeline({
                 className="relative mt-1 flex h-7 w-5 shrink-0 flex-col items-center"
                 aria-hidden
               >
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 ring-4 ring-gray-900 border border-emerald-500/50">
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 ring-4 ring-white border border-emerald-200">
                   <Check className="h-3 w-3 text-emerald-500" strokeWidth={3} />
                 </div>
                 <span className="mt-1 text-[12px] leading-none text-gray-500">{icon}</span>
               </div>
               <div className="min-w-0 flex-1 space-y-1">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
                   {activityKindLabel(a.type)}
                 </p>
                 {a.type === 'stage_change' ? (
-                  <p className="text-sm text-gray-200">
-                    <span className="text-gray-400">From </span>
-                    <span className="font-medium text-white">
+                  <p className="text-sm text-slate-700">
+                    <span className="text-slate-500">From </span>
+                    <span className="font-medium text-slate-900">
                       {label(a.fromStage)}
                     </span>
-                    <span className="text-gray-400"> to </span>
-                    <span className="font-medium text-emerald-400">
+                    <span className="text-slate-500"> to </span>
+                    <span className="font-medium text-emerald-600">
                       {label(a.toStage)}
                     </span>
                   </p>
                 ) : (
-                  <p className="text-sm text-gray-200 whitespace-pre-wrap break-words">
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">
                     {a.note?.trim() || '—'}
                   </p>
                 )}
-                <p className="text-xs text-gray-400">
-                  <span className="text-gray-500">Updated by </span>
-                  <span className="font-medium text-gray-300">{name ?? 'Unknown'}</span>
+                <p className="text-xs text-slate-500">
+                  <span className="text-slate-400">Updated by </span>
+                  <span className="font-medium text-slate-700">{name ?? 'Unknown'}</span>
                   {email ? (
                     <>
-                      <span className="text-gray-600"> · </span>
-                      <span className="break-all text-gray-500">{email}</span>
+                      <span className="text-slate-300"> · </span>
+                      <span className="break-all text-slate-500">{email}</span>
                     </>
                   ) : null}
                 </p>
-                <p className="text-xs text-gray-500 border-t border-gray-800/80 pt-2 mt-2">
+                <p className="text-xs text-slate-400 border-t border-slate-100 pt-2 mt-2">
                   {formatTimelineDate(a.createdAt)}
                 </p>
               </div>

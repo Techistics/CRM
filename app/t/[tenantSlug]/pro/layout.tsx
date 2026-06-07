@@ -13,7 +13,7 @@ export default async function ProLayout({
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen bg-muted/50">
+      <div className="min-h-screen bg-page dark:bg-[#020617]">
         <RoleSidebar role={role} tenant={tenant} />
         <div className="flex min-h-screen min-w-0 flex-col lg:pl-[var(--sidebar-width)]">
           <ProHeader tenant={tenant} user={user} />

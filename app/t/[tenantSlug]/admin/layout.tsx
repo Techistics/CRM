@@ -2,6 +2,7 @@ import { count, eq, and, isNull } from 'drizzle-orm'
 
 import { db } from '@/db'
 import { tenantMembers } from '@/db/schema'
+import { UiScaleWrapper } from '@/components/shared/ui-scale-wrapper'
 import { SidebarProvider } from '@/components/sidebar-provider'
 import { RoleSidebar } from '@/components/shared/role-sidebar'
 import { AdminHeader } from '@/components/admin/admin-header'
@@ -35,8 +36,8 @@ export default async function AdminLayout({
         <div className="flex min-h-screen min-w-0 flex-col lg:pl-[var(--sidebar-width)]">
           <AdminHeader user={user} tenantSlug={tenant.slug} />
           <main className="crm-page w-full min-w-0 flex-1 overflow-x-hidden px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
-            {children}
-          </main>
+  <UiScaleWrapper>{children}</UiScaleWrapper>
+</main>
         </div>
       </div>
     </SidebarProvider>

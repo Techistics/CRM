@@ -513,3 +513,25 @@ export const invitationRelations = relations(invitations, ({ one }) => ({
   }),
 }))
 
+export const consultantLogs = pgTable(
+  'consultant_logs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .references(() => tenants.id, { onDelete: 'cascade' })
+      .notNull(),
+    leadId: uuid('lead_id')
+      .references(() => leads.id, { onDelete: 'cascade' })
+      .notNull(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'set null' }),
+    type: text('type', { enum: ['note', 'call', 'message'] }).notNull().default('note'),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    idx_tenant: index('idx_consultant_logs_tenant').on(t.tenantId),
+    idx_lead: index('idx_consultant_logs_lead').on(t.leadId),
+    idx_user: index('idx_consultant_logs_user').on(t.userId),
+  })
+)

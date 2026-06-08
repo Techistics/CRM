@@ -11,9 +11,11 @@ import { ThemeToggle } from '@/components/shared/theme-toggle'
 import { UserMenu } from '@/components/shared/UserMenu'
 
 export function AdminHeader({ 
-  user 
+  user,
+  tenantSlug,
 }: { 
-  user: { name: string, email: string } 
+  user: { name: string, email: string }
+  tenantSlug: string
 }) {
   const { toggle } = useSidebar()
   const pathname = usePathname()
@@ -71,7 +73,7 @@ export function AdminHeader({
             >
               <Bell className="h-4 w-4" />
             </button>
-            <UserMenu user={user} />
+            <UserMenu user={user} role="ADMIN" tenantSlug={tenantSlug} />
           </div>
         </div>
       </div>

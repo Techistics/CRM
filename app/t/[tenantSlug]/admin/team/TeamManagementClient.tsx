@@ -219,7 +219,7 @@ export default function TeamManagementClient({
     <div className="w-full min-w-0 p-0 sm:p-2 lg:p-4">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-[#223955]">Teams</h1>
+          <h1 className="text-2xl font-semibold text-[#223955] dark:text-slate-100">Teams</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {members.length} total member{members.length === 1 ? '' : 's'}
           </p>
@@ -228,17 +228,17 @@ export default function TeamManagementClient({
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:max-w-md">
-        <div className="rounded-xl border bg-white p-4">
+        <div className="rounded-xl border bg-white p-4 dark:bg-[#0f172a] dark:border-slate-700">
           <p className="text-sm text-muted-foreground">Admins</p>
           <p className="mt-1 text-2xl font-semibold">{stats.admins}</p>
         </div>
-        <div className="rounded-xl border bg-white p-4">
+        <div className="rounded-xl border bg-white p-4 dark:bg-[#0f172a] dark:border-slate-700">
           <p className="text-sm text-muted-foreground">Pros</p>
           <p className="mt-1 text-2xl font-semibold">{stats.pros}</p>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border bg-white">
+      <div className="overflow-hidden rounded-xl border bg-white dark:bg-[#0f172a] dark:border-slate-700">
         <div className="crm-table-scroll">
         <table className="w-full min-w-[640px] text-sm">
           <thead>

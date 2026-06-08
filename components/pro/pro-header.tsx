@@ -75,19 +75,25 @@
       await fetchStatus()
     }
 
-    if (loading && !activeSession) return <div className="h-8 w-24 animate-pulse rounded-full bg-[var(--card-border-color)]" />
+    if (loading && !activeSession) return (
+  <div className="flex items-center gap-1.5 h-8 px-12 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+    <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-bounce [animation-delay:-0.3s]" />
+    <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-bounce [animation-delay:-0.15s]" />
+    <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-bounce" />
+  </div>
+)
 
     return (
       <div className="flex items-center gap-2">
         {activeSession ? (
-          <div className="flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 py-1 pl-3 pr-1 shadow-sm">
+          <div className="flex items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-50 dark:bg-red-500/10 px-2 py-1">
             <span className="text-xs font-semibold tracking-tight text-red-600 animate-pulse">{duration}</span>
             <Button
               variant="ghost"
               size="icon"
               onClick={handlePunchOut}
               disabled={loading}
-              className="h-6 w-6 rounded-md bg-red-600 flex items-center justify-center text-white hover:bg-red-700 hover:text-white transition-colors ml-1"
+              className="h-6 w-6 rounded-md bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition-colors"
               title="Punch Out"
             >
               <Square className="h-3 w-3 fill-white" />
@@ -99,9 +105,9 @@
             size="sm"
             onClick={handlePunchIn}
             disabled={loading}
-            className="h-8 rounded-full border-emerald-500/30 bg-emerald-50/50 px-4 text-xs font-semibold text-emerald-600 shadow-sm hover:bg-emerald-50 hover:text-emerald-700 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 transition-all"
+            className="h-8 rounded-lg border border-emerald-500/40 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400 dark:hover:bg-emerald-500/20 transition-all gap-1.5"
           >
-            <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
             Punch In
           </Button>
         )}
@@ -166,7 +172,7 @@
               <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
               <ThemeToggle />
               <NotificationBell tenantSlug={tenant.slug} portalBase="pro" />
-              <UserMenu user={user} />
+              <UserMenu user={user} role="PRO" tenantSlug={tenant.slug} />
             </div>
           </div>
         </div>

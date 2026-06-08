@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import Image from 'next/image'
-import { Building2, Image as ImageIcon, Loader2, Save, ShieldCheck, Upload } from 'lucide-react'
+import { Building2, Image as ImageIcon, Loader2, Save, ShieldCheck, Upload, KeyRound  } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,6 +20,11 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
+
+  const [cpLoading, setCpLoading] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   
   const initialSettings = (tenant.settings as Record<string, string | null>) || {}
   const [name, setName] = useState(tenant.name)
@@ -76,41 +81,74 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
     }
   }
 
+  const handleChangePassword = async () => {
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    toast.error('All password fields are required')
+    return
+  }
+  if (newPassword !== confirmPassword) {
+    toast.error('New passwords do not match')
+    return
+  }
+  if (newPassword.length < 8) {
+    toast.error('Password must be at least 8 characters')
+    return
+  }
+  setCpLoading(true)
+  try {
+    const res = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error)
+    toast.success('Password changed successfully!')
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+  } catch (err: unknown) {
+    toast.error(err instanceof Error ? err.message : 'Failed to change password')
+  } finally {
+    setCpLoading(false)
+  }
+}
+
   return (
     <div className="max-w-4xl space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Workspace Settings</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Manage your organization&apos;s identity and branding</p>
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Workspace Settings</h1>
+        <p className="text-sm text-slate-500 mt-0.5 dark:text-slate-400">Manage your organization&apos;s identity and branding</p>
       </div>
 
       <div className="grid gap-6">
-        <Card className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden">
-          <CardHeader className="border-b border-slate-200 bg-slate-50 px-6 py-4">
+        <Card className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden dark:bg-[#0f172a] dark:border-slate-700">
+          <CardHeader className=" border-slate-200 bg-slate-50 dark:bg-slate-800/50 px-6 py-4">
             <div className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-blue-500" />
               <div>
-                <CardTitle className="text-base font-bold">General Information</CardTitle>
-                <CardDescription className="text-xs">Update your workspace name and slug</CardDescription>
+                <CardTitle className="text-base font-bold dark:text-slate-100 ">General Information</CardTitle>
+                <CardDescription className="text-xs dark:text-slate-400">Update your workspace name and slug</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             <div className="grid gap-2">
-              <Label htmlFor="name" className="text-sm font-medium text-slate-700">Workspace Name</Label>
+              <Label htmlFor="name" className="text-sm font-medium text-slate-700 pt-2 dark:text-slate-300">Workspace Name</Label>
               <div className="relative">
                 <Input
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Acme Immigration"
-                  className="h-9 border-slate-200 focus:ring-sky-500/20 focus:border-sky-500"
+                  className="h-9 border-slate-200 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
                 />
               </div>
               <p className="text-xs text-slate-400">This name will appear in the sidebar and navigation headers.</p>
             </div>
 
             <div className="grid gap-2 opacity-60 cursor-not-allowed">
-              <Label htmlFor="slug" className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+              <Label htmlFor="slug" className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                 Workspace Slug
                 <span title="Protected field" className="inline-flex">
                   <ShieldCheck className="h-3 w-3 text-gray-400" />
@@ -120,27 +158,27 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
                 id="slug"
                 value={tenant.slug}
                 disabled
-                className="h-10 bg-gray-50 border-gray-100"
+                className="h-10 bg-gray-50 border-gray-100 dark:bg-slate-800/50 dark:border-slate-700 dark:text-slate-400"
               />
               <p className="text-xs text-slate-400">The slug is used in your unique URL and cannot be changed.</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden">
-          <CardHeader className="border-b border-slate-200 bg-slate-50 px-6 py-4">
+        <Card className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden dark:bg-[#0f172a] dark:border-slate-700">
+          <CardHeader className=" border-slate-200 bg-slate-50 dark:bg-slate-800/50 px-6 py-4">
             <div className="flex items-center gap-2">
               <ImageIcon className="h-5 w-5 text-purple-500" />
               <div>
-                <CardTitle className="text-base font-bold">Branding</CardTitle>
-                <CardDescription className="text-xs">Customize how your workspace looks</CardDescription>
+                <CardTitle className="text-base font-bold dark:text-slate-100">Branding</CardTitle>
+                <CardDescription className="text-xs dark:text-slate-400">Customize how your workspace looks</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             <div className="grid gap-4">
               <div className="flex flex-col sm:flex-row gap-6 items-start">
-                <div className="shrink-0 flex flex-col items-center gap-2">
+                <div className="shrink-0 flex flex-col items-center gap-2 mt-2">
                   <div className="h-24 w-24 rounded-2xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 overflow-hidden group relative">
                     {logoUrl ? (
                       <Image src={logoUrl} alt="Preview" width={96} height={96} className="h-full w-full object-contain p-2" />
@@ -158,13 +196,13 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
 
                 <div className="flex-1 w-full space-y-4">
                   <div className="grid gap-2">
-                    <Label className="text-sm font-medium text-slate-700">Upload New Logo</Label>
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 pt-4">Upload New Logo</Label>
                     <div className="flex items-center gap-2">
                       <Button
                         type="button"
                         variant="outline"
                         disabled={uploading}
-                        className="h-10 px-4 border-gray-200 bg-white hover:bg-gray-50"
+                        className="h-10 px-4 border-gray-200 bg-white hover:bg-gray-50 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
                         onClick={() => document.getElementById('logo-upload')?.click()}
                       >
                         {uploading ? (
@@ -186,13 +224,13 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor="logo" className="text-sm font-medium text-slate-700">Logo URL (Alternative)</Label>
+                    <Label htmlFor="logo" className="text-sm font-medium text-slate-700 dark:text-slate-300">Logo URL (Alternative)</Label>
                     <Input
                       id="logo"
                       value={logoUrl}
                       onChange={(e) => setLogoUrl(e.target.value)}
                       placeholder="https://example.com/logo.png"
-                      className="h-9 border-slate-200 focus:ring-sky-500/20 focus:border-sky-500"
+                      className="h-9 border-slate-200 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
                     />
                   </div>
                 </div>
@@ -200,13 +238,71 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
             </div>
           </CardContent>
         </Card>
+        <Card className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden dark:bg-[#0f172a] dark:border-slate-700">
+  <CardHeader className=" border-slate-200 bg-slate-50 dark:bg-slate-800/50 px-6 py-4">
+    <div className="flex items-center gap-2">
+      <KeyRound className="h-5 w-5 text-emerald-500" />
+      <div>
+        <CardTitle className="text-base font-bold dark:text-slate-100">Change Password</CardTitle>
+        <CardDescription className="text-xs dark:text-slate-400">Update your account password</CardDescription>
+      </div>
+    </div>
+  </CardHeader>
+  <CardContent className="p-6 space-y-4">
+    <div className="grid gap-2">
+      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 pt-4 ">Current Password</Label>
+      <Input
+        type="password"
+        value={currentPassword}
+        onChange={(e) => setCurrentPassword(e.target.value)}
+        placeholder="Enter current password"
+        className="h-9 border-slate-200 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
+      />
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid gap-2">
+        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">New Password</Label>
+        <Input
+          type="password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          placeholder="Min. 8 characters"
+          className="h-9 border-slate-200 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
+        />
+      </div>
+      <div className="grid gap-2">
+        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Confirm New Password</Label>
+        <Input
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          placeholder="Repeat new password"
+          className="h-9 border-slate-200 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
+        />
+      </div>
+    </div>
+    <div className="flex justify-end pt-1">
+      <Button
+        onClick={handleChangePassword}
+        disabled={cpLoading}
+        className="h-9 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-lg transition-colors"
+      >
+        {cpLoading ? (
+          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Updating...</>
+        ) : (
+          <><KeyRound className="mr-2 h-4 w-4 text-black " /><span className='dark:text-black '> Update Password</span></>
+        )}
+      </Button>
+    </div>
+  </CardContent>
+</Card>
 
         <div className="flex items-center justify-end gap-3 pt-2">
           <Button
             variant="ghost"
             onClick={() => router.back()}
             disabled={loading}
-            className="text-gray-500"
+            className="text-gray-500 dark:text-slate-400"
           >
             Cancel
           </Button>
@@ -221,10 +317,7 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
                 Saving...
               </>
             ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Save Changes
-              </>
+              <><Save className="mr-2 h-4 w-4 text-black " /><span className='dark:text-black '> Save Changes</span></>
             )}
           </Button>
         </div>

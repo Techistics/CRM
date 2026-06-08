@@ -330,7 +330,7 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
     <div className="p-0">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
             {isAdmin ? 'Leads' : 'My Leads'}
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
@@ -342,14 +342,14 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
           <div className="relative w-full md:w-64">
             <SearchInput
               placeholder="Search leads..."
-              className="w-full h-9 bg-slate-50 border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+              className="w-full h-9 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
             />
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
             <TagFilter />
             <Select value={heatFilter} onValueChange={setHeatFilter}>
-              <SelectTrigger className="h-8 w-32 border-none bg-transparent hover:bg-white shadow-none focus:ring-0">
+              <SelectTrigger className="h-8 w-32 border-none bg-transparent shadow-none focus:ring-0">
                 <div className="flex items-center gap-2">
                   <Filter className="h-3.5 w-3.5 text-gray-500" />
                   <SelectValue placeholder="Heat" />
@@ -357,24 +357,24 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Levels</SelectItem>
-                <SelectItem value="dead">❄️ Dead</SelectItem>
-                <SelectItem value="cold">🌤️ Cold</SelectItem>
-                <SelectItem value="warm">☀️ Warm</SelectItem>
-                <SelectItem value="hot">🔥 Hot</SelectItem>
+                <SelectItem value="dead"> Dead</SelectItem>
+                <SelectItem value="cold"> Cold</SelectItem>
+                <SelectItem value="warm"> Warm</SelectItem>
+                <SelectItem value="hot"> Hot</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div className="h-5 w-px bg-slate-200 hidden md:block" />
+          <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="h-9 rounded-lg border-slate-200 hover:bg-slate-50 gap-2 text-sm">
+              <Button variant="outline" className="h-9 rounded-lg border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 gap-2 text-sm">
                 <MoreHorizontal className="h-4 w-4 text-gray-500" />
-                <span className="text-sm font-medium">Actions</span>
+                <span className="text-sm font-medium hover:text-[#0DA2E7] dark:hover:text-white">Actions</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 p-1 rounded-lg shadow-crm-md border-slate-200">
+            <DropdownMenuContent align="end" className="w-48 p-1 rounded-lg shadow-crm-md border-slate-200 dark:border-slate-700">
               {isAdmin && (
                 <DropdownMenuItem 
                   onClick={handleExportAll} 
@@ -499,20 +499,20 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
       ) : error ? (
         <div className="text-center py-24 text-destructive">{error}</div>
       ) : leads.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white border border-slate-200 rounded-xl text-sm text-slate-500">
+        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-500">
           {totalLeads === 0
             ? isAdmin ? 'No leads yet. Import a CSV to get started.' : 'No leads assigned to you yet.'
             : 'No leads found for this search/page.'}
         </div>
       ) : filteredLeads.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white border border-slate-200 rounded-xl text-sm text-slate-500">
+        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-500">
           No leads match this heat filter.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-crm-sm">
+        <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f172a] shadow-crm-sm">
           <div className="crm-table-scroll">
             <table className="w-full min-w-[720px] text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+              <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
                 <tr>
                   <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 w-8">
                     <Checkbox
@@ -549,7 +549,7 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
                       key={lead.id}
                       onClick={() => router.push(leadDetailPath(lead.id))}
                       className={cn(
-                        'group cursor-pointer hover:bg-slate-50 transition-colors border-b border-slate-100',
+                        'group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b border-slate-100 dark:border-slate-800',
                         selectedIds.has(lead.id) && 'bg-brand-light/50 border-l-2 border-l-brand',
                       )}
                     >
@@ -567,7 +567,7 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
                         />
                       </td>
                       <td className="px-4 py-3">
-                        <p className="text-sm font-medium text-slate-900">{lead.fullName}</p>
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{lead.fullName}</p>
                         {lead.email && (
                           <p className="text-xs text-slate-400 mt-0.5">{lead.email}</p>
                         )}
@@ -598,13 +598,13 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
+                      <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
                         {lead.contactNumber ?? '—'}
                       </td>
-                      <td className="hidden px-4 py-3 text-sm text-slate-600 md:table-cell">
+                      <td className="hidden px-4 py-3 text-sm text-slate-600 dark:text-slate-400 md:table-cell">
                         {lead.city ?? '—'}
                       </td>
-                      <td className="hidden px-4 py-3 text-sm text-slate-600 lg:table-cell">
+                      <td className="hidden px-4 py-3 text-sm text-slate-600 dark:text-slate-400 lg:table-cell">
                         {lead.lastQualification ?? '—'}
                       </td>
                       <td className="px-4 py-3">
@@ -632,7 +632,7 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
                             <div className="w-6 h-6 rounded-full bg-brand-light text-brand flex items-center justify-center font-semibold text-xs">
                               {(assigneeNameById.get(lead.assignedTo) ?? 'U').charAt(0).toUpperCase()}
                             </div>
-                            <span className="text-sm text-slate-700">{assigneeNameById.get(lead.assignedTo) ?? 'Unknown'}</span>
+                            <span className="text-sm text-slate-700 dark:text-slate-300">{assigneeNameById.get(lead.assignedTo) ?? 'Unknown'}</span>
                           </div>
                         ) : (
                           <span className="text-sm text-slate-400 italic">Unassigned</span>

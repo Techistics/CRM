@@ -149,6 +149,66 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
 
+    /* Design system — brand (keep same, brand color doesn't change) */
+    --color-primary: #0ea5e9;
+    --color-primary-hover: #0284c7;
+    --color-primary-light: #0c4a6e;
+    --color-primary-text: #7dd3fc;
+
+    /* Design system — backgrounds */
+    --color-bg-page: #020617;
+    --color-bg-surface: #0f172a;
+    --color-bg-subtle: #0b0f19;
+    --color-bg-hover: #1e293b;
+
+    /* Design system — text */
+    --color-text-primary: #f8fafc;
+    --color-text-secondary: #cbd5e1;
+    --color-text-muted: #64748b;
+    --color-text-inverse: #0f172a;
+
+    /* Design system — borders */
+    --color-border: #1e293b;
+    --color-border-strong: #334155;
+
+    /* Design system — semantic (backgrounds flip to dark) */
+    --color-success: #10b981;
+    --color-success-light: #064e3b;
+    --color-success-text: #6ee7b7;
+    --color-warning: #f59e0b;
+    --color-warning-light: #451a03;
+    --color-warning-text: #fcd34d;
+    --color-danger: #ef4444;
+    --color-danger-light: #450a0a;
+    --color-danger-text: #fca5a5;
+    --color-info: #3b82f6;
+    --color-info-light: #1e3a8a;
+    --color-info-text: #93c5fd;
+    --color-neutral: #64748b;
+    --color-neutral-light: #1e293b;
+    --color-neutral-text: #e2e8f0;
+
+    /* Design system — sidebar */
+    --color-sidebar-bg: #0b0f19;
+    --color-sidebar-border: #1e293b;
+    --color-sidebar-icon: #94a3b8;
+    --color-sidebar-active-bg: #0c4a6e;
+    --color-sidebar-active-text: #7dd3fc;
+    --color-sidebar-active-icon: #7dd3fc;
+    --color-sidebar-hover-bg: #1e293b;
+
+    /* Legacy / app tokens */
+    --sidebar-bg: #0b0f19;
+    --main-bg: #020617;
+    --card-bg: #0f172a;
+    --card-border-color: rgba(255, 255, 255, 0.08);
+    --divider-color: rgba(255, 255, 255, 0.06);
+
+    --text-strong: #f8fafc;
+    --text-main: #e2e8f0;
+    --muted-text: #94a3b8;
+    --overlay: rgba(0, 0, 0, 0.6);
+
     /* Custom Design Tokens - Dark */
     --sidebar-bg: #0b0f19;
     --main-bg: #020617; /* Slate 950 */
@@ -230,15 +290,12 @@
    * Disabled on tablet/mobile to preserve readable touch targets.
    */
   .ui-scale {
-    transform: none;
     width: 100%;
   }
 
   @media (min-width: 1280px) {
     .ui-scale {
-      transform: scale(var(--ui-scale));
-      transform-origin: top left;
-      width: calc(100% / var(--ui-scale));
+      zoom: var(--ui-scale);
     }
   }
 
@@ -277,4 +334,18 @@
 
 button, a, input, select, textarea {
   transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, opacity 150ms ease;
+}
+
+/* ── Dark mode page content fixes ── */
+.dark .page-title,
+.dark h1,
+.dark h2,
+.dark h3 {
+  color: #f1f5f9;
+}
+
+.dark p,
+.dark span:not([class*="text-"]),
+.dark label {
+  color: #cbd5e1;
 }

@@ -8,6 +8,7 @@ import {
   Kanban,
   BarChart3,
   LogOut,
+  Settings,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -17,6 +18,7 @@ const proNavItems = [
   { label: 'My Leads', href: '/pro/leads', icon: Users },
   { label: 'Kanban Board', href: '/pro/kanban', icon: Kanban },
   { label: 'Analytics', href: '/pro/analytics', icon: BarChart3 },
+  { label: 'Settings', href: '/pro/settings', icon: Settings },
 ]
 
 function isActive(pathname: string, href: string) {

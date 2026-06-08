@@ -86,8 +86,8 @@ export function TagFilter() {
             variant="outline"
             size="sm"
             className={cn(
-              "h-9 border bg-white px-3 text-xs font-medium hover:bg-gray-50",
-              selectedTagsCount > 0 && "border-blue-200 bg-blue-50/50 text-blue-700 hover:bg-blue-50"
+              "h-9 border bg-white px-3 text-xs font-medium text-black",
+              selectedTagsCount > 0 && "border-blue-200 bg-blue-50"
             )}
           >
             <Filter className="mr-2 h-3.5 w-3.5" />

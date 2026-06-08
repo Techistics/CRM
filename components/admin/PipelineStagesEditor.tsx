@@ -101,7 +101,7 @@ export default function PipelineStagesEditor(_: PipelineStagesEditorProps) {
   };
 
   return (
-    <div className="mt-8 space-y-4">
+    <div className="mt-8 space-y-4 ">
       <h2 className="text-xl font-semibold">Pipeline Stages</h2>
 
       {isLocked ? (
@@ -159,12 +159,12 @@ export default function PipelineStagesEditor(_: PipelineStagesEditorProps) {
 
       {!isLocked && (
         <Button
-          className="mt-4 bg-blue-600 hover:bg-blue-700 text-white"
+          className="mt-4 bg-blue-600 hover:bg-blue-700 text-white ml-4"
           onClick={handleSave}
           disabled={saving}
         >
-          <Save className="mr-2 h-4 w-4" />
-          {saving ? 'Saving…' : 'Save Stages'}
+          <Save className="mr-2 h-4 w-4 text-black" />
+          <span className='dark:text-black '> {saving ? 'Saving…' : 'Save Stages'}</span>
         </Button>
       )}
     </div>

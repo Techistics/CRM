@@ -243,7 +243,7 @@ export default function LeadDetailClient({
             href={
               tenantSlug ? tenantPath(tenantSlug, '/admin/leads') : '/admin/leads'
             }
-            className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 transition-colors"
+            className="inline-flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
           >
             ← Back to Leads
           </Link>
@@ -338,7 +338,7 @@ export default function LeadDetailClient({
         </div>
       )}
       <Tabs value={activeTab} className="w-full">
-        <TabsList className="mb-6 inline-flex w-auto sticky top-[60px] z-10 bg-white border-b border-slate-200 pb-0">
+        <TabsList className="mb-6 inline-flex w-auto sticky top-[60px] z-10 bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-700 pb-0">
           <TabsTrigger value="overview" onClick={() => setActiveTab('overview')}>Overview</TabsTrigger>
           <TabsTrigger value="documents" onClick={() => setActiveTab('documents')}>Documents</TabsTrigger>
           <TabsTrigger value="pipeline" onClick={() => setActiveTab('pipeline')}>Pipeline</TabsTrigger>
@@ -364,7 +364,7 @@ export default function LeadDetailClient({
               />
 
               {/* Contact Info card */}
-              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm">
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
                 <h2 className="text-sm font-semibold text-slate-900 mb-4">Contact Info</h2>
                 <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                   {[
@@ -385,15 +385,15 @@ export default function LeadDetailClient({
                   ].map(({ label, value }) => (
                     <div key={label}>
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-                      <p className="text-sm font-medium text-slate-900 mt-0.5">{value ?? '—'}</p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 mt-0.5">{value ?? '—'}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Edit Lead Fields card */}
-              <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
-                <h2 className="text-sm font-semibold text-slate-900 mb-4">Edit Lead Fields</h2>
+              <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700 ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">Edit Lead Fields</h2>
                 <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                   {(
                     [
@@ -410,25 +410,25 @@ export default function LeadDetailClient({
                     ] as const
                   ).map(([key, label]) => (
                     <label key={key} className="flex flex-col gap-1">
-                      <span className="text-xs font-medium text-slate-600">{label}</span>
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">{label}</span>
                       <input
                         value={profileForm[key]}
                         onChange={(e) =>
                           setProfileForm((prev) => ({ ...prev, [key]: e.target.value }))
                         }
-                        className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                        className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
                       />
                     </label>
                   ))}
                   <div className="col-span-2 grid grid-cols-3 gap-3">
                     <label className="col-span-1 flex flex-col gap-1">
-                      <span className="text-xs font-medium text-slate-600">Currency</span>
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Currency</span>
                       <select
                         value={profileForm.dealCurrency}
                         onChange={(e) =>
                           setProfileForm((prev) => ({ ...prev, dealCurrency: e.target.value }))
                         }
-                        className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                        className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
                       >
                         {CURRENCIES.map(c => (
                           <option key={c} value={c}>{c}</option>
@@ -436,8 +436,8 @@ export default function LeadDetailClient({
                       </select>
                     </label>
                     <label className="col-span-2 flex flex-col gap-1">
-                      <span className="text-xs font-medium text-slate-600">
-                        Deal Value <span className="text-muted-foreground">(optional)</span>
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                        Deal Value <span className="text-gray-400 font-normal">(optional)</span>
                       </span>
                       <input
                         type="number"
@@ -448,7 +448,7 @@ export default function LeadDetailClient({
                         onChange={(e) =>
                           setProfileForm((prev) => ({ ...prev, dealValue: e.target.value }))
                         }
-                        className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                        className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
                       />
                     </label>
                   </div>
@@ -461,8 +461,8 @@ export default function LeadDetailClient({
                   {editingLead ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Lead Profile'}
                 </button>
               </div>
-              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm">
-                <label className="flex items-center gap-2 text-sm text-slate-900">
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
+                <label className="flex items-center gap-2 text-sm text-slate-900 dark:text-slate-100">
                   <input
                     type="checkbox"
                     checked={isDead}
@@ -481,13 +481,13 @@ export default function LeadDetailClient({
                     value={deadReason}
                     onChange={(e) => setDeadReason(e.target.value)}
                     placeholder="Reason for marking dead…"
-                    className="mt-2 w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                    className="mt-2 w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
                     rows={3}
                   />
                 )}
                 {isDeadState && (
                   <div className="mt-2 text-sm text-slate-500">
-                    <span className="font-medium">Reason:</span> {deadReason || 'No reason provided'}
+                    <span className="font-medium text-gray-700 dark:text-slate-300">Reason:</span> {deadReason || 'No reason provided'}
                   </div>
                 )}
                 {(isDead || isDeadState) && (
@@ -501,13 +501,13 @@ export default function LeadDetailClient({
                 )}
               </div>
               {/* Assigned To card */}
-              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm">
-                <h2 className="text-sm font-semibold text-slate-900 mb-4">Assigned To</h2>
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">Assigned To</h2>
                 <select
                   value={assignedTo}
                   onChange={(e) => handleAssign(e.target.value)}
                   disabled={isDeadState}
-                  className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                  className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
                 >
                   <option value="">Unassigned</option>
                   {proUsers.map((u) => (
@@ -528,8 +528,8 @@ export default function LeadDetailClient({
 
         {/* ==== Pipeline ==== */}
         <TabsContent value="pipeline" className="outline-none">
-          <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
-            <h2 className="text-sm font-semibold text-slate-900 mb-4">Pipeline Stage</h2>
+          <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700 ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">Pipeline Stage</h2>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {(pipelineStages.length > 0
                 ? pipelineStages.map((s) => ({
@@ -547,8 +547,8 @@ export default function LeadDetailClient({
                   className={`text-left px-3 py-2 rounded-lg text-sm transition-colors border ${primaryStage === s.value
                     ? s.mutedClasses
                     : activeStages.includes(s.value)
-                      ? 'border-brand/30 text-brand bg-brand-light'
-                      : 'border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50'
+                      ? 'bg-brand-light border-brand/30 text-brand'
+                      : 'bg-white border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 dark:bg-[#0f172a] dark:border-slate-700 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-700'
                     }`}
                 >
                   {activeStages.includes(s.value) && <span className="mr-1">✓</span>}
@@ -562,17 +562,14 @@ export default function LeadDetailClient({
         {/* ==== Activity ==== */}
         <TabsContent value="activity" className="outline-none">
           {/* Add Activity UI */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm">
-            <h2 className="text-sm font-semibold text-slate-900 mb-4">Add Activity</h2>
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">Add Activity</h2>
             <div className="flex gap-2 mb-3">
               {(['note', 'call', 'message'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setNoteType(t)}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors capitalize ${noteType === t
-                    ? 'bg-brand-light text-brand border-brand/20'
-                    : 'border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                    }`}
+                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors capitalize ${noteType === t ? 'bg-white text-slate-900 border border-slate-200 shadow-sm dark:bg-[#0f172a] dark:text-slate-100 dark:border-slate-600' : 'border border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'}`}
                 >
                   {t}
                 </button>
@@ -584,7 +581,7 @@ export default function LeadDetailClient({
               placeholder={`Add a ${noteType}...`}
               rows={3}
               disabled={isDeadState}
-              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
             />
             <button
               onClick={handleAddNote}
@@ -596,9 +593,9 @@ export default function LeadDetailClient({
           </div>
 
           {/* Activity Log */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm mt-4">
-            <h2 className="text-sm font-semibold text-slate-900 mb-4">Activity Log</h2>
-            <p className="text-xs text-slate-500 mb-4">
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm mt-4 dark:bg-[#0f172a] dark:border-slate-700">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">Activity Log</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
               Full timeline: who changed what, with email and exact date and time (newest first).
             </p>
             <LeadActivityTimeline activities={initialActivities} stageLabels={stageLabelByKey} />

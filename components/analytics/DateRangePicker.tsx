@@ -72,13 +72,13 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
   }
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm transition-all hover:shadow-md dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 sm:py-1.5">
-      <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 shrink-0">
-        <CalendarIcon className="h-4 w-4 text-blue-500" />
+    <div className="flex items-center gap-2 h-9 rounded-lg border border-slate-200 bg-white px-3 dark:border-slate-700 dark:bg-slate-900">
+      <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 shrink-0">
+        <CalendarIcon className="h-3.5 w-3.5 text-slate-400" />
         <span>Range</span>
       </div>
 
-      <div className="hidden h-4 w-[1px] bg-gray-200 dark:bg-slate-800 sm:block sm:mx-1" />
+      <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
 
       <Select 
         value={getCurrentPreset()} 
@@ -87,7 +87,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
           if (p) onChange(p.getValue())
         }}
       >
-        <SelectTrigger className="h-8 w-auto min-w-[130px] text-xs border-none bg-gray-100/50 dark:bg-slate-900 focus:ring-0 shadow-none hover:bg-gray-100 transition-colors rounded-lg px-3">
+        <SelectTrigger className="h-7 w-auto min-w-[110px] text-xs border-none bg-transparent focus:ring-0 shadow-none px-2">
           <SelectValue placeholder="Select period" />
         </SelectTrigger>
         <SelectContent>
@@ -100,13 +100,13 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
         </SelectContent>
       </Select>
 
-      <div className="hidden h-4 w-[1px] bg-gray-200 dark:bg-slate-800 sm:block sm:mx-1" />
+      <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
 
-      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+      <div className="flex items-center gap-1.5">
         <div className="relative flex items-center">
           <Input
             type="date"
-            className="h-8 w-full min-w-0 text-xs border-none bg-transparent p-0 cursor-pointer focus:ring-0 sm:w-[140px]"
+            className="h-7 w-[110px] text-xs border-none bg-transparent p-0 cursor-pointer focus:ring-0"
             value={value.from ? value.from.toISOString().split('T')[0] : ''}
             onChange={(e) => {
               const date = e.target.value ? new Date(e.target.value) : null
@@ -115,11 +115,11 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
             }}
           />
         </div>
-        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">to</span>
+        <span className="text-xs text-slate-400">to</span>
         <div className="relative flex items-center">
           <Input
             type="date"
-            className="h-8 w-full min-w-0 text-xs border-none bg-transparent p-0 cursor-pointer focus:ring-0 sm:w-[140px]"
+            className="h-7 w-[110px] text-xs border-none bg-transparent p-0 cursor-pointer focus:ring-0"
             value={value.to ? value.to.toISOString().split('T')[0] : ''}
             onChange={(e) => {
               const date = e.target.value ? new Date(e.target.value) : null

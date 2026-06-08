@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
-export function UserMenu({ user }: { user: { name: string, email: string } | null }) {
+export function UserMenu({ user, role, tenantSlug }: { user: { name: string, email: string } | null, role?: string, tenantSlug?: string }) {
   const router = useRouter()
 
   if (!user) return null
@@ -38,11 +38,11 @@ export function UserMenu({ user }: { user: { name: string, email: string } | nul
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative flex items-center gap-2 px-1 py-1.5 h-auto hover:bg-muted/50 rounded-full transition-colors group">
-          <Avatar className="h-8 w-8 border-2 border-transparent group-hover:border-blue-500/20 transition-all shadow-sm">
+          <Avatar className="h-8 w-8 ring-1 ring-slate-300 dark:ring-slate-600 transition-all">
             <AvatarImage src="" alt={user.name} />
-            <AvatarFallback className="bg-blue-600 text-white text-[11px] font-bold">
-              {initials}
-            </AvatarFallback>
+            <AvatarFallback className="bg-slate-700 dark:bg-brand text-white text-[11px] font-bold">
+  {initials}
+</AvatarFallback>
           </Avatar>
           <span className="text-sm font-medium text-muted-foreground group-hover:text-[var(--text-strong)] hidden md:inline-block transition-colors pr-2">
             {user.name}
@@ -65,7 +65,13 @@ export function UserMenu({ user }: { user: { name: string, email: string } | nul
         <DropdownMenuSeparator className="bg-[var(--card-border-color)] mx-1" />
         <div className="p-1">
           <DropdownMenuItem 
-            onClick={() => router.push('/profile')}
+            onClick={() => {
+  const isAdmin = role?.toUpperCase() === 'ADMIN' || role?.toUpperCase() === 'SUPER_ADMIN'
+  const path = isAdmin
+    ? `/t/${tenantSlug}/admin/settings/general`
+    : `/t/${tenantSlug}/pro/settings`
+  router.push(path)
+}}
             className="flex items-center gap-3 px-3 py-2.5 rounded-[8px] text-[13px] font-medium text-[var(--text-main)] transition-colors focus:bg-[var(--foreground)]/5 focus:text-[var(--text-strong)] cursor-pointer"
           >
             <Settings className="h-4 w-4 opacity-60" />

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, BarChart3 } from 'lucide-react'
+import { LayoutDashboard, Users, BarChart3, Settings } from 'lucide-react'
 
 import { PRO_ROUTES } from '@/lib/pro-nav'
 import type { SidebarNavLink, SidebarSettingsLink } from '@/types/navigation'
@@ -24,5 +24,11 @@ export const proMainNav: SidebarNavLink[] = [
   },
 ]
 
-export const proSettingsLinks: SidebarSettingsLink[] = []
+export const proSettingsLinks: SidebarSettingsLink[] = [
+  {
+    name: 'Settings',
+    href: PRO_ROUTES.settings,
+    icon: Settings,
+  },
+]
 

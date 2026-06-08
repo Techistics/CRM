@@ -4,8 +4,9 @@ import { useEffect, useState, useMemo } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Loader2, User, Clock, TrendingUp, CheckCircle2 } from 'lucide-react'
+import { Loader2, User, Clock, TrendingUp, CheckCircle2, FileText } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { format } from 'date-fns'
 
 type Lead = {
   id: string
@@ -32,6 +33,7 @@ type DrilldownPayload = {
 export default function CounselorDrilldownPage() {
   const params = useParams()
   const searchParams = useSearchParams()
+  const router = useRouter()
   
   const tenantSlug = params?.tenantSlug as string
   const counselorId = params?.counselorId as string
@@ -43,6 +45,27 @@ export default function CounselorDrilldownPage() {
 
   const [drilldownData, setDrilldownData] = useState<DrilldownPayload | null>(null)
   const [loadingDrilldown, setLoadingDrilldown] = useState(true)
+
+  const [localFrom, setLocalFrom] = useState(from)
+  const [localTo, setLocalTo] = useState(to)
+
+  const [consultantLogs, setConsultantLogs] = useState<any[]>([])
+  const [consultantLogsLoading, setConsultantLogsLoading] = useState(false)
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null)
+
+  const fetchConsultantLogs = async () => {
+    setConsultantLogsLoading(true)
+    try {
+      const res = await fetch(`/api/logs?userId=${counselorId}&from=${from}&to=${to}`)
+      const data = await res.json()
+      setConsultantLogs(data ?? [])
+    } catch { setConsultantLogs([]) }
+    finally { setConsultantLogsLoading(false) }
+  }
+
+  useEffect(() => {
+    if (counselorId) fetchConsultantLogs()
+  }, [counselorId, from, to])
 
   useEffect(() => {
     if (!counselorId || !tenantSlug) return
@@ -99,12 +122,31 @@ export default function CounselorDrilldownPage() {
             <div className="flex items-center gap-2">
               {counselorName}
               <Badge variant="outline" className="text-xs font-normal text-muted-foreground ml-2">
-                {counselorEmail}
+                {counselorEmail}  
               </Badge>
             </div>
-            <p className="text-sm text-muted-foreground mt-1 font-normal">
-              Viewing data from <span className="font-semibold text-foreground">{from}</span> to <span className="font-semibold text-foreground">{to}</span>
-            </p>
+            <div className="flex items-center gap-2 flex-wrap mt-1">
+              <span className="text-sm text-muted-foreground">Viewing data from</span>
+              <input
+                type="date"
+                value={localFrom}
+                onChange={(e) => {
+                  setLocalFrom(e.target.value)
+                  router.push(`/t/${tenantSlug}/admin/analytics/${counselorId}?from=${e.target.value}&to=${localTo}&name=${encodeURIComponent(counselorName)}&email=${encodeURIComponent(counselorEmail)}`)
+                }}
+                className="text-sm border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+              <span className="text-sm text-muted-foreground">to</span>
+              <input
+                type="date"
+                value={localTo}
+                onChange={(e) => {
+                  setLocalTo(e.target.value)
+                  router.push(`/t/${tenantSlug}/admin/analytics/${counselorId}?from=${localFrom}&to=${e.target.value}&name=${encodeURIComponent(counselorName)}&email=${encodeURIComponent(counselorEmail)}`)
+                }}
+                className="text-sm border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+            </div>
           </div>
         </h1>
       </div>
@@ -124,6 +166,7 @@ export default function CounselorDrilldownPage() {
           ) : !drilldownData ? (
             <p className="text-muted-foreground text-center">Failed to load detailed performance metrics.</p>
           ) : (
+            <>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left Stats card */}
               <div className="space-y-4">
@@ -153,10 +196,10 @@ export default function CounselorDrilldownPage() {
                 <div className="border rounded-xl p-4 space-y-3">
                   <h3 className="font-semibold text-sm text-foreground flex items-center gap-1.5 border-b pb-2">
                     <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                    Leads Touched Today ({drilldownData.leads.touchedToday.length})
+                    Leads Touched in Range ({drilldownData.leads.touchedToday.length})
                   </h3>
                   {drilldownData.leads.touchedToday.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No leads touched by counselor today.</p>
+                    <p className="text-xs text-muted-foreground">No leads touched by counselor in this period.</p>
                   ) : (
                     <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
                       {drilldownData.leads.touchedToday.map((l) => (
@@ -247,6 +290,50 @@ export default function CounselorDrilldownPage() {
                 )}
               </div>
             </div>
+
+            {/* Consultant Logs Section */}
+            <div className="mt-8 border-t border-slate-200 dark:border-slate-700 pt-6">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+                <FileText className="h-5 w-5 text-indigo-500" />
+                Consultant Logs
+              </h3>
+              {consultantLogsLoading ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+                </div>
+              ) : consultantLogs.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-4">No logs in this period</p>
+              ) : (
+                <div className="space-y-3">
+                  {consultantLogs.map(log => (
+                    <div key={log.id} className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                          log.type === 'call' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' :
+                          log.type === 'message' ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400' :
+                          'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400'
+                        }`}>
+                          {log.type}
+                        </span>
+                        <Link href={`/t/${tenantSlug}/admin/leads/${log.leadId}`} className="text-sm font-medium text-sky-600 hover:underline">
+                          {log.leadFullName}
+                        </Link>
+                        <span className="text-xs text-slate-400 ml-auto">
+                          {format(new Date(log.createdAt), 'MMM d, yyyy · h:mm a')}
+                        </span>
+                      </div>
+                      <p 
+                        onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)}
+                        className={`text-sm text-slate-700 dark:text-slate-300 cursor-pointer ${expandedLogId === log.id ? '' : 'line-clamp-2'}`}
+                      >
+                        {log.body}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            </>
           )}
         </CardContent>
       </Card>

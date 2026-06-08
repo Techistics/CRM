@@ -64,8 +64,8 @@ function SignInForm() {
   return (
     <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 p-8 shadow-crm-md">
       <div className="mb-8 text-center">
-        <h1 className="text-xl font-semibold text-slate-900">Sign In</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <h1 className="text-xl font-semibold text-black">Sign In</h1>
+        <p className="text-sm text-black mt-1">
           Welcome back to Edu CRM
         </p>
       </div>
@@ -98,7 +98,7 @@ function SignInForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="h-10 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-sky-500"
+            className="h-10 bg-transparent border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-sky-500"
           />
         </div>
 

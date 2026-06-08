@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import { Loader2, Check } from 'lucide-react'
+import { Loader2, Check, BookOpen } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
 import type { Lead } from '@/types/models'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
 import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
@@ -57,6 +58,14 @@ export default function ProLeadDetailClient({
   const [savingDead, setSavingDead] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [editingLead, setEditingLead] = useState(false);
+
+  const [logType, setLogType] = useState<'note' | 'call' | 'message'>('note')
+  const [logBody, setLogBody] = useState('')
+  const [logSaving, setLogSaving] = useState(false)
+  const [logSaved, setLogSaved] = useState(false)
+  const [logError, setLogError] = useState(false)
+  const [logs, setLogs] = useState<any[]>([])
+  const [logsLoading, setLogsLoading] = useState(false)
 
   const [profileForm, setProfileForm] = useState<any>({
     fullName: lead.fullName ?? '',
@@ -187,6 +196,44 @@ export default function ProLeadDetailClient({
     setAddingNote(false)
     router.refresh()
   }
+
+  const fetchLogs = async () => {
+    setLogsLoading(true)
+    try {
+      const res = await fetch(`/api/logs?leadId=${lead.id}`)
+      const data = await res.json()
+      setLogs(data ?? [])
+    } catch { setLogs([]) }
+    finally { setLogsLoading(false) }
+  }
+
+  useEffect(() => { fetchLogs() }, [lead.id])
+
+  const handleSaveLog = async () => {
+    if (!logBody.trim() || logSaving) return
+    setLogSaving(true)
+    setLogError(false)
+    try {
+      const res = await fetch('/api/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: lead.id, type: logType, body: logBody })
+      })
+      if (res.ok) {
+        setLogBody('')
+        setLogSaved(true)
+        setTimeout(() => setLogSaved(false), 2000)
+        fetchLogs()
+      } else {
+        setLogError(true)
+      }
+    } catch {
+      setLogError(true)
+    } finally {
+      setLogSaving(false)
+    }
+  }
+
   // NEW – handle dead‑status save
   const handleSaveLeadProfile = async () => {
     setEditingLead(true)
@@ -520,6 +567,76 @@ export default function ProLeadDetailClient({
                     {savingDead ? <Loader2 className="h-4 w-4 animate-spin" /> : isDeadState ? 'Re‑open' : 'Save'}
                   </button>
                 )}
+              </div>
+            </div>
+
+            {/* Right Column: Save Logs */}
+            <div className="md:col-span-1 space-y-6">
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-md bg-sky-50 dark:bg-sky-500/10 text-sky-600 flex items-center justify-center">
+                    <BookOpen className="w-3.5 h-3.5" />
+                  </span>
+                  Save Logs
+                </h2>
+                <div className="flex gap-2 mb-3 bg-slate-50 p-1 rounded-lg w-max border border-slate-200 dark:bg-slate-800/40 dark:border-slate-700">
+                  {(['note', 'call', 'message'] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setLogType(t)}
+                      className={`text-xs px-3.5 py-1.5 rounded-lg transition-all font-medium capitalize shadow-sm ${
+                        logType === t ? 'bg-white text-slate-900 border border-slate-200 shadow-sm dark:bg-[#0f172a] dark:text-slate-100 dark:border-slate-600' : 'border border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  value={logBody}
+                  onChange={(e) => setLogBody(e.target.value)}
+                  placeholder="Write your log here..."
+                  rows={3}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
+                />
+                <button
+                  onClick={handleSaveLog}
+                  disabled={!logBody.trim() || logSaving}
+                  className="mt-3 w-full bg-sky-500 hover:bg-sky-600 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center"
+                >
+                  {logSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Log'}
+                </button>
+                {logSaved && <p className="text-emerald-600 dark:text-emerald-400 text-xs mt-2 text-center font-medium">Log saved ✓</p>}
+                {logError && <p className="text-red-600 dark:text-red-400 text-xs mt-2 text-center font-medium">Failed to save log</p>}
+
+                <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">Log History</h3>
+                  <div className="max-h-[320px] overflow-y-auto space-y-3 pr-2">
+                    {logsLoading ? (
+                      <div className="flex justify-center py-4">
+                        <Loader2 className="w-5 h-5 animate-spin text-sky-500" />
+                      </div>
+                    ) : logs.length === 0 ? (
+                      <p className="text-sm text-slate-400 text-center py-4">No logs yet</p>
+                    ) : (
+                      logs.map((log: any) => (
+                        <div key={log.id} className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-3 border border-slate-100 dark:border-slate-700/50">
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                            log.type === 'call' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' :
+                            log.type === 'message' ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400' :
+                            'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400'
+                          }`}>
+                            {log.type}
+                          </span>
+                          <p className="text-sm text-slate-700 dark:text-slate-300 mt-1 line-clamp-2">{log.body}</p>
+                          <p className="text-xs text-slate-400 mt-2">
+                            {log.userName} &middot; {formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

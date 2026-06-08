@@ -85,11 +85,7 @@ export async function GET(request: Request) {
     const totalHours = Number((totalMinutes / 60).toFixed(2))
 
     // 3. Lead Lists
-    // Midnight Start of Today
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
-
-    // Touched Today
+    // Touched in Range
     const touchedToday = await db
       .selectDistinct({
         id: leads.id,
@@ -108,7 +104,8 @@ export async function GET(request: Request) {
           eq(leads.id, leadActivities.leadId),
           eq(leadActivities.userId, targetUserId),
           eq(leadActivities.tenantId, tenant.id),
-          gte(leadActivities.createdAt, todayStart)
+          ...(startDate ? [gte(leadActivities.createdAt, startDate)] : []),
+          ...(endDate ? [lte(leadActivities.createdAt, endDate)] : []),
         )
       )
       .where(eq(leads.tenantId, tenant.id))

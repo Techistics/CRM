@@ -14,5 +14,5 @@ export const ADMIN_ROUTES = {
   pipeline: '/admin/settings/pipeline',
   analytics: '/admin/analytics',
   myLeads: '/admin/my-leads',
-  permissions: '/admin/permissions',
+  permissions: '/admin/permissions', 
 } as const

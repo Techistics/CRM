@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { and, eq, gte, lte, sql, inArray } from 'drizzle-orm'
+import { and, eq, gte, lte } from 'drizzle-orm'
 import { db } from '@/db'
-import { leads, tenants, users, tenantMembers } from '@/db/schema'
+import { leads, tenants, users, pipelineStages, pipelineSubStatuses } from '@/db/schema'
 import { getSession } from '@/lib/auth'
 import { resolveTenantAccess } from '@/lib/tenant-access'
+import { can } from '@/lib/authz'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -32,57 +33,81 @@ export async function GET(req: NextRequest) {
   }
 
   const access = await resolveTenantAccess(session.userId, tenant)
-  if (!access || access.role !== 'ADMIN') {
+  if (!access || !can(access.permissions, 'analytics.view')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  // Build filters for the LEFT JOIN
-  const leadFilters = [eq(leads.tenantId, tenant.id)]
-  if (from) leadFilters.push(gte(leads.createdAt, new Date(from)))
-  if (to) {
-    const toDate = new Date(to)
-    toDate.setHours(23, 59, 59, 999)
-    leadFilters.push(lte(leads.createdAt, toDate))
+  // Fetch all leads assigned to tenant members in date range
+  const leadRows = await db
+    .select({
+      counsellorName: users.name,
+      counsellorEmail: users.email,
+      leadId: leads.id,
+      fullName: leads.fullName,
+      lastContactedAt: leads.lastContactedAt,
+      stage: leads.primaryStage,
+      subStatusId: leads.subStatusId,
+      closedAction: leads.closedAction,
+      isDead: leads.isDeadManual,
+      createdAt: leads.createdAt,
+    })
+    .from(leads)
+    .innerJoin(users, eq(leads.assignedTo, users.id))
+    .where(and(
+      eq(leads.tenantId, tenant.id),
+      ...(from ? [gte(leads.createdAt, new Date(from))] : []),
+      ...(to ? [lte(leads.createdAt, (() => { const d = new Date(to); d.setHours(23,59,59,999); return d })())] : []),
+    ))
+    .orderBy(users.name, leads.createdAt)
+
+  // Fetch stage labels
+  const stageRows = await db
+    .select({ key: pipelineStages.key, label: pipelineStages.label })
+    .from(pipelineStages)
+    .where(eq(pipelineStages.tenantId, tenant.id))
+  const stageLabelMap = new Map(stageRows.map(s => [s.key, s.label]))
+
+  // Fetch sub-status labels
+  const subStatusRows = await db
+    .select({ id: pipelineSubStatuses.id, label: pipelineSubStatuses.label })
+    .from(pipelineSubStatuses)
+    .where(eq(pipelineSubStatuses.tenantId, tenant.id))
+  const subStatusLabelMap = new Map(subStatusRows.map(s => [s.id, s.label]))
+
+  // Group by counsellor
+  const grouped = new Map<string, typeof leadRows>()
+  for (const row of leadRows) {
+    const key = row.counsellorEmail ?? 'unknown'
+    if (!grouped.has(key)) grouped.set(key, [])
+    grouped.get(key)!.push(row)
   }
 
-  const results = await db
-    .select({
-      agent_name: users.name,
-      agent_email: users.email,
-      total_assigned: sql<number>`count(${leads.id})`,
-      won: sql<number>`count(${leads.id}) filter (where ${leads.primaryStage} = 'paid')`,
-      conversion_rate: sql<number>`round(count(${leads.id}) filter (where ${leads.primaryStage} = 'paid')::numeric / nullif(count(${leads.id}), 0) * 100, 1)`,
-      revenue: sql<number>`coalesce(sum(${leads.dealValue}) filter (where ${leads.primaryStage} = 'paid'), 0)`,
-    })
-    .from(users)
-    .leftJoin(leads, and(eq(leads.assignedTo, users.id), ...leadFilters))
-    .where(
-      inArray(
-        users.id,
-        db
-          .select({ userId: tenantMembers.userId })
-          .from(tenantMembers)
-          .where(eq(tenantMembers.tenantId, tenant.id))
-      )
-    )
-    .groupBy(users.id, users.name, users.email)
-    .orderBy(sql`revenue DESC`)
+  const csvLines: string[] = []
+  for (const [, rows] of grouped) {
+    const first = rows[0]
+    csvLines.push(`"Counsellor: ${first.counsellorName} <${first.counsellorEmail}>"`)
+    csvLines.push(['Lead ID', 'Name', 'Last Contacted', 'Stage', 'Sub Status', 'Closed Action', 'Status'].join(','))
+    for (const r of rows) {
+      csvLines.push([
+        `"${r.leadId}"`,
+        `"${String(r.fullName).replace(/"/g, '""')}"`,
+        r.lastContactedAt ? new Date(r.lastContactedAt).toLocaleDateString() : 'Never',
+        `"${stageLabelMap.get(String(r.stage)) ?? r.stage}"`,
+        `"${r.subStatusId ? (subStatusLabelMap.get(r.subStatusId) ?? '') : ''}"`,
+        `"${r.closedAction ?? ''}"`,
+        r.isDead ? 'Dead' : 'Active',
+      ].join(','))
+    }
+    csvLines.push('') // blank line between counsellors
+  }
 
-  // Convert to CSV
-  const headers = ['Counselor Name', 'Counselor Email', 'Leads Assigned', 'Leads Won', 'Conversion Rate %', 'Revenue']
-  const csvRows = [
-    headers.join(','),
-    ...results.map((r) => [
-      `"${String(r.agent_name ?? '').replace(/"/g, '""')}"`,
-      `"${String(r.agent_email ?? '').replace(/"/g, '""')}"`,
-      r.total_assigned,
-      r.won,
-      r.conversion_rate || 0,
-      r.revenue,
-    ].join(',')),
-  ]
+  // Summary at end
+  csvLines.push('')
+  csvLines.push(`"Total Leads: ${leadRows.length}"`)
+  const deadCount = leadRows.filter(r => r.isDead).length
+  csvLines.push(`"Active: ${leadRows.length - deadCount}, Dead: ${deadCount}"`)
 
-  const csv = csvRows.join('\n')
+  const csv = csvLines.join('\n')
   const filename = `agent-report-${from || 'all'}-${to || 'now'}.csv`
 
   return new NextResponse(csv, {

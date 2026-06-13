@@ -1,12 +1,14 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '@/db'
-import { tenantMembers } from '@/db/schema'
+import { tenantMembers, customRoles } from '@/db/schema'
+import {
+  resolveMemberPermissions,
+  sanitizePermissions,
+  type Permission,
+} from '@/lib/authz'
 
 export type TenantAppRole = 'ADMIN' | 'PRO'
 
-/**
- * Resolves the role for a user in a specific tenant (workspace).
- */
 export async function getTenantMembership(
   dbUserId: string,
   tenantId: string,
@@ -14,20 +16,48 @@ export async function getTenantMembership(
   const [row] = await db
     .select({ role: tenantMembers.role })
     .from(tenantMembers)
-    .where(
-      and(
-        eq(tenantMembers.tenantId, tenantId), 
-        eq(tenantMembers.userId, dbUserId),
-        isNull(tenantMembers.deletedAt)
-      ),
-    )
+    .where(and(
+      eq(tenantMembers.tenantId, tenantId),
+      eq(tenantMembers.userId, dbUserId),
+      isNull(tenantMembers.deletedAt)
+    ))
   return (row?.role as TenantAppRole) ?? null
 }
 
-/** 
- * Mocking legacy sync function to avoid breaking other files immediately.
- * In a pure custom auth system, membership is managed via our own invite/admin tools.
- */
+export async function getTenantMembershipWithPermissions(
+  dbUserId: string,
+  tenantId: string,
+): Promise<{ role: TenantAppRole; permissions: Permission[]; customRoleId: string | null } | null> {
+  const [row] = await db
+    .select({
+      role: tenantMembers.role,
+      customRoleId: tenantMembers.customRoleId,
+    })
+    .from(tenantMembers)
+    .where(and(
+      eq(tenantMembers.tenantId, tenantId),
+      eq(tenantMembers.userId, dbUserId),
+      isNull(tenantMembers.deletedAt)
+    ))
+
+  if (!row) return null
+
+  let customRolePermissions: Permission[] | null = null
+  if (row.customRoleId) {
+    const roleRow = await db.query.customRoles.findFirst({
+      where: eq(customRoles.id, row.customRoleId),
+      columns: { permissions: true },
+    })
+    customRolePermissions = sanitizePermissions(roleRow?.permissions)
+  }
+
+  return {
+    role: row.role as TenantAppRole,
+    permissions: resolveMemberPermissions(row.role as TenantAppRole, customRolePermissions),
+    customRoleId: row.customRoleId,
+  }
+}
+
 export async function syncTenantMembership(
   dbUserId: string,
   tenant: { id: string },

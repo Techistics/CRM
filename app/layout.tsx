@@ -25,7 +25,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${dmSans.variable}`} suppressHydrationWarning>
       <head>
-        <script id="theme-init" dangerouslySetInnerHTML={{ __html: `(() => {
+        {/* Leave <head> empty or put standard metadata here. Remove <Script> from here */}
+      </head>
+      <body className={`${inter.className} min-h-screen antialiased`}>
+        {/* Move scripts to the top of the body */}
+        <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: `(() => {
             try {
               const stored = localStorage.getItem('crm-theme');
               const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -33,7 +37,7 @@ export default function RootLayout({
               document.documentElement.classList.toggle('dark', theme === 'dark');
             } catch {}
           })();` }} />
-        <script id="fetch-interceptor-init" dangerouslySetInnerHTML={{ __html: `(() => {
+        <Script id="fetch-interceptor-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: `(() => {
             try {
               if (typeof window === 'undefined' || window.__crmFetchPatched) return;
               const originalFetch = window.fetch.bind(window);
@@ -49,8 +53,7 @@ export default function RootLayout({
               window.__crmFetchPatched = true;
             } catch {}
           })();` }} />
-      </head>
-      <body className={`${inter.className} min-h-screen antialiased`}>
+
         <AuthToastWrapper />
         <FetchInterceptor />
         <Analytics />

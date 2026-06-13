@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 import { db } from '@/db'
 import { followUpTemplates } from '@/db/schema'
-import { requireTenantAdminApi, requireTenantMemberApi } from '@/lib/tenant-api'
+import { requirePermissionApi, requireTenantMemberApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
 const createSchema = z.object({
@@ -79,7 +79,7 @@ async function seedIfEmpty(tenantId: string) {
 
 export async function GET(req: NextRequest) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requirePermissionApi('leads.view')
     if (!ctx.ok) return ctx.response
 
     const url = new URL(req.url)
@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('templates.manage')
     if (!ctx.ok) return ctx.response
 
     const body = await req.json().catch(() => null)

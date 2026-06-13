@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { leadTagAssignments, leadTags, leads } from '@/db/schema'
-import { requireTenantMemberApi } from '@/lib/tenant-api'
+import { requireLeadEditApi, requireLeadViewApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { z } from 'zod'
 
@@ -15,7 +15,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requireLeadEditApi()
     if (!ctx.ok) return ctx.response
 
     const { id: leadId } = await params
@@ -73,7 +73,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requireLeadEditApi()
     if (!ctx.ok) return ctx.response
 
     const { id: leadId } = await params

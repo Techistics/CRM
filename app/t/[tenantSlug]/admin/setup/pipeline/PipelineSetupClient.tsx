@@ -1,9 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { Plus, X } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
+import { getDefaultsForPosition } from '@/constants/sub-status-defaults'
 import { apiCall } from '@/lib/utils/api-handler'
 
 type StageDraft = {
@@ -35,43 +38,79 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
   const [saving, setSaving] = useState(false)
 
   const [stages, setStages] = useState<StageDraft[]>(defaultDraft)
-  const [allowedPairs, setAllowedPairs] = useState<Set<string>>(new Set())
+  const [subStatusEnabled, setSubStatusEnabled] = useState(false)
 
-  function togglePair(a: string, b: string) {
-    const k = a < b ? `${a}__${b}` : `${b}__${a}`
-    setAllowedPairs((prev) => {
-      const next = new Set(prev)
-      if (next.has(k)) next.delete(k)
-      else next.add(k)
-      return next
+  // Sub-status editor state
+  const [subStatusDraft, setSubStatusDraft] = useState<
+    Record<string, Array<{ id: string; label: string; type: 'in_progress' | 'closed_lost' | 'defer'; closedActions: string[] }>>
+  >({})
+  const [selectedStageIdx, setSelectedStageIdx] = useState(0)
+  const [newClosedAction, setNewClosedAction] = useState<Record<string, string>>({})
+
+  // When step changes to 3, populate subStatusDraft
+  useEffect(() => {
+    if (step !== 3) return
+    const draft: typeof subStatusDraft = {}
+    stages.forEach((s, idx) => {
+      const defaults = getDefaultsForPosition(idx)
+      draft[s.key] = defaults.map((d, i) => ({
+        id: `draft_${s.key}_${i}`,
+        label: d.label,
+        type: d.type,
+        closedActions: [...d.closedActions],
+      }))
     })
-  }
+    setSubStatusDraft(draft)
+    setSelectedStageIdx(0)
+  }, [step, stages])
 
   async function save() {
     setSaving(true)
-    const payload = {
-      stages: stages.map((s, idx) => ({
-        key: s.key,
-        label: s.label,
-        sortOrder: idx,
-      })),
-      allowedPairs: [...allowedPairs].map((k) => k.split('__') as [string, string]),
+    
+    // 1. Save stages
+    const stagesPayload = {
+      stages: stages.map((s, idx) => ({ key: s.key, label: s.label, sortOrder: idx })),
     }
-
-    const ok = await apiCall(async () => {
+    const stagesOk = await apiCall(async () => {
       const res = await fetch('/api/admin/pipeline-stages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(stagesPayload),
       })
       return res.json()
-    }, { successMsg: 'Pipeline saved', errorMsg: 'Failed to save pipeline' })
+    }, { successMsg: '', errorMsg: 'Failed to save stages' })
+    
+    if (!stagesOk) { setSaving(false); return }
+
+    // 2. Save sub-statuses if sub-status is enabled
+    if (subStatusEnabled) {
+      const allSubStatuses = Object.entries(subStatusDraft).flatMap(([stageKey, subs]) =>
+        subs.map((ss, idx) => ({
+          stageKey,
+          label: ss.label,
+          type: ss.type,
+          closedActions: ss.closedActions,
+          sortOrder: idx,
+        }))
+      )
+      
+      for (const ss of allSubStatuses) {
+        await fetch('/api/sub-statuses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(ss),
+        })
+      }
+    }
 
     setSaving(false)
-    if (!ok) return
+    toast.success('Pipeline setup complete!')
     router.push(`/t/${tenantSlug}/admin/overview`)
     router.refresh()
   }
+
+  const selectedStage = stages[selectedStageIdx]
+  const currentSubStatuses = selectedStage ? subStatusDraft[selectedStage.key] ?? [] : []
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -90,7 +129,7 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
           <span>→</span>
           <span className={step === 2 ? 'text-[var(--text-strong)] font-medium' : ''}>2. Stages</span>
           <span>→</span>
-          <span className={step === 3 ? 'text-[var(--text-strong)] font-medium' : ''}>3. Co-occur</span>
+          <span className={step === 3 ? 'text-[var(--text-strong)] font-medium' : ''}>3. Sub-Statuses</span>
         </div>
 
         {step === 1 && (
@@ -100,7 +139,6 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
               onClick={() => {
                 setMode('default')
                 setStages(defaultDraft)
-                setAllowedPairs(new Set())
               }}
               className={`w-full rounded-[12px] border px-4 py-3 text-left transition-colors ${
                 mode === 'default'
@@ -119,7 +157,6 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
               onClick={() => {
                 setMode('custom')
                 setStages([{ key: 'new_lead', label: 'New Lead' }])
-                setAllowedPairs(new Set())
               }}
               className={`w-full rounded-[12px] border px-4 py-3 text-left transition-colors ${
                 mode === 'custom'
@@ -202,7 +239,6 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
                       type="button"
                       onClick={() => {
                         setStages((prev) => prev.filter((_, i) => i !== idx))
-                        setAllowedPairs(new Set())
                       }}
                       className="h-9 rounded-[10px] border border-red-500/30 bg-red-500/10 px-2 text-[12px] text-red-300 hover:bg-red-500/15"
                       disabled={stages.length <= 1}
@@ -247,53 +283,190 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
 
         {step === 3 && (
           <div className="space-y-4">
-            <div className="rounded-[12px] border border-[var(--card-border-color)] bg-[var(--main-bg)] p-4">
-              <div className="text-[13px] font-medium text-[var(--text-strong)]">Simultaneous stages</div>
-              <div className="mt-1 text-[12px] text-[var(--muted-text)]">
-                Check the pairs that are allowed to be active at the same time.
+            <div className="rounded-[12px] border border-[var(--card-border-color)] bg-[var(--main-bg)] p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-[14px] font-medium text-[var(--text-strong)]">Enable Sub-Statuses</div>
+                  <div className="mt-0.5 text-[12px] text-[var(--muted-text)]">
+                    Track where each lead is within a stage (e.g. In Progress, Closed Lost). You can always configure this later in Settings.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSubStatusEnabled((v) => !v)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    subStatusEnabled ? 'bg-sky-500' : 'bg-slate-300 dark:bg-slate-600'
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    subStatusEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
               </div>
 
-              <div className="mt-6">
-                {stages.length < 2 ? (
-                  <div className="text-[12px] text-[var(--muted-text)]">Add at least 2 stages to configure this.</div>
-                ) : (
-                  <div className="space-y-6">
-                    {stages.map((stage) => (
-                      <div key={stage.key} className="space-y-3">
-                        <div className="text-[13px] font-semibold text-[var(--text-strong)] border-b border-[var(--card-border-color)] pb-1">
-                          {stage.label} <span className="font-normal text-[var(--muted-text)] text-[12px]">can co-occur with:</span>
+              {subStatusEnabled && (
+                <div className="grid grid-cols-3 gap-4 border-t border-[var(--card-border-color)] pt-4">
+                  <div className="col-span-1 space-y-1">
+                    {stages.map((stage, idx) => {
+                      const isSelected = selectedStageIdx === idx
+                      return (
+                        <div
+                          key={stage.key}
+                          onClick={() => setSelectedStageIdx(idx)}
+                          className={`rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'bg-sky-50 border border-sky-200 text-sky-700 dark:bg-sky-500/10 dark:border-sky-500/30 dark:text-sky-400'
+                              : 'hover:bg-slate-50 text-slate-600 dark:hover:bg-slate-800 dark:text-slate-400 border border-transparent'
+                          }`}
+                        >
+                          {stage.label}
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          {stages
-                            .filter((s) => s.key !== stage.key)
-                            .map((other) => {
-                              const k =
-                                stage.key < other.key
-                                  ? `${stage.key}__${other.key}`
-                                  : `${other.key}__${stage.key}`
-                              const checked = allowedPairs.has(k)
-                              return (
-                                <button
-                                  key={other.key}
-                                  type="button"
-                                  onClick={() => togglePair(stage.key, other.key)}
-                                  className={`flex items-center gap-1.5 rounded-[8px] px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                                    checked
-                                      ? 'bg-[#1e293b] text-white border border-[#334155]'
-                                      : 'bg-[var(--card-bg)] text-[var(--muted-text)] border border-[var(--card-border-color)] hover:bg-[var(--card-border-color)]/20'
-                                  }`}
-                                >
-                                  {checked && <span className="text-[10px] font-bold text-blue-400">✓</span>}
-                                  {other.label}
-                                </button>
-                              )
-                            })}
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
-                )}
-              </div>
+
+                  <div className="col-span-2 bg-[var(--main-bg)] rounded-[12px] border border-[var(--card-border-color)] p-4">
+                    <h3 className="text-sm font-medium text-[var(--text-strong)] mb-4">
+                      Sub-statuses for {selectedStage?.label}
+                    </h3>
+                    
+                    <div className="space-y-3">
+                      {currentSubStatuses.map((ss, ssIdx) => (
+                        <div key={ss.id} className="bg-[var(--card-bg)] rounded-[10px] border border-[var(--card-border-color)] p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              value={ss.label}
+                              onChange={(e) => {
+                                setSubStatusDraft(prev => {
+                                  const next = { ...prev }
+                                  next[selectedStage.key][ssIdx].label = e.target.value
+                                  return next
+                                })
+                              }}
+                              className="flex-1 h-8 rounded-md border border-[var(--card-border-color)] bg-[var(--main-bg)] px-2 text-sm text-[var(--text-strong)] outline-none"
+                              placeholder="Sub-status label"
+                            />
+                            <button
+                              onClick={() => {
+                                setSubStatusDraft(prev => {
+                                  const next = { ...prev }
+                                  next[selectedStage.key] = next[selectedStage.key].filter((_, i) => i !== ssIdx)
+                                  return next
+                                })
+                              }}
+                              className="text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 p-1.5 rounded-md transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          <div className="flex gap-2">
+                            {(['in_progress', 'closed_lost', 'defer'] as const).map(type => (
+                              <button
+                                key={type}
+                                onClick={() => {
+                                  setSubStatusDraft(prev => {
+                                    const next = { ...prev }
+                                    next[selectedStage.key][ssIdx].type = type
+                                    return next
+                                  })
+                                }}
+                                className={`text-[11px] px-2 py-1 rounded-md font-medium transition-colors ${
+                                  ss.type === type
+                                    ? type === 'in_progress' ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400'
+                                    : type === 'closed_lost' ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'
+                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
+                                    : 'bg-[var(--main-bg)] text-[var(--muted-text)] hover:bg-slate-100 dark:hover:bg-slate-800'
+                                }`}
+                              >
+                                {type.replace('_', ' ')}
+                              </button>
+                            ))}
+                          </div>
+
+                          <div className="space-y-1.5 pt-2 border-t border-[var(--card-border-color)]">
+                            <div className="text-[11px] text-[var(--muted-text)] font-medium">Closed Actions</div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {ss.closedActions.map((action, actionIdx) => (
+                                <span key={actionIdx} className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded-md px-2 py-0.5 text-[11px] text-[var(--text-strong)]">
+                                  {action}
+                                  <button
+                                    onClick={() => {
+                                      setSubStatusDraft(prev => {
+                                        const next = { ...prev }
+                                        next[selectedStage.key][ssIdx].closedActions = next[selectedStage.key][ssIdx].closedActions.filter((_, i) => i !== actionIdx)
+                                        return next
+                                      })
+                                    }}
+                                    className="hover:text-red-500"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <input
+                                value={newClosedAction[ss.id] || ''}
+                                onChange={(e) => setNewClosedAction(prev => ({ ...prev, [ss.id]: e.target.value }))}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault()
+                                    const action = newClosedAction[ss.id]?.trim()
+                                    if (action && !ss.closedActions.includes(action)) {
+                                      setSubStatusDraft(prev => {
+                                        const next = { ...prev }
+                                        next[selectedStage.key][ssIdx].closedActions.push(action)
+                                        return next
+                                      })
+                                      setNewClosedAction(prev => ({ ...prev, [ss.id]: '' }))
+                                    }
+                                  }
+                                }}
+                                className="flex-1 h-7 rounded-md border border-[var(--card-border-color)] bg-[var(--main-bg)] px-2 text-[11px] text-[var(--text-strong)] outline-none"
+                                placeholder="New action..."
+                              />
+                              <button
+                                onClick={() => {
+                                  const action = newClosedAction[ss.id]?.trim()
+                                  if (action && !ss.closedActions.includes(action)) {
+                                    setSubStatusDraft(prev => {
+                                      const next = { ...prev }
+                                      next[selectedStage.key][ssIdx].closedActions.push(action)
+                                      return next
+                                    })
+                                    setNewClosedAction(prev => ({ ...prev, [ss.id]: '' }))
+                                  }
+                                }}
+                                className="h-7 px-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[var(--text-strong)] rounded-md text-[11px] font-medium transition-colors"
+                              >
+                                Add
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setSubStatusDraft(prev => {
+                          const next = { ...prev }
+                          next[selectedStage.key] = [
+                            ...(next[selectedStage.key] || []),
+                            { id: `draft_${Date.now()}`, label: 'New Sub-Status', type: 'in_progress', closedActions: [] }
+                          ]
+                          return next
+                        })
+                      }}
+                      className="mt-3 flex items-center gap-1.5 text-[12px] text-sky-600 dark:text-sky-400 font-medium hover:text-sky-700 dark:hover:text-sky-300"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Sub-Status
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between">
@@ -310,7 +483,7 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
                 disabled={saving}
                 className="h-10 rounded-[10px] bg-[#CBEF7F] px-4 text-[13px] font-medium text-[#2C5000] disabled:opacity-60"
               >
-                {saving ? 'Saving…' : 'Finish setup'}
+                {saving ? 'Saving…' : 'Finish Setup'}
               </button>
             </div>
           </div>
@@ -319,4 +492,3 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
     </div>
   )
 }
-

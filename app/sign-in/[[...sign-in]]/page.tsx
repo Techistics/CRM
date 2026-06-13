@@ -21,7 +21,9 @@ function SignInForm() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
+const [workspaces, setWorkspaces] = useState<{tenantSlug: string, tenantId: string, role: string, name: string}[]>([])
+const [showPicker, setShowPicker] = useState(false)
+  
   // Sync email search param to state on mount
   useEffect(() => {
     if (initialEmail) {
@@ -49,9 +51,17 @@ function SignInForm() {
       onError: (err) => setError(err instanceof Error ? err.message : 'Login failed'),
     })
     if (data) {
-      router.push(redirectPath || '/')
-      router.refresh()
-    }
+  const payload = (data as any)?.data ?? data
+  if (payload.tenantSlug && payload.role) {
+    const base = `/t/${payload.tenantSlug}`
+    window.location.href = payload.role === 'ADMIN' ? `${base}/admin/overview` : `${base}/pro/overview`
+  } else if (payload.workspaces?.length > 1) {
+    setWorkspaces(payload.workspaces)
+    setShowPicker(true)
+  } else {
+    window.location.href = '/'
+  }
+}
     setLoading(false)
   }
 
@@ -105,6 +115,7 @@ function SignInForm() {
         {error && (
           <p className="mt-1 text-[12px] font-medium text-[var(--danger)]">{error}</p>
         )}
+
 
         <Button type="submit" className="w-full h-10 font-medium" style={{ backgroundColor: '#0ea5e9', color: 'white' }} disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Sign In'}

@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 import { db } from '@/db'
 import { followUpTemplates } from '@/db/schema'
-import { requireTenantAdminApi } from '@/lib/tenant-api'
+import { requirePermissionApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
 const patchSchema = z.object({
@@ -18,7 +18,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('templates.manage')
     if (!ctx.ok) return ctx.response
 
     const { id } = await params
@@ -67,7 +67,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('templates.manage')
     if (!ctx.ok) return ctx.response
 
     const { id } = await params

@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { db } from '@/db'
 import { leadActivities, leadReminders } from '@/db/schema'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
-import { requireTenantMemberApi } from '@/lib/tenant-api'
+import { requireLeadEditApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
 const reminderPatchSchema = z.object({
@@ -18,7 +18,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; reminderId: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requireLeadEditApi()
     if (!ctx.ok) return ctx.response
 
     const { id, reminderId } = await params

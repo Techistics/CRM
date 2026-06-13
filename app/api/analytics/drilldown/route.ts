@@ -2,11 +2,13 @@ import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { leads, tenantTimesheets, leadActivities } from '@/db/schema'
 import { eq, and, gte, lte, or, isNull, sql } from 'drizzle-orm'
-import { requireTenantSession } from '@/lib/tenant-server'
+import { requirePermissionApi } from '@/lib/tenant-api'
 
 export async function GET(request: Request) {
-  try {
-    const { tenant, dbUserId, role } = await requireTenantSession()
+  const ctx = await requirePermissionApi('analytics.view')
+  if (!ctx.ok) return ctx.response
+
+  const { tenant, dbUserId, role } = ctx
 
     // Grab URL parameters
     const { searchParams } = new URL(request.url)
@@ -231,10 +233,4 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json(payload)
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Failed to fetch drilldown analytics' },
-      { status: 500 }
-    )
-  }
 }

@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { db } from '@/db'
 import { leads, leadActivities, leadStageAssignments } from '@/db/schema'
 import { errorResponse, successResponse, withApiErrorHandling } from '@/lib/api-response'
-import { requireTenantAdminApi } from '@/lib/tenant-api'
+import { requirePermissionApi } from '@/lib/tenant-api'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 import { validateStageTransition } from '@/lib/lead-stage-validation'
 
@@ -18,7 +18,7 @@ const bodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('leads.edit')
     if (!ctx.ok) return ctx.response
 
     const body = await req.json().catch(() => null)

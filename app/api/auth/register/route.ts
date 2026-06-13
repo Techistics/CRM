@@ -1,3 +1,5 @@
+import { tenants } from '@/db/schema'
+import { eq as eqOp } from 'drizzle-orm'
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { and, eq, sql } from 'drizzle-orm'
@@ -84,18 +86,18 @@ export async function POST(req: NextRequest) {
           .values({
             email,
             name,
-            password: hashedPassword,
             globalRole: null
           })
           .returning()
 
         // If we found a valid invitation for this email, accept it now
         if (invite) {
-          await tx.insert(tenantMembers).values({
-            tenantId: invite.tenantId,
-            userId: u.id,
-            role: invite.role,
-          })
+  await tx.insert(tenantMembers).values({
+    tenantId: invite.tenantId,
+    userId: u.id,
+    role: invite.role,
+    tenantPassword: hashedPassword,
+  })
           await tx.update(invitations).set({ status: 'ACCEPTED' }).where(eq(invitations.id, invite.id))
           await tx.insert(auditLogs).values({
             actorUserId: u.id,
@@ -109,22 +111,28 @@ export async function POST(req: NextRequest) {
         return u
       })
 
-    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000)
-    const sessionToken = await encrypt({ 
-        userId: user.id, 
-        globalRole: user.globalRole as 'SUPER_ADMIN' | null, 
-        expiresAt 
-    })
+    const [tenantRow] = await db
+  .select({ slug: tenants.slug })
+  .from(tenants)
+  .where(eq(tenants.id, invite.tenantId))
+  .limit(1)
 
-    const response = successResponse({
-      user: { 
-          id: user.id, 
-          email: user.email,
-          name: user.name,
-          globalRole: user.globalRole
-      } 
-    })
-    
+const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000)
+const sessionToken = await encrypt({
+  userId: user.id,
+  globalRole: null,
+  tenantId: invite.tenantId,
+  tenantSlug: tenantRow.slug,
+  role: invite.role as 'ADMIN' | 'PRO',
+  expiresAt,
+})
+
+const response = successResponse({
+  user: { id: user.id, email: user.email, name: user.name, globalRole: null },
+  tenantSlug: tenantRow.slug,
+  role: invite.role,
+})
+    response.cookies.set('session', '', { expires: new Date(0), path: '/' })
     response.cookies.set('session', sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

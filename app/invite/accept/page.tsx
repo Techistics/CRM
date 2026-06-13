@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Loader2, XCircle, ShieldCheck, UserPlus } from 'lucide-react'
+import { Loader2, XCircle, ShieldCheck, UserPlus, Eye, EyeOff } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -30,6 +30,8 @@ function AcceptInviteContent() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   useEffect(() => {
     if (!token) {
@@ -81,7 +83,8 @@ function AcceptInviteContent() {
     })
 
     if (result?.tenantSlug) {
-      router.push(`/t/${result.tenantSlug}?role=${result.role}`)
+      const base = `/t/${result.tenantSlug}`
+      window.location.href = result.role === 'ADMIN' ? `${base}/admin/overview` : `${base}/pro/overview`
     } else {
       router.push('/sign-in')
     }
@@ -89,33 +92,31 @@ function AcceptInviteContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-slate-600 font-medium">Loading invitation...</p>
-        </div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="text-muted-foreground font-medium animate-pulse">Loading invitation...</p>
       </div>
     )
   }
 
   if (error || !inviteData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-        <Card className="max-w-md w-full shadow-lg border-red-100">
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-4">
+        <Card className="max-w-md w-full shadow-lg border-destructive/20 bg-card">
           <CardHeader className="text-center pb-2">
-            <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-              <XCircle className="h-6 w-6 text-red-600" />
+            <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+              <XCircle className="h-6 w-6 text-destructive" />
             </div>
-            <CardTitle className="text-xl text-slate-900">Invalid Invitation</CardTitle>
-            <CardDescription className="text-slate-500">
+            <CardTitle className="text-xl">Invalid Invitation</CardTitle>
+            <CardDescription className="text-muted-foreground mt-1">
               {error || 'This invitation link has expired or already been used.'}
             </CardDescription>
           </CardHeader>
-          <CardFooter className="flex flex-col gap-3 pt-6">
+          <CardFooter className="flex flex-col gap-2 pt-4">
             <Button className="w-full" onClick={() => router.push('/sign-in')}>
               Go to Sign In
             </Button>
-            <Button variant="ghost" className="w-full text-slate-500" onClick={() => router.push('/')}>
+            <Button variant="ghost" className="w-full text-muted-foreground" onClick={() => router.push('/')}>
               Back to Home
             </Button>
           </CardFooter>
@@ -125,30 +126,46 @@ function AcceptInviteContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 py-12">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-primary/10 mb-4">
-             <ShieldCheck className="h-8 w-8 text-primary" />
+    <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-4 py-12">
+      <div className="max-w-md w-full space-y-6">
+        
+        {/* Workspace Intro Header */}
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-primary/10 text-primary mb-4 ring-4 ring-primary/5">
+            <ShieldCheck className="h-8 w-8" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Welcome to {inviteData.workspaceName}</h1>
-          <p className="text-slate-500 mt-2">
-            {inviteData.inviterName} has invited you to join as an <span className="font-semibold text-primary">{inviteData.role === 'ADMIN' ? 'Admin' : 'Counselor'}</span>.
+          <h1 className="text-2xl font-bold tracking-tight">Welcome to {inviteData.workspaceName}</h1>
+          <p className="text-muted-foreground mt-2 text-sm max-w-sm mx-auto">
+            {inviteData.inviterName} has invited you to join as an{' '}
+            <span className="font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-md text-xs uppercase tracking-wider">
+              {inviteData.role === 'ADMIN' ? 'Admin' : 'Counselor'}
+            </span>.
           </p>
         </div>
 
-        <Card className="shadow-xl border-slate-200 overflow-hidden">
-          <CardHeader className="bg-slate-50/50 border-b border-slate-100">
+        {/* Dynamic Form Card */}
+        <Card className="shadow-xl border-border bg-card overflow-hidden">
+          <CardHeader className="bg-muted/30 border-b border-border/60">
             <CardTitle className="text-lg">Create your account</CardTitle>
             <CardDescription>Enter your details to join the workspace.</CardDescription>
           </CardHeader>
+          
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4 pt-6">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-700">Email Address</Label>
-                <Input id="email" value={inviteData.email} disabled className="bg-slate-50 text-slate-500" />
+              
+              {/* Email (Read-only status style) */}
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">Email Address</Label>
+                <Input 
+                  id="email" 
+                  value={inviteData.email} 
+                  disabled 
+                  className="bg-muted/60 border-border/80 text-muted-foreground opacity-80 cursor-not-allowed select-none" 
+                />
               </div>
-              <div className="space-y-2">
+
+              {/* Full Name */}
+              <div className="space-y-1.5">
                 <Label htmlFor="name">Full Name</Label>
                 <Input 
                   id="name" 
@@ -157,35 +174,62 @@ function AcceptInviteContent() {
                   value={name} 
                   onChange={(e) => setName(e.target.value)}
                   disabled={submitting}
+                  className="focus-visible:ring-primary"
                 />
               </div>
-              <div className="space-y-2">
+
+              {/* Password */}
+              <div className="space-y-1.5">
                 <Label htmlFor="password">Password</Label>
-                <Input 
-                  id="password" 
-                  type="password" 
-                  placeholder="Min 8 characters" 
-                  required 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={submitting}
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Min 8 characters"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={submitting}
+                    className="pr-10 focus-visible:ring-primary"
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(p => !p)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
-              <div className="space-y-2">
+
+              {/* Confirm Password */}
+              <div className="space-y-1.5">
                 <Label htmlFor="confirm">Confirm Password</Label>
-                <Input 
-                  id="confirm" 
-                  type="password" 
-                  placeholder="Repeat your password" 
-                  required 
-                  value={confirmPassword} 
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={submitting}
-                />
+                <div className="relative">
+                  <Input
+                    id="confirm"
+                    type={showConfirm ? 'text' : 'password'}
+                    placeholder="Repeat your password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={submitting}
+                    className="pr-10 focus-visible:ring-primary"
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowConfirm(p => !p)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-foreground transition-colors"
+                  >
+                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
+
             </CardContent>
+
             <CardFooter className="flex flex-col gap-4 pb-6">
-              <Button type="submit" className="w-full h-11" disabled={submitting}>
+              <Button type="submit" className="w-full h-11 text-primary-foreground font-medium" disabled={submitting}>
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
@@ -193,7 +237,7 @@ function AcceptInviteContent() {
                 )}
                 Create account & join workspace
               </Button>
-              <p className="text-center text-xs text-slate-400 px-4">
+              <p className="text-center text-xs text-muted-foreground px-4 text-balance leading-relaxed">
                 By joining, you agree to the terms and conditions of {inviteData.workspaceName}.
               </p>
             </CardFooter>
@@ -209,7 +253,6 @@ export default function AcceptInvitePage() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // Simple session check via auth API (adjust endpoint as needed)
     fetch('/api/auth/session')
       .then(async (res) => {
         if (res.ok) {
@@ -223,7 +266,7 @@ export default function AcceptInvitePage() {
 
   if (checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     );
@@ -231,7 +274,7 @@ export default function AcceptInvitePage() {
 
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     }>

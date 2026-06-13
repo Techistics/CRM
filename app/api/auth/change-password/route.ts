@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { eq } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
+import { tenantMembers } from '@/db/schema'
+import { and } from 'drizzle-orm'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { getSession } from '@/lib/auth'
@@ -27,7 +29,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Current password is incorrect' }, { status: 400 })
 
     const hashed = await bcrypt.hash(newPassword, 12)
-    await db.update(users).set({ password: hashed }).where(eq(users.id, session.userId))
+
+// If session is tenant-scoped, update tenantMembers.tenantPassword
+if (session.tenantId) {
+  await db
+    .update(tenantMembers)
+    .set({ tenantPassword: hashed })
+    .where(and(eq(tenantMembers.userId, session.userId), eq(tenantMembers.tenantId, session.tenantId)))
+} else {
+  // SUPER_ADMIN — update global password
+  await db.update(users).set({ password: hashed }).where(eq(users.id, session.userId))
+}
 
     return NextResponse.json({ success: true })
   } catch {

@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import { Bell, Menu, Search } from 'lucide-react'
-
+import NotificationBell from '@/app/components/NotificationBell'
 import { useSidebar } from '@/components/sidebar-provider'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
@@ -66,13 +66,7 @@ export function AdminHeader({
           <div className="flex items-center gap-2">
             <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
             <ThemeToggle />
-            <button
-              type="button"
-              aria-label="Notifications"
-              className="h-9 w-9 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors"
-            >
-              <Bell className="h-4 w-4" />
-            </button>
+            <NotificationBell tenantSlug={tenantSlug} portalBase="admin" />
             <UserMenu user={user} role="ADMIN" tenantSlug={tenantSlug} />
           </div>
         </div>

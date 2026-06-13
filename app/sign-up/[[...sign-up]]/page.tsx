@@ -50,9 +50,15 @@ function SignUpForm() {
       onError: (err) => setError(err instanceof Error ? err.message : 'Registration failed'),
     })
     if (data) {
-      router.push(redirectPath || '/')
-      router.refresh()
-    }
+  const payload = (data as any)?.data ?? data
+  if (payload.tenantSlug && payload.role) {
+    const base = `/t/${payload.tenantSlug}`
+    window.location.href = payload.role === 'ADMIN' ? `${base}/admin/overview` : `${base}/pro/overview`
+  } else {
+    router.push(redirectPath || '/')
+  }
+  router.refresh()
+}
     setLoading(false)
   }
 

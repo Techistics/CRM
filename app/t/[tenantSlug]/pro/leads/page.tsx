@@ -1,7 +1,7 @@
-'use client'
+import { requirePermissionSession } from '@/lib/tenant-server'
+import ProLeadsPageClient from './ProLeadsPageClient'
 
-import { LeadsDashboard } from '@/components/leads/LeadsDashboard'
-
-export default function ProLeadsPage() {
-  return <LeadsDashboard role="PRO" />
+export default async function ProLeadsPage() {
+  await requirePermissionSession('leads.view')
+  return <ProLeadsPageClient />
 }

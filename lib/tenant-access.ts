@@ -1,25 +1,27 @@
 import type { Tenant } from '@/types/models'
 import { isPlatformSuperAdminUserId } from '@/lib/platform-role'
-import { getTenantMembership, type TenantAppRole } from '@/lib/tenant-membership'
+import { getTenantMembershipWithPermissions, type TenantAppRole } from '@/lib/tenant-membership'
+import { ALL_PERMISSIONS, type Permission } from '@/lib/authz'
 
-/**
- * Resolves workspace access.
- * Platform super admins have unrestricted access.
- * Regular users must have a row in tenant_members.
- */
 export async function resolveTenantAccess(
   userId: string,
   tenant: Tenant,
-): Promise<{ dbUserId: string; role: TenantAppRole } | null> {
-  // 1. Regular tenant membership check (Explicit roles take priority)
-  const role = await getTenantMembership(userId, tenant.id)
-  if (role) {
-    return { dbUserId: userId, role }
+): Promise<{ dbUserId: string; role: TenantAppRole; permissions: Permission[] } | null> {
+  const result = await getTenantMembershipWithPermissions(userId, tenant.id)
+  if (result) {
+    return {
+      dbUserId: userId,
+      role: result.role,
+      permissions: result.permissions,
+    }
   }
 
-  // 2. Fallback: Check for platform-wide Super Admin role (Ghost Admin)
   if (await isPlatformSuperAdminUserId(userId)) {
-    return { dbUserId: userId, role: 'ADMIN' }
+    return {
+      dbUserId: userId,
+      role: 'ADMIN',
+      permissions: [...ALL_PERMISSIONS],
+    }
   }
 
   return null

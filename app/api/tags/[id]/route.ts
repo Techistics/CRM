@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { leadTags } from '@/db/schema'
-import { requireTenantAdminApi } from '@/lib/tenant-api'
+import { requirePermissionApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { z } from 'zod'
 
@@ -16,7 +16,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('leads.edit')
     if (!ctx.ok) return ctx.response
 
     const { id } = await params
@@ -62,7 +62,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('leads.edit')
     if (!ctx.ok) return ctx.response
 
     const { id } = await params

@@ -3,19 +3,19 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowUp, ArrowDown, Plus, Trash, Save } from 'lucide-react';
+import { ArrowUp, ArrowDown, Plus, Trash, Save, Loader2 } from 'lucide-react';
 
-/** Props expected from the parent settings page */
 interface PipelineStagesEditorProps {
-  /** tenantId is derived from session; not required as a prop */
+  onSaved?: () => void
 }
 
-export default function PipelineStagesEditor(_: PipelineStagesEditorProps) {
+export default function PipelineStagesEditor({ onSaved }: PipelineStagesEditorProps) {
   const [stages, setStages] = useState<
     { key: string; label: string; sortOrder: number }[]
   >([]);
   const [isLocked, setIsLocked] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Load stages from the GET endpoint (tenant derived from session)
   useEffect(() => {
@@ -23,11 +23,16 @@ export default function PipelineStagesEditor(_: PipelineStagesEditorProps) {
       try {
         const res = await fetch('/api/admin/pipeline-stages');
         if (!res.ok) throw new Error('Failed to load stages');
-        const { stages, isLocked } = await res.json();
-        setStages(stages);
-        setIsLocked(isLocked);
+        const data = await res.json();
+        console.log(JSON.stringify(data));
+        const extractedStages = data?.data?.stages ?? data?.stages ?? [];
+        const extractedIsLocked = data?.data?.isLocked ?? data?.isLocked ?? false;
+        setStages(Array.isArray(extractedStages) ? extractedStages : []);
+        setIsLocked(extractedIsLocked);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Unable to load pipeline stages');
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
@@ -85,7 +90,9 @@ export default function PipelineStagesEditor(_: PipelineStagesEditorProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // No tenantId needed; API derives it from session
-        body: JSON.stringify({ stages }),
+        body: JSON.stringify({
+          stages: stages.map(({ key, label, sortOrder }) => ({ key, label, sortOrder }))
+        }),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
@@ -97,6 +104,7 @@ export default function PipelineStagesEditor(_: PipelineStagesEditorProps) {
       toast.error(e instanceof Error ? e.message : 'Save failed');
     } finally {
       setSaving(false);
+      onSaved?.();
     }
   };
 
@@ -110,46 +118,54 @@ export default function PipelineStagesEditor(_: PipelineStagesEditorProps) {
         </p>
       ) : null}
 
-      <ul className="space-y-2">
-        {stages?.map((stage, idx) => (
-          <li
-            key={stage.key}
-            className="flex items-center gap-2 bg-gray-50 p-2 rounded"
-          >
-            <Input
-              value={stage.label}
-              onChange={(e) => renameStage(idx, e.target.value)}
-              disabled={isLocked}
-              placeholder="Stage label"
-              className="flex-1"
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              disabled={isLocked || idx === 0}
-              onClick={() => moveStage(idx, 'up')}
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-slate-400 py-4">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading stages...
+        </div>
+      ) : stages.length === 0 ? (
+        <p className="text-sm text-slate-400 py-2">No stages configured yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {stages?.map((stage, idx) => (
+            <li
+              key={stage.key}
+              className="flex items-center gap-2 bg-gray-50 p-2 rounded"
             >
-              <ArrowUp className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              disabled={isLocked || idx === stages.length - 1}
-              onClick={() => moveStage(idx, 'down')}
-            >
-              <ArrowDown className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="destructive"
-              size="icon"
-              disabled={isLocked}
-              onClick={() => deleteStage(idx)}
-            >
-              <Trash className="h-4 w-4" />
-            </Button>
-          </li>
-        ))}
-      </ul>
+              <Input
+                value={stage.label}
+                onChange={(e) => renameStage(idx, e.target.value)}
+                disabled={isLocked}
+                placeholder="Stage label"
+                className="flex-1"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={isLocked || idx === 0}
+                onClick={() => moveStage(idx, 'up')}
+              >
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={isLocked || idx === stages.length - 1}
+                onClick={() => moveStage(idx, 'down')}
+              >
+                <ArrowDown className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="destructive"
+                size="icon"
+                disabled={isLocked}
+                onClick={() => deleteStage(idx)}
+              >
+                <Trash className="h-4 w-4" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {!isLocked && (
         <Button variant="outline" size="sm" onClick={addStage}>

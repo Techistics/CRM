@@ -3,9 +3,10 @@ import { NextRequest } from 'next/server'
 
 import { db } from '@/db'
 import { tenantMembers, auditLogs } from '@/db/schema'
-import { requireTenantAdminApi } from '@/lib/tenant-api'
+import { requirePermissionApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { roleUpdateSchema } from '@/lib/validators/auth'
+import { validateCustomRoleId } from '@/lib/validate-custom-role'
 
 type TeamRole = 'ADMIN' | 'PRO'
 
@@ -46,7 +47,7 @@ export async function PATCH(
   { params }: { params: Promise<{ userId: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('teams.manage')
     if (!ctx.ok) return ctx.response
 
     const { userId } = await params
@@ -63,7 +64,11 @@ export async function PATCH(
       return errorResponse('Invalid role', 'INVALID_ROLE', 400)
     }
 
-    const { role } = parsed.data
+    const { role, customRoleId } = parsed.data
+
+    const roleError = await validateCustomRoleId(ctx.tenant.id, role, customRoleId)
+    if (roleError) return errorResponse(roleError, 'INVALID_CUSTOM_ROLE', 400)
+    const resolvedCustomRoleId = role === 'PRO' ? (customRoleId ?? null) : null
 
     // Ownership Check: Creator cannot be downgraded
     if (userId === ctx.tenant.createdBy && role !== 'ADMIN') {
@@ -96,16 +101,24 @@ export async function PATCH(
 
     await db
       .update(tenantMembers)
-      .set({ role: role as TeamRole })
+      .set({
+        role: role as TeamRole,
+        customRoleId: resolvedCustomRoleId,
+      })
       .where(and(eq(tenantMembers.tenantId, ctx.tenant.id), eq(tenantMembers.userId, userId)))
 
     // Audit Log
     await db.insert(auditLogs).values({
-      actorUserId: ctx.dbUserId,
-      tenantId: ctx.tenant.id,
-      action: 'ROLE_CHANGED',
-      metadata: { targetUserId: userId, from: member.currentRole, to: role }
-    })
+        actorUserId: ctx.dbUserId,
+        tenantId: ctx.tenant.id,
+        action: 'ROLE_CHANGED',
+        metadata: {
+          targetUserId: userId,
+          from: member.currentRole,
+          to: role,
+          customRoleId: resolvedCustomRoleId,
+        },
+      })
 
     return successResponse({ ok: true })
   })
@@ -116,7 +129,7 @@ export async function DELETE(
   { params }: { params: Promise<{ userId: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('teams.manage')
     if (!ctx.ok) return ctx.response
 
     const { userId } = await params

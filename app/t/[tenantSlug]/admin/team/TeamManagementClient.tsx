@@ -47,12 +47,15 @@ type TeamMember = {
   paidLeads: number
   status: 'active' | 'pending_invite'
   invitationId: string | null
+  customRoleId?: string | null
 }
 
 export default function TeamManagementClient({
   initialMembers,
+  customRoles = [],
 }: {
   initialMembers: TeamMember[]
+  customRoles?: { id: string; name: string }[]
 }) {
   const router = useRouter()
   const [members, setMembers] = useState(initialMembers)
@@ -66,10 +69,12 @@ export default function TeamManagementClient({
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteName, setInviteName] = useState('')
   const [inviteRole, setInviteRole] = useState<TeamRole>('PRO')
+  const [inviteCustomRoleId, setInviteCustomRoleId] = useState('none')
 
   const [editOpen, setEditOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [editRole, setEditRole] = useState<TeamRole>('PRO')
+  const [editCustomRoleId, setEditCustomRoleId] = useState('none')
   
   const [resendOpen, setResendOpen] = useState(false)
   const [resendEmail, setResendEmail] = useState('')
@@ -95,7 +100,8 @@ export default function TeamManagementClient({
         body: JSON.stringify({ 
           email: inviteEmail, 
           role: inviteRole,
-          name: inviteName || undefined // Add name field to state if not exists
+          name: inviteName || undefined,
+          customRoleId: inviteCustomRoleId === 'none' ? null : inviteCustomRoleId
         }),
       })
       
@@ -126,6 +132,7 @@ export default function TeamManagementClient({
     setInviteEmail('')
     setInviteName('')
     setInviteRole('PRO')
+    setInviteCustomRoleId('none')
     router.refresh()
   }
 
@@ -133,6 +140,7 @@ export default function TeamManagementClient({
   function startEdit(member: TeamMember) {
     setEditId(member.id)
     setEditRole(member.role)
+    setEditCustomRoleId(member.customRoleId ?? 'none')
     setEditOpen(true)
   }
 
@@ -143,7 +151,10 @@ export default function TeamManagementClient({
       const res = await fetch(`/api/admin/team-members/${editId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: editRole }),
+        body: JSON.stringify({ 
+          role: editRole, 
+          customRoleId: editCustomRoleId === 'none' ? null : editCustomRoleId 
+        }),
       })
       return res.json()
     }, {
@@ -154,7 +165,7 @@ export default function TeamManagementClient({
     if (!data) return
 
     setMembers((prev) =>
-      prev.map((m) => (m.id === editId ? { ...m, role: editRole } : m)),
+      prev.map((m) => (m.id === editId ? { ...m, role: editRole, customRoleId: editCustomRoleId === 'none' ? null : editCustomRoleId } : m)),
     )
     setEditOpen(false)
     router.refresh()
@@ -262,7 +273,7 @@ export default function TeamManagementClient({
                   </span>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
-                  {m.totalLeads} total / {m.paidLeads} paid
+                  {m.totalLeads} 
                 </td>
                 <td className="px-4 py-3">
                   <div
@@ -357,6 +368,17 @@ export default function TeamManagementClient({
                 <SelectItem value="ADMIN">Admin</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={inviteCustomRoleId} onValueChange={setInviteCustomRoleId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Custom role (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No custom role</SelectItem>
+                {customRoles.map(r => (
+                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setInviteOpen(false)}>
@@ -382,6 +404,17 @@ export default function TeamManagementClient({
             <SelectContent>
               <SelectItem value="PRO">Pro</SelectItem>
               <SelectItem value="ADMIN">Admin</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={editCustomRoleId} onValueChange={setEditCustomRoleId}>
+            <SelectTrigger>
+              <SelectValue placeholder="Custom role (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No custom role</SelectItem>
+              {customRoles.map(r => (
+                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <DialogFooter>

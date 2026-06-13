@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { db } from '@/db'
 import { leadTagAssignments, leadTags, leads, users } from '@/db/schema'
 import { errorResponse, withApiErrorHandling } from '@/lib/api-response'
-import { requireTenantAdminApi } from '@/lib/tenant-api'
+import { requirePermissionApi } from '@/lib/tenant-api'
 
 const bodySchema = z.object({
   leadIds: z.array(z.string().uuid()).min(1),
@@ -20,7 +20,7 @@ function sanitizeCsvCell(value: unknown): string {
 
 export async function POST(req: NextRequest) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('leads.view')
     if (!ctx.ok) return ctx.response
 
     const body = await req.json().catch(() => null)

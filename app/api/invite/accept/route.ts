@@ -79,22 +79,26 @@ export async function POST(req: NextRequest) {
 
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // 1. Create user
-    const [newUser] = await db
-      .insert(users)
-      .values({
-        email: invite.email,
-        name,
-        password: hashedPassword,
-      })
-      .returning()
+// 1. Check if user already exists (re-invite to new tenant scenario)
+const existingUsers = await db.select().from(users).where(eq(users.email, invite.email)).limit(1)
+let targetUser = existingUsers[0]
 
-    // 2. Add to tenant
-    await db.insert(tenantMembers).values({
-      tenantId: invite.tenantId,
-      userId: newUser.id,
-      role: invite.role,
-    })
+if (!targetUser) {
+  // Create new user (no global password — tenant password stored in membership)
+  const [created] = await db.insert(users).values({ email: invite.email, name }).returning()
+  targetUser = created
+} else {
+  // Update name if provided
+  await db.update(users).set({ name }).where(eq(users.id, targetUser.id))
+}
+
+// 2. Add to tenant with per-tenant password
+await db.insert(tenantMembers).values({
+  tenantId: invite.tenantId,
+  userId: targetUser.id,
+  role: invite.role,
+  tenantPassword: hashedPassword,
+})
 
     // 3. Update invitation
     await db
@@ -112,10 +116,13 @@ export async function POST(req: NextRequest) {
     // 5. Create Session
     const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000)
     const sessionToken = await encrypt({
-      userId: newUser.id,
-      globalRole: null,
-      expiresAt,
-    })
+  userId: targetUser.id,
+  globalRole: null,
+  tenantId: invite.tenantId,
+  tenantSlug: tenant.slug,
+  role: invite.role as 'ADMIN' | 'PRO',
+  expiresAt,
+})
 
     const response = successResponse({
       success: true,

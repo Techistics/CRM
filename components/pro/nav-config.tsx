@@ -1,9 +1,12 @@
-import { LayoutDashboard, Users, BarChart3, Settings } from 'lucide-react'
+import { LayoutDashboard, Users, BarChart3, Settings, ArrowLeftRight, Import, Sparkles } from 'lucide-react'
 
 import { PRO_ROUTES } from '@/lib/pro-nav'
+import type { Permission } from '@/lib/authz'
 import type { SidebarNavLink, SidebarSettingsLink } from '@/types/navigation'
 
-export const proMainNav: SidebarNavLink[] = [
+export type PermissionNavLink = SidebarNavLink & { permission?: Permission }
+
+export const proMainNav: PermissionNavLink[] = [
   {
     name: 'Dashboard',
     href: PRO_ROUTES.overview,
@@ -15,12 +18,49 @@ export const proMainNav: SidebarNavLink[] = [
     href: PRO_ROUTES.leads,
     icon: Users,
     matchPrefix: true,
+    permission: 'leads.view',
+  },
+  {
+    name: 'Reassigned Leads',
+    href: PRO_ROUTES.reassignedLeads,
+    icon: ArrowLeftRight,
+    matchPrefix: true,
+    permission: 'leads.receive',
   },
   {
     name: 'Kanban',
     href: PRO_ROUTES.kanban,
     icon: BarChart3,
     matchPrefix: true,
+    permission: 'kanban.view',
+  },
+  {
+    name: 'Analytics',
+    href: PRO_ROUTES.analytics,
+    icon: BarChart3,
+    matchPrefix: true,
+    permission: 'analytics.view',
+  },
+  {
+    name: 'Import Leads',
+    href: PRO_ROUTES.import,
+    icon: Import,
+    matchPrefix: true,
+    permission: 'import.leads',
+  },
+  {
+    name: 'Templates',
+    href: PRO_ROUTES.templates,
+    icon: Sparkles,
+    matchPrefix: true,
+    permission: 'templates.manage',
+  },
+  {
+    name: 'Team',
+    href: PRO_ROUTES.team,
+    icon: Users,
+    matchPrefix: true,
+    permission: 'teams.manage',
   },
 ]
 
@@ -31,4 +71,3 @@ export const proSettingsLinks: SidebarSettingsLink[] = [
     icon: Settings,
   },
 ]
-

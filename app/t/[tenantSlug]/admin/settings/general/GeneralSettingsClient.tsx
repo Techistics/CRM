@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import type { Tenant } from '@/types/models'
 
-import PipelineStagesEditor from '@/components/admin/PipelineStagesEditor';
+
 interface GeneralSettingsClientProps {
   tenant: Tenant
 }
@@ -321,7 +321,6 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
             )}
           </Button>
         </div>
-    <PipelineStagesEditor />
       </div>
     </div>
   )

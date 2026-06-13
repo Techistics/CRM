@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { and, eq, gte, lte, sql } from 'drizzle-orm'
+import { and, eq, gte, lte } from 'drizzle-orm'
 import { db } from '@/db'
-import { leads, tenants, pipelineStages } from '@/db/schema'
+import { leads, tenants, pipelineStages, users, pipelineSubStatuses } from '@/db/schema'
 import { getSession } from '@/lib/auth'
 import { resolveTenantAccess } from '@/lib/tenant-access'
+import { can } from '@/lib/authz'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
   }
 
   const access = await resolveTenantAccess(session.userId, tenant)
-  if (!access || access.role !== 'ADMIN') {
+  if (!access || !can(access.permissions, 'analytics.view')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -45,49 +46,96 @@ export async function GET(req: NextRequest) {
     filters.push(lte(leads.createdAt, toDate))
   }
 
-  const stageRows = await db
-    .select({ key: pipelineStages.key, label: pipelineStages.label, sortOrder: pipelineStages.sortOrder })
-    .from(pipelineStages)
-    .where(eq(pipelineStages.tenantId, tenant.id))
-    .orderBy(pipelineStages.sortOrder, pipelineStages.createdAt)
-
-  const stageOrder = stageRows.map((s, i) => `WHEN '${s.key}' THEN ${i + 1}`).join(' ')
-  const stageLabelByKey = new Map(stageRows.map((s) => [s.key, s.label] as const))
-
-  const results = await db
+  const leadRows = await db
     .select({
+      leadId: leads.id,
+      fullName: leads.fullName,
+      email: leads.email,
+      contactNumber: leads.contactNumber,
       stage: leads.primaryStage,
-      lead_count: sql<number>`count(*)`,
-      total_value: sql<number>`coalesce(sum(${leads.dealValue}), 0)`,
-      avg_value: sql<number>`coalesce(avg(${leads.dealValue}), 0)`,
-      leads_with_value: sql<number>`count(*) filter (where ${leads.dealValue} is not null)`,
+      subStatusId: leads.subStatusId,
+      closedAction: leads.closedAction,
+      lastContactedAt: leads.lastContactedAt,
+      isDead: leads.isDeadManual,
+      assignedToId: leads.assignedTo,
+      assignedToName: users.name,
+      createdAt: leads.createdAt,
+      city: leads.city,
+      country: leads.country,
+      intakeMonth: leads.intakeMonth,
+      destinationCountry: leads.destinationCountry,
+      programOfInterest: leads.programOfInterest,
     })
     .from(leads)
+    .leftJoin(users, eq(leads.assignedTo, users.id))
     .where(and(...filters))
-    .groupBy(leads.primaryStage)
-    .orderBy(
-      stageRows.length > 0
-        ? sql`CASE ${leads.primaryStage} ${sql.raw(stageOrder)} ELSE ${stageRows.length + 1} END`
-        : leads.primaryStage,
-    )
+    .orderBy(leads.primaryStage, leads.createdAt)
 
-  // Convert to CSV
-  const headers = ['Stage', 'Lead Count', 'Total Deal Value', 'Avg Deal Value', 'Leads With Value']
-  const csvRows = [
-    headers.join(','),
-    ...results.map((r) => {
-      const stageLabel = stageLabelByKey.get(String(r.stage)) || r.stage
-      return [
-        `"${stageLabel}"`,
-        r.lead_count,
-        r.total_value,
-        r.avg_value,
-        r.leads_with_value,
-      ].join(',')
-    }),
-  ]
+  // Fetch stage labels
+  const stageRows = await db
+    .select({ key: pipelineStages.key, label: pipelineStages.label })
+    .from(pipelineStages)
+    .where(eq(pipelineStages.tenantId, tenant.id))
+  const stageLabelMap = new Map(stageRows.map(s => [s.key, s.label]))
 
-  const csv = csvRows.join('\n')
+  // Fetch sub-status labels
+  const subStatusRows = await db
+    .select({ id: pipelineSubStatuses.id, label: pipelineSubStatuses.label })
+    .from(pipelineSubStatuses)
+    .where(eq(pipelineSubStatuses.tenantId, tenant.id))
+  const subStatusLabelMap = new Map(subStatusRows.map(s => [s.id, s.label]))
+
+  // Group by stage
+  const stageGroups = new Map<string, typeof leadRows>()
+  for (const row of leadRows) {
+    const key = String(row.stage)
+    if (!stageGroups.has(key)) stageGroups.set(key, [])
+    stageGroups.get(key)!.push(row)
+  }
+
+  const csvLines: string[] = []
+  // Stage summary at top
+  csvLines.push('"PIPELINE REPORT SUMMARY"')
+  csvLines.push(['Stage', 'Total Leads', 'Active', 'Dead'].join(','))
+  for (const [stageKey, rows] of stageGroups) {
+    const dead = rows.filter(r => r.isDead).length
+    csvLines.push([
+      `"${stageLabelMap.get(stageKey) ?? stageKey}"`,
+      rows.length,
+      rows.length - dead,
+      dead,
+    ].join(','))
+  }
+  csvLines.push('')
+
+  // Per-stage detail
+  const headers = ['Lead ID','Name','Email','Phone','City','Country','Intake','Destination','Program','Sub Status','Closed Action','Assigned To','Last Contacted','Status','Created']
+  for (const [stageKey, rows] of stageGroups) {
+    csvLines.push(`"Stage: ${stageLabelMap.get(stageKey) ?? stageKey}"`)
+    csvLines.push(headers.join(','))
+    for (const r of rows) {
+      csvLines.push([
+        `"${r.leadId}"`,
+        `"${String(r.fullName).replace(/"/g, '""')}"`,
+        `"${r.email ?? ''}"`,
+        `"${r.contactNumber ?? ''}"`,
+        `"${r.city ?? ''}"`,
+        `"${r.country ?? ''}"`,
+        `"${r.intakeMonth ?? ''}"`,
+        `"${r.destinationCountry ?? ''}"`,
+        `"${r.programOfInterest ?? ''}"`,
+        `"${r.subStatusId ? (subStatusLabelMap.get(r.subStatusId) ?? '') : ''}"`,
+        `"${r.closedAction ?? ''}"`,
+        `"${r.assignedToName ?? 'Unassigned'}"`,
+        r.lastContactedAt ? new Date(r.lastContactedAt).toLocaleDateString() : 'Never',
+        r.isDead ? 'Dead' : 'Active',
+        new Date(r.createdAt!).toLocaleDateString(),
+      ].join(','))
+    }
+    csvLines.push('')
+  }
+
+  const csv = csvLines.join('\n')
   const filename = `pipeline-report-${from || 'all'}-${to || 'now'}.csv`
 
   return new NextResponse(csv, {

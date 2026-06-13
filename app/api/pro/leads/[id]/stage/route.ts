@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server'
 import { z } from 'zod'
-import { eq as dbEq, and as dbAnd } from 'drizzle-orm'
+import { eq as dbEq, and as dbAnd, isNull } from 'drizzle-orm'
 
 import { db } from '@/db'
-import { leads, leadActivities, leadStageAssignments } from '@/db/schema'
+import { leads, leadActivities, leadStageAssignments, tenantMembers, notifications } from '@/db/schema'
 import { requireTenantMemberApi } from '@/lib/tenant-api'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
-import { getTenantPipeline, isPairAllowed } from '@/lib/pipeline/config'
+import { getTenantPipeline } from '@/lib/pipeline/config'
 import { validateStageTransition } from '@/lib/lead-stage-validation'
 
 const bodySchema = z.union([
@@ -67,16 +67,6 @@ export async function PATCH(
       }
     }
     if (!activeStages.includes(primaryStage)) activeStages.unshift(primaryStage)
-
-    for (let i = 0; i < activeStages.length; i++) {
-      for (let j = i + 1; j < activeStages.length; j++) {
-        const a = activeStages[i]
-        const b = activeStages[j]
-        if (!isPairAllowed(pipeline.allowedPair, a, b)) {
-          return errorResponse(`Stages "${a}" and "${b}" cannot co-occur`, 'STAGE_CONFLICT', 400)
-        }
-      }
-    }
 
     const lead = await getLeadForMemberAction(
       id,
@@ -142,6 +132,29 @@ export async function PATCH(
         note: activeStages.length > 1 ? `Active: ${activeStages.join(', ')}` : null,
       })
     })
+
+    const adminMembers = await db
+      .select({ userId: tenantMembers.userId })
+      .from(tenantMembers)
+      .where(dbAnd(
+        dbEq(tenantMembers.tenantId, ctx.tenant.id),
+        dbEq(tenantMembers.role, 'ADMIN'),
+        isNull(tenantMembers.deletedAt)
+      ))
+
+    const recipients = new Set(adminMembers.map(m => m.userId))
+    recipients.delete(ctx.dbUserId)
+
+    for (const userId of recipients) {
+      await db.insert(notifications).values({
+        tenantId: ctx.tenant.id,
+        userId,
+        title: 'Stage updated',
+        body: `${lead.fullName} moved to ${primaryStage}`,
+        type: 'stage_changed',
+        leadId: id,
+      })
+    }
 
     return successResponse({ ok: true })
   })

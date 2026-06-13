@@ -7,7 +7,7 @@ import { getChecklistTemplateForCountry } from '@/constants/documents'
 import { db } from '@/db'
 import { leadDocumentChecklist, leadActivities } from '@/db/schema'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
-import { requireTenantMemberApi } from '@/lib/tenant-api'
+import { requireLeadEditApi, requireLeadViewApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
 const checklistPatchSchema = z.object({
@@ -22,7 +22,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requireLeadViewApi()
     if (!ctx.ok) return ctx.response
 
     const { id } = await params
@@ -74,7 +74,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requireLeadEditApi()
     if (!ctx.ok) return ctx.response
 
     const { id } = await params

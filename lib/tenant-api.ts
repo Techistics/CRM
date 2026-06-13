@@ -9,6 +9,14 @@ import type { Tenant } from '@/types/models'
 import { getSession } from '@/lib/auth'
 import { resolveTenantAccess } from '@/lib/tenant-access'
 import type { TenantAppRole } from '@/lib/tenant-membership'
+import { can, type Permission } from '@/lib/authz'
+
+export type TenantMemberContext = {
+  tenant: Tenant
+  dbUserId: string
+  role: TenantAppRole
+  permissions: Permission[]
+}
 
 export async function requireTenantFromApiHeaders(): Promise<
   | { ok: true; tenant: Tenant }
@@ -43,12 +51,12 @@ export async function requireTenantFromApiHeaders(): Promise<
 }
 
 export async function requireTenantMemberApi(): Promise<
-  | { ok: true; tenant: Tenant; dbUserId: string; role: TenantAppRole }
+  | { ok: true } & TenantMemberContext
   | { ok: false; response: NextResponse }
 > {
   const t = await requireTenantFromApiHeaders()
   if (!t.ok) return t
-  
+
   const session = await getSession()
   if (!session) {
     return {
@@ -65,13 +73,12 @@ export async function requireTenantMemberApi(): Promise<
     }
   }
 
-  // Audit Log for Super Admin Bypassing
   if (session.globalRole === 'SUPER_ADMIN') {
     await db.insert(auditLogs).values({
       actorUserId: session.userId,
       tenantId: t.tenant.id,
       action: 'SUPER_ADMIN_ACTION',
-      metadata: { bypass: true, path: 'requireTenantMemberApi' }
+      metadata: { bypass: true, path: 'requireTenantMemberApi' },
     })
   }
 
@@ -80,16 +87,17 @@ export async function requireTenantMemberApi(): Promise<
     tenant: t.tenant,
     dbUserId: actor.dbUserId,
     role: actor.role,
+    permissions: actor.permissions,
   }
 }
 
 export async function requireTenantAdminApi(): Promise<
-  | { ok: true; tenant: Tenant; dbUserId: string; role: TenantAppRole }
+  | { ok: true } & TenantMemberContext
   | { ok: false; response: NextResponse }
 > {
   const m = await requireTenantMemberApi()
   if (!m.ok) return m
-  
+
   if (m.role !== 'ADMIN') {
     return {
       ok: false,
@@ -97,4 +105,33 @@ export async function requireTenantAdminApi(): Promise<
     }
   }
   return m
+}
+
+export async function requirePermissionApi(
+  permission: Permission,
+): Promise<
+  | { ok: true } & TenantMemberContext
+  | { ok: false; response: NextResponse }
+> {
+  const m = await requireTenantMemberApi()
+  if (!m.ok) return m
+
+  if (!can(m.permissions, permission)) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: 'You do not have permission for this action', code: 'FORBIDDEN' },
+        { status: 403 },
+      ),
+    }
+  }
+  return m
+}
+
+export async function requireLeadViewApi() {
+  return requirePermissionApi('leads.view')
+}
+
+export async function requireLeadEditApi() {
+  return requirePermissionApi('leads.edit')
 }

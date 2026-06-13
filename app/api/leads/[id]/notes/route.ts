@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '@/db'
 import { leadActivities, leads } from '@/db/schema'
-import { requireTenantMemberApi } from '@/lib/tenant-api'
+import { requireLeadEditApi } from '@/lib/tenant-api'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
@@ -17,7 +17,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requireLeadEditApi()
     if (!ctx.ok) return ctx.response
 
     const { id } = await params

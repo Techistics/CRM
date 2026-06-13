@@ -4,7 +4,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { leadActivities, leadUploadedDocuments, users } from '@/db/schema'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
-import { requireTenantMemberApi } from '@/lib/tenant-api'
+import { requireLeadEditApi, requireLeadViewApi } from '@/lib/tenant-api'
 import { uploadFile } from '@/lib/storage'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
@@ -17,7 +17,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requireLeadViewApi()
     if (!ctx.ok) return ctx.response
 
     const { id } = await params
@@ -61,7 +61,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requireLeadEditApi()
     if (!ctx.ok) return ctx.response
 
     // Env is validated at startup in lib/env.ts, so we don't need manual check here 

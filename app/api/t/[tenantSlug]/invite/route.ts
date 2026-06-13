@@ -3,23 +3,25 @@ import { z } from 'zod'
 
 import { db } from '@/db'
 import { tenantMembers } from '@/db/schema'
-import { requireTenantAdminApi } from '@/lib/tenant-api'
+import { requirePermissionApi } from '@/lib/tenant-api'
 import { sendInviteEmail } from '@/lib/mail'
 import { createInvitationAndSendEmail } from '@/lib/invitations/service'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { eq, and, isNull, isNotNull } from 'drizzle-orm'
 import { getRootOrigin } from '@/lib/public-url'
+import { validateCustomRoleId } from '@/lib/validate-custom-role'
 const inviteSchema = z.object({
   email: z.string().email(),
   role: z.enum(['ADMIN', 'PRO']),
   name: z.string().optional(),
+  customRoleId: z.string().uuid().nullable().optional(),
 })
 
 export async function POST(
   req: NextRequest
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('teams.manage')
     if (!ctx.ok) return ctx.response
 
     const body = await req.json().catch(() => null)
@@ -28,8 +30,11 @@ export async function POST(
     const parsed = inviteSchema.safeParse(body)
     if (!parsed.success) return errorResponse('Validation failed', 'VALIDATION_ERROR', 400)
 
-    const { email, role } = parsed.data
+    const { email, role, customRoleId } = parsed.data
     const normalizedEmail = email.toLowerCase().trim()
+    const roleError = await validateCustomRoleId(ctx.tenant.id, role, customRoleId)
+    if (roleError) return errorResponse(roleError, 'INVALID_CUSTOM_ROLE', 400)
+    const resolvedCustomRoleId = role === 'PRO' ? (customRoleId ?? null) : null
 
     // 1. Check if user already exists
     const existingUser = await db.query.users.findFirst({
@@ -70,7 +75,7 @@ export async function POST(
         // Restore the member and set the requested role
         await db
           .update(tenantMembers)
-          .set({ deletedAt: null, role: role as 'ADMIN' | 'PRO' })
+          .set({ deletedAt: null, role: role as 'ADMIN' | 'PRO', customRoleId: resolvedCustomRoleId })
           .where(eq(tenantMembers.id, softDeleted.id));
 
         // Build the invite link (no token in this flow, use workspace URL)
@@ -95,6 +100,7 @@ export async function POST(
         tenantId: ctx.tenant.id,
         userId: existingUser.id,
         role,
+        customRoleId: resolvedCustomRoleId,
       });
 
       // Build the invite link for a freshly‑added user (no token, use workspace URL)
@@ -121,6 +127,7 @@ export async function POST(
       tenantName: ctx.tenant.name,
       email: normalizedEmail,
       role,
+      customRoleId: resolvedCustomRoleId,
       invitedBy: ctx.dbUserId,
     })
 

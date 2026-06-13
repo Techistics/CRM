@@ -40,6 +40,8 @@ export const leadPatchBodySchema = z
     dealValue: z.coerce.number().positive().optional().nullable(),
     dealCurrency: z.enum(['USD', 'GBP', 'EUR', 'PKR', 'AED', 'CAD', 'AUD']).optional(),
     // NEW – dead status fields
+    subStatusId: z.string().uuid().optional().nullable(),
+    closedAction: z.string().trim().max(500).optional().nullable(),
     isDeadManual: z.boolean().optional(),
     deadReason: z.string().trim().max(500).optional().nullable(),
   })

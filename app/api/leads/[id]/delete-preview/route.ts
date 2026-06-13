@@ -9,7 +9,7 @@ import {
   leadUploadedDocuments,
 } from '@/db/schema'
 import { getLeadInTenant } from '@/lib/lead-tenant'
-import { requireTenantMemberApi } from '@/lib/tenant-api'
+import { requirePermissionApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
 export async function GET(
@@ -17,7 +17,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requirePermissionApi('leads.delete')
     if (!ctx.ok) return ctx.response
 
     const { id } = await params

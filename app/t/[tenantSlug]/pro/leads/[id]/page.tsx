@@ -3,14 +3,14 @@ import { db } from '@/db'
 import { leads, leadActivities, users, tenantMembers } from '@/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import ProLeadDetailClient from './ProLeadDetailClient'
-import { requireTenantSession } from '@/lib/tenant-server'
+import { requirePermissionSession } from '@/lib/tenant-server'
 
 export default async function ProLeadDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
-  const { tenant, dbUserId } = await requireTenantSession()
+  const { tenant, dbUserId } = await requirePermissionSession('leads.view')
   const { id } = await params
 
   const [lead] = await db
@@ -39,7 +39,11 @@ export default async function ProLeadDetailPage({
       isDeadManual: leads.isDeadManual,
       deadReason: leads.deadReason,
       dealValue: leads.dealValue,
+      subStatusId: leads.subStatusId,
+closedAction: leads.closedAction,
       dealCurrency: leads.dealCurrency,
+      deletedAt: leads.deletedAt,
+reassignedFrom: leads.reassignedFrom,
     })
     .from(leads)
     .where(
@@ -50,6 +54,10 @@ export default async function ProLeadDetailPage({
     )
 
   if (!lead) notFound()
+
+  if (lead.assignedTo !== dbUserId) {
+    notFound()
+  }
 
   const activities = await db
     .select({

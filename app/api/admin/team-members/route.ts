@@ -2,11 +2,12 @@ import { NextRequest } from 'next/server'
 import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { users, tenantMembers, invitations, auditLogs, leads } from '@/db/schema'
-import { requireTenantAdminApi, requireTenantMemberApi } from '@/lib/tenant-api'
+import { requirePermissionApi, requireTenantMemberApi } from '@/lib/tenant-api'
 import { sendInviteEmail } from '@/lib/mail'
 import crypto from 'crypto'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { teamInviteSchema, teamResendSchema } from '@/lib/validators/auth'
+import { validateCustomRoleId } from '@/lib/validate-custom-role'
 import { createInvitationAndSendEmail } from '@/lib/invitations/service';
 import { getRootOrigin } from '@/lib/public-url';
 
@@ -64,7 +65,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('teams.manage')
     if (!ctx.ok) return ctx.response
 
     // Rate Limiting Logic
@@ -92,8 +93,11 @@ export async function POST(req: NextRequest) {
       return errorResponse('Validation failed', 'VALIDATION_ERROR', 400)
     }
 
-    const { email: rawEmail, role } = parsed.data
+    const { email: rawEmail, role, customRoleId } = parsed.data
     const email = rawEmail.toLowerCase().trim()
+    const roleError = await validateCustomRoleId(ctx.tenant.id, role, customRoleId)
+    if (roleError) return errorResponse(roleError, 'INVALID_CUSTOM_ROLE', 400)
+    const resolvedCustomRoleId = role === 'PRO' ? (customRoleId ?? null) : null
 
     // 1. Find user by email (case-insensitive)
     const [userInDb] = await db
@@ -118,7 +122,7 @@ export async function POST(req: NextRequest) {
         if (existing.deletedAt) {
           // Restore the member and set the requested role
           await db.update(tenantMembers)
-            .set({ deletedAt: null, role: role as 'ADMIN' | 'PRO' })
+            .set({ deletedAt: null, role: role as 'ADMIN' | 'PRO', customRoleId: resolvedCustomRoleId })
             .where(eq(tenantMembers.id, existing.id))
 
           // Send the invite link to the restored member
@@ -173,6 +177,7 @@ export async function POST(req: NextRequest) {
       tenantName: ctx.tenant.name,
       email,
       role: role as 'ADMIN' | 'PRO',
+      customRoleId: resolvedCustomRoleId,
       invitedBy: ctx.dbUserId,
     })
 
@@ -214,7 +219,7 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('teams.manage')
     if (!ctx.ok) return ctx.response
 
     let body: unknown

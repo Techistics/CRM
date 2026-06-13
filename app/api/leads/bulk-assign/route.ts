@@ -6,7 +6,7 @@ import { db } from '@/db'
 import { leads, tenantMembers, users } from '@/db/schema'
 import { errorResponse, successResponse, withApiErrorHandling } from '@/lib/api-response'
 import { sendLeadAssignedEmail } from '@/lib/mail'
-import { requireTenantAdminApi } from '@/lib/tenant-api'
+import { requirePermissionApi } from '@/lib/tenant-api'
 
 const bodySchema = z.object({
   leadIds: z.array(z.string().uuid()).min(1).max(500),
@@ -16,7 +16,7 @@ const bodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('leads.assign')
     if (!ctx.ok) return ctx.response
 
     const body = await req.json().catch(() => null)

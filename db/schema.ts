@@ -57,6 +57,9 @@ export const tenantMembers = pgTable(
     role: text('role', { enum: ['ADMIN', 'PRO'] }).notNull(),
     deletedAt: timestamp('deleted_at'),
     createdAt: timestamp('created_at').defaultNow(),
+    tenantPassword: text('tenant_password'),
+    customRoleId: uuid('custom_role_id')
+      .references(() => customRoles.id, { onDelete: 'set null' }),
   },
   (t) => ({
     unq: unique().on(t.tenantId, t.userId),
@@ -75,6 +78,8 @@ export const invitations = pgTable(
       .notNull(),
     email: text('email').notNull(),
     role: text('role', { enum: ['ADMIN', 'PRO'] }).notNull(),
+    customRoleId: uuid('custom_role_id')
+      .references(() => customRoles.id, { onDelete: 'set null' }),
     token: text('token').notNull().unique(),
     status: text('status', { enum: ['PENDING', 'ACCEPTED', 'EXPIRED'] })
       .notNull()
@@ -179,8 +184,12 @@ export const leads = pgTable('leads', {
   programOfInterest: text('program_of_interest'), // nullable
   deadReason: text('dead_reason'), // nullable
   isDeadManual: boolean('is_dead_manual').default(false), // defaults to false
+  reassignedFrom: uuid('reassigned_from').references(() => users.id, { onDelete: 'set null' }),
+  subStatusId: uuid('sub_status_id').references(() => pipelineSubStatuses.id, { onDelete: 'set null' }),
+  closedAction: text('closed_action'),
   createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow()
+  updatedAt: timestamp('updated_at').defaultNow(),
+  deletedAt: timestamp('deleted_at'),
 }, (t) => ({
   unq_email: unique('unq_leads_email_tenant').on(t.tenantId, t.email),
   unq_phone: unique('unq_leads_phone_tenant').on(t.tenantId, t.contactNumber),
@@ -204,24 +213,7 @@ export const pipelineStages = pgTable(
     unq_tenant_key: unique('pipeline_stages_tenant_key_unique').on(t.tenantId, t.key),
     idx_tenant: index('idx_pipeline_stages_tenant').on(t.tenantId),
   }),
-)
-
-export const pipelineStageCooccurrence = pgTable(
-  'pipeline_stage_cooccurrence',
-  {
-    tenantId: uuid('tenant_id')
-      .references(() => tenants.id, { onDelete: 'cascade' })
-      .notNull(),
-    stageKeyA: varchar('stage_key_a', { length: 64 }).notNull(),
-    stageKeyB: varchar('stage_key_b', { length: 64 }).notNull(),
-    allowed: boolean('allowed').notNull().default(true),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-  },
-  (t) => ({
-    pk: primaryKey({ columns: [t.tenantId, t.stageKeyA, t.stageKeyB] }),
-    idx_tenant: index('idx_pipeline_stage_cooccurrence_tenant').on(t.tenantId),
-  }),
-)
+)// pipelineStageCooccurrence removed — feature deprecated. DB table left intact intentionally.
 
 export const leadStageAssignments = pgTable(
   'lead_stage_assignments',
@@ -484,6 +476,23 @@ export const leadTagAssignmentRelations = relations(leadTagAssignments, ({ one }
   }),
 }))
 
+export const customRoles = pgTable(
+  'custom_roles',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .references(() => tenants.id, { onDelete: 'cascade' })
+      .notNull(),
+    name: text('name').notNull(),
+    permissions: jsonb('permissions').notNull().default([]),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => ({
+    unq: unique().on(t.tenantId, t.name),
+    idx_tenant: index('idx_custom_roles_tenant').on(t.tenantId),
+  })
+)
+
 
 // ─── Tenant Timesheets ────────────────────────────────────────────────────────
 export const tenantTimesheets = pgTable('tenant_timesheets', {
@@ -533,5 +542,27 @@ export const consultantLogs = pgTable(
     idx_tenant: index('idx_consultant_logs_tenant').on(t.tenantId),
     idx_lead: index('idx_consultant_logs_lead').on(t.leadId),
     idx_user: index('idx_consultant_logs_user').on(t.userId),
+  })
+)
+
+export const pipelineSubStatuses = pgTable(
+  'pipeline_sub_statuses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .references(() => tenants.id, { onDelete: 'cascade' })
+      .notNull(),
+    stageKey: varchar('stage_key', { length: 64 }).notNull(),
+    label: text('label').notNull(),
+    type: text('type', { enum: ['in_progress', 'closed_lost', 'defer'] })
+      .notNull()
+      .default('in_progress'),
+    closedActions: jsonb('closed_actions').notNull().default([]),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => ({
+    idx_tenant: index('idx_pipeline_sub_statuses_tenant').on(t.tenantId),
+    idx_stage: index('idx_pipeline_sub_statuses_stage').on(t.tenantId, t.stageKey),
   })
 )

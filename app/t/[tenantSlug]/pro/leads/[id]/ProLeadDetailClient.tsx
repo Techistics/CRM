@@ -12,11 +12,9 @@ import { tenantPath } from '@/lib/tenant-path'
 import { LeadDocumentsPanel } from '@/components/leads/LeadDocumentsPanel'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { apiCall } from '@/lib/utils/api-handler'
-import { StudentJourney } from '@/components/leads/StudentJourney'
 import { WhatsappLogger } from '@/components/leads/WhatsappLogger'
 import { LeadReminders } from '@/components/leads/LeadReminders'
 import { TooltipProvider } from '@/components/ui/tooltip'
-
 import type { ActivityRow } from '@/types/leads'
 
 export default function ProLeadDetailClient({
@@ -45,6 +43,7 @@ export default function ProLeadDetailClient({
 
   const [stage, setStage] = useState<string>(lead.primaryStage ?? lead.stage ?? 'new_lead')
   const [pipelineStages, setPipelineStages] = useState<Array<{ key: string; label: string }>>([])
+  const [stagesLoading, setStagesLoading] = useState(true)
   const [note, setNote] = useState('')
   const [noteType, setNoteType] = useState<'note' | 'call' | 'message'>('note')
   const [saving, setSaving] = useState(false)
@@ -58,6 +57,11 @@ export default function ProLeadDetailClient({
   const [savingDead, setSavingDead] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [editingLead, setEditingLead] = useState(false);
+
+  const [subStatuses, setSubStatuses] = useState<any[]>([])
+const [selectedSubStatusId, setSelectedSubStatusId] = useState<string | null>(lead.subStatusId ?? null)
+const [selectedClosedAction, setSelectedClosedAction] = useState<string | null>(lead.closedAction ?? null)
+const [savingSubStatus, setSavingSubStatus] = useState(false)
 
   const [logType, setLogType] = useState<'note' | 'call' | 'message'>('note')
   const [logBody, setLogBody] = useState('')
@@ -90,6 +94,8 @@ export default function ProLeadDetailClient({
         setPipelineStages((data?.data?.stages ?? data?.stages ?? []) as Array<{ key: string; label: string }>)
       } catch {
         setPipelineStages([])
+      } finally {
+        setStagesLoading(false)
       }
     })()
   }, [])
@@ -132,6 +138,30 @@ export default function ProLeadDetailClient({
     for (const s of PIPELINE_STAGES) map.set(s.value, s.badgeClasses)
     return map
   }, [])
+
+  const fetchSubStatuses = async (stageKey: string) => {
+    try {
+      const res = await fetch(`/api/sub-statuses?stageKey=${stageKey}`)
+      const data = await res.json()
+      setSubStatuses(Array.isArray(data) ? data : [])
+    } catch { setSubStatuses([]) }
+  }
+
+  const handleSubStatusSave = async () => {
+    setSavingSubStatus(true)
+    await apiCall(async () => {
+      const res = await fetch(`/api/leads/${lead.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subStatusId: selectedSubStatusId, closedAction: selectedClosedAction }),
+      })
+      return res.json()
+    }, { successMsg: 'Status updated', errorMsg: 'Failed to update status' })
+    setSavingSubStatus(false)
+    router.refresh()
+  }
+
+  useEffect(() => { fetchSubStatuses(stage) }, [stage])
 
   const adminUsers = useMemo(() => allUsers.filter((u) => u.role === 'ADMIN'), [allUsers])
 
@@ -378,12 +408,6 @@ export default function ProLeadDetailClient({
         <TabsContent value="overview" className="outline-none">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 space-y-6">
-              <StudentJourney
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                stage={stage as any}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onStepClick={(newStage) => handleStageChange(newStage as any)}
-              />
               {/* Contact Info */}
               <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700 ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
@@ -514,7 +538,7 @@ export default function ProLeadDetailClient({
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Assigned To</h2>
                 <select
                   value={assignedTo}
-                  disabled={isDeadState || lead.assignedTo !== currentUser.id}
+                  disabled={isDeadState}
                   onChange={(e) => handleAssign(e.target.value)}
                   className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
                 >
@@ -523,9 +547,6 @@ export default function ProLeadDetailClient({
                     <option key={u.id} value={u.id}>{u.name ?? u.id}</option>
                   ))}
                 </select>
-                {lead.assignedTo !== currentUser.id && (
-                  <p className="mt-1.5 text-xs text-amber-600">You can only transfer leads that you currently own.</p>
-                )}
               </div>
 
               {/* NEW – Mark as Dead UI */}
@@ -643,41 +664,102 @@ export default function ProLeadDetailClient({
         </TabsContent>
 
         {/* ==== Pipeline ==== */}
-        <TabsContent value="pipeline" className="outline-none">
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-              <span className="w-6 h-6 rounded-md bg-purple-50 text-purple-600 flex items-center justify-center">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-              </span>
-              Pipeline Stage
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(pipelineStages.length ? pipelineStages.map((s) => s.key) : PIPELINE_STAGES.map((s) => s.value)).map((s) => {
-                const isSelected = stage === s
-                const stageLabel = stageLabelByKey.get(s) ?? PIPELINE_STAGES.find((x) => x.value === s)?.label ?? s
-                return (
-                  <button
-                    key={s}
-                    onClick={() => handleStageChange(s)}
-                    disabled={isDeadState}
-                    className={`text-left px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all border ${
-                      isSelected
-                        ? 'bg-brand-light border-brand/30 text-brand'
-                        : 'bg-white border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 dark:bg-[#0f172a] dark:border-slate-700 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${isSelected ? 'border-brand bg-brand text-white' : 'border-gray-300'}`}>
-                        {isSelected && <svg className="w-2 h-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-                      </div>
-                      {stageLabel}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+        {/* ==== Pipeline ==== */}
+<TabsContent value="pipeline" className="outline-none">
+  <div className="space-y-6">
+    {/* Stage Selection */}
+    <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+        <span className="w-6 h-6 rounded-md bg-purple-50 text-purple-600 flex items-center justify-center">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+        </span>
+        Pipeline Stage
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {stagesLoading ? (
+          <div className="col-span-2 flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
           </div>
-        </TabsContent>
+        ) : (pipelineStages.length ? pipelineStages.map((s) => s.key) : PIPELINE_STAGES.map((s) => s.value)).map((s) => {
+          const isSelected = stage === s
+          const stageLabel = stageLabelByKey.get(s) ?? PIPELINE_STAGES.find((x) => x.value === s)?.label ?? s
+          return (
+            <button
+              key={s}
+              onClick={() => handleStageChange(s)}
+              disabled={isDeadState}
+              className={`text-left px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all border ${
+                isSelected
+                  ? 'bg-brand-light border-brand/30 text-brand'
+                  : 'bg-white border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 dark:bg-[#0f172a] dark:border-slate-700 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-700'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${isSelected ? 'border-brand bg-brand text-white' : 'border-gray-300'}`}>
+                  {isSelected && <svg className="w-2 h-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                </div>
+                {stageLabel}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Sub Status & Action (Horizontal) */}
+      <div className="flex flex-col sm:flex-row items-end gap-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/50 rounded-xl p-4 mt-6">
+        <div className="flex-1 w-full">
+          <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 mb-1.5 block">
+            Sub Status <span className="text-red-400">*</span>
+          </label>
+          <select
+            value={selectedSubStatusId ?? ''}
+            onChange={(e) => {
+              setSelectedSubStatusId(e.target.value || null)
+              setSelectedClosedAction(null)
+            }}
+            className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 transition-shadow"
+          >
+            <option value="">— Select sub status —</option>
+            {subStatuses.map((ss) => (
+              <option key={ss.id} value={ss.id}>{ss.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {selectedSubStatusId && (() => {
+          const selected = subStatuses.find(ss => ss.id === selectedSubStatusId)
+          const actions = (selected?.closedActions as string[]) ?? []
+          if (actions.length === 0) return null
+          return (
+            <div className="flex-1 w-full">
+              <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 mb-1.5 block">
+                Closed Action <span className="text-red-400">*</span>
+              </label>
+              <select
+                value={selectedClosedAction ?? ''}
+                onChange={(e) => setSelectedClosedAction(e.target.value || null)}
+                className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 transition-shadow"
+              >
+                <option value="">— Select action —</option>
+                {actions.map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+            </div>
+          )
+        })()}
+
+        <button
+          onClick={handleSubStatusSave}
+          disabled={savingSubStatus || !selectedSubStatusId}
+          className="h-10 px-6 bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg shadow-sm transition-all w-full sm:w-auto flex items-center justify-center gap-1.5"
+        >
+          {savingSubStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Save</>}
+        </button>
+      </div>
+    </div>
+  </div>
+</TabsContent>
 
         {/* ==== Activity ==== */}
         <TabsContent value="activity" className="outline-none">

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import { DollarSign, Loader2, Check } from 'lucide-react'
+import { DollarSign, Loader2, Check, BookOpen } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import type { Lead } from '@/types/models'
 import LeadActivityTimeline from '@/components/LeadActivityTimeline'
@@ -23,7 +23,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LeadDocumentsPanel } from '@/components/leads/LeadDocumentsPanel'
 import { apiCall } from '@/lib/utils/api-handler'
 import { WhatsappLogger } from '@/components/leads/WhatsappLogger'
-import { StudentJourney } from '@/components/leads/StudentJourney'
 
 export default function LeadDetailClient({
   lead,
@@ -58,12 +57,17 @@ export default function LeadDetailClient({
     activeStagesProp?.length ? activeStagesProp : [(lead.primaryStage ?? lead.stage ?? 'new_lead')]
   )
   const [pipelineStages, setPipelineStages] = useState<Array<{ key: string; label: string }>>([])
+  const [stagesLoading, setStagesLoading] = useState(true)
   const [assignedTo, setAssignedTo] = useState(lead.assignedTo ?? '')
   const [note, setNote] = useState('')
   const [noteType, setNoteType] = useState<'note' | 'call' | 'message'>('note')
   const [saving, setSaving] = useState(false)
   const [addingNote, setAddingNote] = useState(false)
   const [editingLead, setEditingLead] = useState(false)
+  const [subStatuses, setSubStatuses] = useState<any[]>([])
+  const [selectedSubStatusId, setSelectedSubStatusId] = useState<string | null>(lead.subStatusId ?? null)
+  const [selectedClosedAction, setSelectedClosedAction] = useState<string | null>(lead.closedAction ?? null)
+  const [savingSubStatus, setSavingSubStatus] = useState(false)
   // NEW – dead‑status UI state
   const [isDeadState, setIsDeadState] = useState<boolean>(lead.isDeadManual ?? false)
   const [isDead, setIsDead] = useState<boolean>(lead.isDeadManual ?? false)
@@ -85,7 +89,15 @@ export default function LeadDetailClient({
     dealCurrency: lead.dealCurrency ?? 'USD',
   })
 
-  const proUsers = allUsers.filter((u) => u.role === 'PRO')
+  const [logType, setLogType] = useState<'note' | 'call' | 'message'>('note')
+  const [logBody, setLogBody] = useState('')
+  const [logSaving, setLogSaving] = useState(false)
+  const [logSaved, setLogSaved] = useState(false)
+  const [logError, setLogError] = useState(false)
+  const [logs, setLogs] = useState<any[]>([])
+  const [logsLoading, setLogsLoading] = useState(false)
+
+  const proUsers = allUsers
 
   const stageLabelByKey = useMemo(() => {
     const entries = pipelineStages.map((s) => [s.key, s.label] as const)
@@ -117,6 +129,8 @@ export default function LeadDetailClient({
         setPipelineStages(rows)
       } catch {
         // If this fails, we still allow fallback single-stage behavior.
+      } finally {
+        setStagesLoading(false)
       }
     })()
   }, [])
@@ -125,6 +139,30 @@ export default function LeadDetailClient({
     setIsDead(lead.isDeadManual ?? false)
     setDeadReason(lead.deadReason ?? '')
   }, [lead.isDeadManual, lead.deadReason])
+
+  const fetchSubStatuses = async (stageKey: string) => {
+    try {
+      const res = await fetch(`/api/sub-statuses?stageKey=${stageKey}`)
+      const data = await res.json()
+      setSubStatuses(Array.isArray(data) ? data : [])
+    } catch { setSubStatuses([]) }
+  }
+
+  useEffect(() => { fetchSubStatuses(primaryStage) }, [primaryStage])
+
+  const handleSubStatusSave = async () => {
+    setSavingSubStatus(true)
+    const data = await apiCall(async () => {
+      const res = await fetch(`/api/leads/${lead.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subStatusId: selectedSubStatusId, closedAction: selectedClosedAction }),
+      })
+      return res.json()
+    }, { successMsg: 'Status updated', errorMsg: 'Failed to update status' })
+    setSavingSubStatus(false)
+    if (data) router.refresh()
+  }
 
   async function persistStages(nextPrimary: string, nextActive: string[]) {
     setSaving(true)
@@ -228,6 +266,38 @@ export default function LeadDetailClient({
       router.refresh()
     }
   }
+
+  const fetchLogs = async () => {
+    setLogsLoading(true)
+    try {
+      const res = await fetch(`/api/logs?leadId=${lead.id}`)
+      const data = await res.json()
+      setLogs(data ?? [])
+    } catch { setLogs([]) }
+    finally { setLogsLoading(false) }
+  }
+
+  const handleSaveLog = async () => {
+    if (!logBody.trim() || logSaving) return
+    setLogSaving(true)
+    setLogError(false)
+    try {
+      const res = await fetch('/api/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: lead.id, type: logType, body: logBody })
+      })
+      if (res.ok) {
+        setLogBody('')
+        setLogSaved(true)
+        setTimeout(() => setLogSaved(false), 2000)
+        fetchLogs()
+      } else { setLogError(true) }
+    } catch { setLogError(true) }
+    finally { setLogSaving(false) }
+  }
+
+  useEffect(() => { fetchLogs() }, [lead.id])
 
   const heat = getHeatLevel(
     lead.lastContactedAt ? new Date(lead.lastContactedAt) : null,
@@ -357,12 +427,6 @@ export default function LeadDetailClient({
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             {/* Left side – Journey + Contact + Edit fields */}
             <div className="space-y-6 xl:col-span-2">
-              <StudentJourney
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                stage={primaryStage as any}
-                onStepClick={(newStage) => handleStageToggle(String(newStage))}
-              />
-
               {/* Contact Info card */}
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
                 <h2 className="text-sm font-semibold text-slate-900 mb-4">Contact Info</h2>
@@ -512,15 +576,81 @@ export default function LeadDetailClient({
                   <option value="">Unassigned</option>
                   {proUsers.map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.name}
+                      {u.name} {u.role === 'ADMIN' ? '(Admin)' : ''}
                     </option>
                   ))}
                 </select>
                 {proUsers.length === 0 && (
                   <p className="text-xs text-slate-400 mt-2">
-                    No pro counselors yet. Add them in Team settings.
+                    No team members yet. Add them in Team settings.
                   </p>
                 )}
+              </div>
+            </div>
+
+            {/* Right Column: Save Logs */}
+            <div className="xl:col-span-1 space-y-6">
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-md bg-sky-50 dark:bg-sky-500/10 text-sky-600 flex items-center justify-center">
+                    <BookOpen className="w-3.5 h-3.5" />
+                  </span>
+                  Save Logs
+                </h2>
+                <div className="flex gap-2 mb-3 bg-slate-50 p-1 rounded-lg w-max border border-slate-200 dark:bg-slate-800/40 dark:border-slate-700">
+                  {(['note', 'call', 'message'] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setLogType(t)}
+                      className={`text-xs px-3.5 py-1.5 rounded-lg transition-all font-medium capitalize ${
+                        logType === t ? 'bg-white text-slate-900 border border-slate-200 shadow-sm dark:bg-[#0f172a] dark:text-slate-100 dark:border-slate-600' : 'border border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  value={logBody}
+                  onChange={(e) => setLogBody(e.target.value)}
+                  placeholder="Write your log here..."
+                  rows={3}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
+                />
+                <button
+                  onClick={handleSaveLog}
+                  disabled={!logBody.trim() || logSaving}
+                  className="mt-3 w-full bg-sky-500 hover:bg-sky-600 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center"
+                >
+                  {logSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Log'}
+                </button>
+                {logSaved && <p className="text-emerald-600 text-xs mt-2 text-center font-medium">Log saved ✓</p>}
+                {logError && <p className="text-red-600 text-xs mt-2 text-center font-medium">Failed to save log</p>}
+
+                <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">Log History</h3>
+                  <div className="max-h-[320px] overflow-y-auto space-y-3 pr-2">
+                    {logsLoading ? (
+                      <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-sky-500" /></div>
+                    ) : logs.length === 0 ? (
+                      <p className="text-sm text-slate-400 text-center py-4">No logs yet</p>
+                    ) : (
+                      logs.map((log: any) => (
+                        <div key={log.id} className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-3 border border-slate-100 dark:border-slate-700/50">
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                            log.type === 'call' ? 'bg-emerald-100 text-emerald-700' :
+                            log.type === 'message' ? 'bg-violet-100 text-violet-700' :
+                            'bg-sky-100 text-sky-700'
+                          }`}>{log.type}</span>
+                          <p className="text-sm text-slate-700 dark:text-slate-300 mt-1 line-clamp-2">{log.body}</p>
+                          <p className="text-xs text-slate-400 mt-2">
+                            {log.userName} · {formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -530,6 +660,12 @@ export default function LeadDetailClient({
         <TabsContent value="pipeline" className="outline-none">
           <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700 ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">Pipeline Stage</h2>
+            {stagesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+              </div>
+            ) : (
+            <>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {(pipelineStages.length > 0
                 ? pipelineStages.map((s) => ({
@@ -556,6 +692,61 @@ export default function LeadDetailClient({
                 </button>
               ))}
             </div>
+
+            {/* Sub Status & Action (Horizontal) */}
+            <div className="flex flex-col sm:flex-row items-end gap-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/50 rounded-xl p-4 mt-6">
+              <div className="flex-1 w-full">
+                <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 mb-1.5 block">
+                  Sub Status <span className="text-red-400">*</span>
+                </label>
+                <select
+                  value={selectedSubStatusId ?? ''}
+                  onChange={(e) => {
+                    setSelectedSubStatusId(e.target.value || null)
+                    setSelectedClosedAction(null)
+                  }}
+                  className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 transition-shadow"
+                >
+                  <option value="">— Select sub status —</option>
+                  {subStatuses.map((ss) => (
+                    <option key={ss.id} value={ss.id}>{ss.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedSubStatusId && (() => {
+                const selected = subStatuses.find(ss => ss.id === selectedSubStatusId)
+                const actions = (selected?.closedActions as string[]) ?? []
+                if (actions.length === 0) return null
+                return (
+                  <div className="flex-1 w-full">
+                    <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 mb-1.5 block">
+                      Closed Action <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      value={selectedClosedAction ?? ''}
+                      onChange={(e) => setSelectedClosedAction(e.target.value || null)}
+                      className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 transition-shadow"
+                    >
+                      <option value="">— Select action —</option>
+                      {actions.map((a) => (
+                        <option key={a} value={a}>{a}</option>
+                      ))}
+                    </select>
+                  </div>
+                )
+              })()}
+
+              <button
+                onClick={handleSubStatusSave}
+                disabled={savingSubStatus || !selectedSubStatusId}
+                className="h-10 px-6 bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg shadow-sm transition-all w-full sm:w-auto flex items-center justify-center gap-1.5"
+              >
+                {savingSubStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Save</>}
+              </button>
+            </div>
+            </>
+            )}
           </div>
         </TabsContent>
 

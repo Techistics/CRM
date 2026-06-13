@@ -4,14 +4,14 @@ import { z } from 'zod'
 
 import { db } from '@/db'
 import { leads, leadActivities, leadStageAssignments } from '@/db/schema'
-import { requireTenantMemberApi } from '@/lib/tenant-api'
+import { requireLeadEditApi } from '@/lib/tenant-api'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
-import { getTenantPipeline, isPairAllowed } from '@/lib/pipeline/config'
+import { getTenantPipeline } from '@/lib/pipeline/config'
 import { validateStageTransition } from '@/lib/lead-stage-validation'
 
 const bodySchema = z.union([
-  z.object({ 
+  z.object({
     stage: z.string().min(1),
     deadReason: z.string().optional()
   }).strict(),
@@ -29,7 +29,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requireLeadEditApi()
     if (!ctx.ok) return ctx.response
 
     const { id } = await params
@@ -68,22 +68,6 @@ export async function PATCH(
     // Ensure primary is included.
     if (!activeStages.includes(primaryStage)) activeStages.unshift(primaryStage)
 
-    // Enforce co-occurrence rules for active stages only when multiple stages are active.
-    if (activeStages.length > 1) {
-      for (let i = 0; i < activeStages.length; i++) {
-        for (let j = i + 1; j < activeStages.length; j++) {
-          const a = activeStages[i];
-          const b = activeStages[j];
-          if (!isPairAllowed(pipeline.allowedPair, a, b)) {
-            return errorResponse(
-              `Stages "${a}" and "${b}" cannot occur simultaneously`,
-              'STAGE_CONFLICT',
-              400,
-            );
-          }
-        }
-      }
-    }
 
     const lead = await getLeadForMemberAction(
       id,
@@ -96,9 +80,9 @@ export async function PATCH(
     }
 
     const validation = validateStageTransition(
-      lead.primaryStage, 
-      primaryStage, 
-      pipeline.stages, 
+      lead.primaryStage,
+      primaryStage,
+      pipeline.stages,
       parsed.data.deadReason
     )
     if (!validation.valid) {

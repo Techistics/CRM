@@ -34,7 +34,7 @@ export async function createWorkspaceAction(formData: FormData) {
   if (!allowed) throw new Error('Forbidden')
 
   const session = await getSession()
-  if (!session) redirect('/sign-in')
+  if (!session) redirect('/platform/sign-in')
 
   const name = String(formData.get('name') ?? '').trim()
   const slugRaw = String(formData.get('slug') ?? '').trim()
@@ -84,7 +84,7 @@ export async function inviteWorkspaceUserAction(formData: FormData) {
   if (!allowed) throw new Error('Forbidden')
 
   const session = await getSession()
-  if (!session) redirect('/sign-in')
+  if (!session) redirect('/platform/sign-in')
 
   const tenantId = String(formData.get('tenantId') ?? '').trim()
   const email = String(formData.get('email') ?? '').trim().toLowerCase()

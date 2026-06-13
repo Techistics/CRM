@@ -8,7 +8,7 @@ import { db } from '@/db'
 import { csvImports, leads, tenantMembers, users, leadStageAssignments } from '@/db/schema'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { sendLeadAssignedEmail } from '@/lib/mail'
-import { requireTenantAdminApi } from '@/lib/tenant-api'
+import { requirePermissionApi } from '@/lib/tenant-api'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 
 const parseBodySchema = z.object({
@@ -121,7 +121,7 @@ function parseRows(fileName: string, fileData: string): Record<string, unknown>[
 
 export async function POST(req: NextRequest) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('import.leads')
     if (!ctx.ok) return ctx.response
 
     const pipeline = await getTenantPipeline(ctx.tenant.id)

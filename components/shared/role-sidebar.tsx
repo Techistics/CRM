@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { crmConfig } from '@/lib/config/theme'
 import { adminMainNav, adminSettingsLinks } from '@/components/admin/nav-config'
 import { proMainNav, proSettingsLinks } from '@/components/pro/nav-config'
+import { filterNavByPermissions, type Permission } from '@/lib/authz'
 import type { Tenant } from '@/types/models'
 
 function isActive(pathname: string, href: string, matchPrefix?: boolean) {
@@ -24,10 +25,12 @@ function isActive(pathname: string, href: string, matchPrefix?: boolean) {
 export function RoleSidebar({
   role,
   tenant,
+  permissions = [],
   badges,
 }: {
   role: AppRole
   tenant: Tenant
+  permissions?: Permission[]
   badges?: Partial<Record<string, string>>
 }) {
   const tenantSlug = tenant.slug
@@ -43,13 +46,19 @@ export function RoleSidebar({
     const normalizedRole = role.toUpperCase()
     if (normalizedRole === 'ADMIN' || normalizedRole === 'SUPER_ADMIN') {
       return {
-        mainNav: adminMainNav.map((i) =>
-          i.name === 'Users' ? { ...i, badgeKey: 'team' } : i,
+        mainNav: filterNavByPermissions(
+          adminMainNav.map((i) =>
+            i.name === 'Users' ? { ...i, badgeKey: 'team' } : i,
+          ),
+          permissions,
         ),
         settingsLinks: adminSettingsLinks,
       }
     }
-    return { mainNav: proMainNav, settingsLinks: proSettingsLinks }
+    return {
+      mainNav: filterNavByPermissions(proMainNav, permissions),
+      settingsLinks: proSettingsLinks,
+    }
   })()
 
   return (
@@ -73,7 +82,6 @@ export function RoleSidebar({
         data-role={role}
         style={{ overflow: 'hidden' }}
       >
-        {/* Single scaling wrapper — covers everything inside aside */}
         <div
           style={{
           transform: `scale(${sidebarScale})`,
@@ -84,7 +92,6 @@ export function RoleSidebar({
           flexDirection: 'column',
         }}
         >
-          {/* Brand header */}
           <div className="flex h-[60px] shrink-0 items-center gap-2.5 border-b border-slate-200 dark:border-slate-800 px-4">
             <Image src={logoSrc} alt={brandName} width={26} height={26} className="rounded-lg object-contain" />
             <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{brandName}</span>
@@ -100,7 +107,6 @@ export function RoleSidebar({
             </Button>
           </div>
 
-          {/* Nav content — flex-1 pushes settings/logout to bottom */}
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="px-3 pt-4 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
               Main
@@ -133,7 +139,6 @@ export function RoleSidebar({
               })}
             </nav>
 
-            {/* Settings links — pinned above logout */}
             <div className="border-t border-slate-200 dark:border-slate-800 px-2 py-3">
               <p className="px-3 pt-4 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
                 Settings
@@ -167,7 +172,6 @@ export function RoleSidebar({
               )}
             </div>
 
-            {/* Logout — pinned to bottom */}
             <div className="border-t border-slate-200 dark:border-slate-800 px-2 py-3">
               <button
                 type="button"

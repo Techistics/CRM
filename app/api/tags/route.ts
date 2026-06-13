@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { and, eq, ilike } from 'drizzle-orm'
 import { db } from '@/db'
 import { leadTags } from '@/db/schema'
-import { requireTenantMemberApi, requireTenantAdminApi } from '@/lib/tenant-api'
+import { requirePermissionApi, requireTenantMemberApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { z } from 'zod'
 
@@ -28,7 +28,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('leads.edit')
     if (!ctx.ok) return ctx.response
 
     let body: unknown

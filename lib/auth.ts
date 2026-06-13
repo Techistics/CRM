@@ -8,6 +8,9 @@ const key = new TextEncoder().encode(secretKey)
 export type SessionPayload = {
   userId: string
   globalRole: 'SUPER_ADMIN' | null
+  tenantId?: string
+  tenantSlug?: string
+  role?: 'ADMIN' | 'PRO'
   expiresAt: Date
 }
 

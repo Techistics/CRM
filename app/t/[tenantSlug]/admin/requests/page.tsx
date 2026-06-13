@@ -15,7 +15,7 @@ export default async function AdminRoleRequestsPage() {
       and(
         eq(roleRequests.status, 'PENDING'),
         eq(roleRequests.tenantId, tenant.id),
-      ),
+      )
     )
     .orderBy(desc(roleRequests.createdAt))
 

@@ -1,5 +1,5 @@
 import { db } from '@/db'
-import { users, leads, tenantMembers, invitations } from '@/db/schema'
+import { users, leads, tenantMembers, invitations, customRoles } from '@/db/schema'
 import { eq, count, and, isNull } from 'drizzle-orm'
 
 import { requireTenantAdminSession } from '@/lib/tenant-server'
@@ -15,6 +15,7 @@ export default async function TeamPage() {
       name: users.name,
       email: users.email,
       role: tenantMembers.role,
+      customRoleId: tenantMembers.customRoleId,
     })
     .from(tenantMembers)
     .innerJoin(users, eq(tenantMembers.userId, users.id))
@@ -53,7 +54,12 @@ export default async function TeamPage() {
   const pendingInvites = await db
     .select()
     .from(invitations)
-    .where(and(eq(invitations.tenantId, tenant.id), eq(invitations.status, 'PENDING')))
+    .where(and(eq(invitations.tenantId, tenant.id), eq(invitations.status, 'PENDING')));
+
+  const roles = await db
+    .select({ id: customRoles.id, name: customRoles.name })
+    .from(customRoles)
+    .where(eq(customRoles.tenantId, tenant.id))
 
   const inviteData = pendingInvites.map((invite) => ({
     id: invite.id,
@@ -87,6 +93,8 @@ export default async function TeamPage() {
         activeLeads: Number(m.activeLeads),
         paidLeads: Number(m.paidLeads),
       }))}
+      customRoles={roles}
     />
   )
+
 }

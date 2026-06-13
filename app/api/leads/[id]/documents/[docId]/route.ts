@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { leadActivities, leadUploadedDocuments } from '@/db/schema'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
-import { requireTenantMemberApi } from '@/lib/tenant-api'
+import { requireLeadEditApi, requireLeadViewApi } from '@/lib/tenant-api'
 import { deleteFile, getStorageConfig } from '@/lib/storage'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
@@ -13,7 +13,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; docId: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requireLeadEditApi()
     if (!ctx.ok) return ctx.response
 
     const { id, docId } = await params
@@ -73,7 +73,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; docId: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requireLeadEditApi()
     if (!ctx.ok) return ctx.response
 
     const { id, docId } = await params

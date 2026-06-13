@@ -3,10 +3,10 @@ import { eq, and } from 'drizzle-orm'
 import { db } from '@/db'
 import { leads, users } from '@/db/schema'
 import KanbanBoard from '@/components/KanbanBoard'
-import { requireTenantSession } from '@/lib/tenant-server'
+import { requirePermissionSession } from '@/lib/tenant-server'
 
 export default async function ProKanbanPage() {
-  const { tenant, dbUserId } = await requireTenantSession()
+  const { tenant, dbUserId } = await requirePermissionSession('kanban.view')
 
   const myLeads = await db
     .select({

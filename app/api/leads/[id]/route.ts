@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'
@@ -9,9 +9,11 @@ import {
   leadReminders,
   leadUploadedDocuments,
   leads,
+  tenantMembers,
+  notifications,
 } from '@/db/schema'
 import { getLeadForMemberAction, getLeadInTenant } from '@/lib/lead-tenant'
-import { requireTenantAdminApi, requireTenantMemberApi } from '@/lib/tenant-api'
+import { requirePermissionApi } from '@/lib/tenant-api'
 import { leadPatchBodySchema } from '@/lib/validators/lead'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { stripDealFields } from '@/lib/leads/deal-access'
@@ -21,7 +23,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requirePermissionApi('leads.view')
     if (!ctx.ok) return ctx.response
 
     const { id } = await params
@@ -44,11 +46,16 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requirePermissionApi('leads.edit')
     if (!ctx.ok) return ctx.response
 
     const { id } = await params
-    const lead = await getLeadInTenant(id, ctx.tenant.id)
+    const lead = await getLeadForMemberAction(
+      id,
+      ctx.tenant.id,
+      ctx.role,
+      ctx.dbUserId,
+    )
     if (!lead) {
       return errorResponse('Lead not found', 'NOT_FOUND', 404)
     }
@@ -141,6 +148,8 @@ export async function PATCH(
             ? (patch.deadReason === '' ? null : String(patch.deadReason).trim())
             : lead.deadReason,
       updatedAt: new Date(),
+      subStatusId: patch.subStatusId !== undefined ? patch.subStatusId : lead.subStatusId,
+closedAction: patch.closedAction !== undefined ? strOrNull(patch.closedAction) : lead.closedAction,
     }
 
     if (
@@ -161,6 +170,32 @@ export async function PATCH(
       .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenant.id)))
       .returning()
 
+    if (patch.isDeadManual === true) {
+      const adminMembers = await db
+        .select({ userId: tenantMembers.userId })
+        .from(tenantMembers)
+        .where(and(
+          eq(tenantMembers.tenantId, ctx.tenant.id),
+          eq(tenantMembers.role, 'ADMIN'),
+          isNull(tenantMembers.deletedAt)
+        ))
+
+      const recipients = new Set(adminMembers.map(m => m.userId))
+      if (lead.assignedTo) recipients.add(lead.assignedTo)
+      recipients.delete(ctx.dbUserId)
+
+      for (const userId of recipients) {
+        await db.insert(notifications).values({
+          tenantId: ctx.tenant.id,
+          userId,
+          title: 'Lead marked as dead',
+          body: `${lead.fullName} has been marked as dead`,
+          type: 'stage_changed',
+          leadId: id,
+        })
+      }
+    }
+
     const changed: string[] = []
     if (patch.fullName !== undefined && updates.fullName !== lead.fullName)
       changed.push('name')
@@ -176,6 +211,8 @@ export async function PATCH(
     if (patch.dealValue !== undefined) changed.push('deal value')
     if (patch.dealCurrency !== undefined) changed.push('currency')
     if (patch.isDeadManual !== undefined) changed.push('dead status')
+      if (patch.subStatusId !== undefined) changed.push('sub status')
+        if (patch.closedAction !== undefined) changed.push('closed action')
 
     if (changed.length > 0) {
       await db.insert(leadActivities).values({
@@ -196,11 +233,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('leads.delete')
     if (!ctx.ok) return ctx.response
 
     const { id } = await params
-    const lead = await getLeadInTenant(id, ctx.tenant.id)
+    const lead = await getLeadForMemberAction(id, ctx.tenant.id, ctx.role, ctx.dbUserId)
     if (!lead) {
       return errorResponse('Lead not found', 'NOT_FOUND', 404)
     }

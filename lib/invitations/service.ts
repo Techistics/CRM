@@ -17,6 +17,7 @@ export async function createInvitationAndSendEmail({
   tenantName,
   email,
   role,
+  customRoleId,
   invitedBy,
 }: {
   tenantId: string
@@ -24,8 +25,27 @@ export async function createInvitationAndSendEmail({
   tenantName: string
   email: string
   role: InviteRole
+  customRoleId?: string | null
   invitedBy: string
 }) {
+  const { users } = await import('@/db/schema')
+  const existingMember = await db.query.users.findFirst({
+    where: (u, { eq }) => eq(u.email, email),
+  })
+  if (existingMember) {
+    const activeMembership = await db.query.tenantMembers.findFirst({
+      where: (tm, { and, eq, isNull }) =>
+        and(
+          eq(tm.tenantId, tenantId),
+          eq(tm.userId, existingMember.id),
+          isNull(tm.deletedAt),
+        ),
+    })
+    if (activeMembership) {
+      return { token: '', invitationId: '', emailSent: false, skipped: true }
+    }
+  }
+
   const token = crypto.randomUUID()
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 
@@ -35,6 +55,7 @@ export async function createInvitationAndSendEmail({
       tenantId,
       email,
       role,
+      customRoleId: customRoleId ?? null,
       token,
       expiresAt,
       invitedBy,
@@ -95,6 +116,7 @@ export async function acceptInvitationForUser(invitationId: string) {
       tenantId: invite.tenantId,
       userId: session.userId,
       role: invite.role,
+      customRoleId: invite.customRoleId,
     }).onConflictDoNothing()
     await tx.update(invitations)
       .set({ status: 'ACCEPTED' })

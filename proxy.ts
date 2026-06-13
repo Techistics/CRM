@@ -18,6 +18,8 @@ const PUBLIC_ROUTES = [
   '/reset-password',
   '/invite/accept',
   '/accept-invite',
+  '/platform/sign-in',
+  '/platform',
 ]
 
 
@@ -37,7 +39,9 @@ export default async function proxy(req: NextRequest) {
   const nextHeaders = new Headers(req.headers)
   if (headerSlug) {
     nextHeaders.set('x-tenant-slug', headerSlug)
+    nextHeaders.set('x-pathname', pathname)
   }
+  nextHeaders.set('x-pathname', pathname);
 
   const isPublicRoute = PUBLIC_ROUTES.some(route => 
     pathname === route || pathname.startsWith(`${route}/`)
@@ -48,8 +52,12 @@ export default async function proxy(req: NextRequest) {
   const payload = session ? await decrypt(session) : null
 
   // 2. Strict Redirection logic
-  // If NOT public and NO valid JWT -> redirect to /sign-in
+  // If NOT public and NO valid JWT -> redirect to /sign-in (or 401 for APIs)
   if (!isPublicRoute && !payload) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    
     const loginUrl = req.nextUrl.clone()
     loginUrl.pathname = '/sign-in'
     loginUrl.searchParams.set('redirect', pathname + loginUrl.search)

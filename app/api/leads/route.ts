@@ -5,7 +5,7 @@ import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'
 import { leads, leadTagAssignments, leadTags, leadStageAssignments } from '@/db/schema'
 import { leadsVisibleWhere } from '@/lib/leads-scope'
-import { requireTenantAdminApi, requireTenantMemberApi } from '@/lib/tenant-api'
+import { requirePermissionApi } from '@/lib/tenant-api'
 import { leadCreateBodySchema } from '@/lib/validators/lead'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { getTenantPipeline } from '@/lib/pipeline/config'
@@ -14,7 +14,7 @@ import { stripDealFieldsFromList } from '@/lib/leads/deal-access'
 
 export async function GET(req: NextRequest) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantMemberApi()
+    const ctx = await requirePermissionApi('leads.view')
     if (!ctx.ok) return ctx.response
 
     // Rate limit: Max 50 requests per 10 seconds per workspace to prevent noisy neighbors
@@ -201,7 +201,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('leads.create')
     if (!ctx.ok) return ctx.response
 
     let body: unknown

@@ -6,7 +6,8 @@ import { Bell, Menu, Search } from 'lucide-react'
 import NotificationBell from '@/app/components/NotificationBell'
 import { useSidebar } from '@/components/sidebar-provider'
 import { Button } from '@/components/ui/button'
-import { ThemeToggle } from '@/components/shared/theme-toggle'
+// import { ThemeToggle } from '@/components/shared/theme-toggle'
+
 
 import { UserMenu } from '@/components/shared/UserMenu'
 
@@ -56,7 +57,7 @@ export function AdminHeader({
 
           <div className="flex items-center gap-2">
             <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
-            <ThemeToggle />
+            {/* <ThemeToggle /> */}
             <NotificationBell tenantSlug={tenantSlug} portalBase="admin" />
             <UserMenu user={user} role="ADMIN" tenantSlug={tenantSlug} />
           </div>

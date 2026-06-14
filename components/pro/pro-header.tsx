@@ -7,7 +7,7 @@ import { Menu, Search, Square } from 'lucide-react'
 import NotificationBell from '@/app/components/NotificationBell'
 import { useSidebar } from '@/components/sidebar-provider'
 import { Button } from '@/components/ui/button'
-import { ThemeToggle } from '@/components/shared/theme-toggle'
+// import { ThemeToggle } from '@/components/shared/theme-toggle'
 
 import type { Tenant } from '@/types/models'
 
@@ -161,7 +161,7 @@ export function ProHeader({
           <div className="flex items-center gap-2">
             <TimesheetPunchBar />
             <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
-            <ThemeToggle />
+            {/* <ThemeToggle /> */}
             <NotificationBell tenantSlug={tenant.slug} portalBase="pro" />
             <UserMenu user={user} role="PRO" tenantSlug={tenant.slug} />
           </div>

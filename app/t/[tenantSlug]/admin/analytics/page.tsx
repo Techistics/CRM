@@ -68,10 +68,13 @@ export default function AdminAnalyticsPage() {
   }
 
   useEffect(() => {
-    if (tenantSlug) {
-      fetchSummary()
-    }
-  }, [tenantSlug, from, to])
+  if (!tenantSlug) return
+  fetchSummary()
+  const interval = setInterval(() => {
+    fetchSummary()
+  }, 30000)
+  return () => clearInterval(interval)
+}, [tenantSlug, from, to])
 
 
   // Open list dialog for active/cold/dead leads counts

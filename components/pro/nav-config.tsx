@@ -53,7 +53,6 @@ export const proMainNav: PermissionNavLink[] = [
     href: PRO_ROUTES.templates,
     icon: Sparkles,
     matchPrefix: true,
-    permission: 'templates.manage',
   },
   {
     name: 'Team',

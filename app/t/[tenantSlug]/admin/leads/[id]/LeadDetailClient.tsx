@@ -386,7 +386,7 @@ export default function LeadDetailClient({
                       heatConfig[heat].dot,
                     )}
                   />
-                  {heatConfig[heat].icon} {heatConfig[heat].label}
+                  {heatConfig[heat].label}
                 </span>
               </TooltipTrigger>
               <TooltipContent>

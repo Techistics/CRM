@@ -2,7 +2,7 @@ import { and, count, eq, isNull } from 'drizzle-orm'
 import { NextRequest } from 'next/server'
 
 import { db } from '@/db'
-import { tenantMembers, auditLogs } from '@/db/schema'
+import { tenantMembers, auditLogs, users } from '@/db/schema'
 import { requirePermissionApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { roleUpdateSchema } from '@/lib/validators/auth'
@@ -65,7 +65,7 @@ export async function PATCH(
     }
 
     const { role, customRoleId } = parsed.data
-
+    const email = (body as any)?.email?.trim()
     const roleError = await validateCustomRoleId(ctx.tenant.id, role, customRoleId)
     if (roleError) return errorResponse(roleError, 'INVALID_CUSTOM_ROLE', 400)
     const resolvedCustomRoleId = role === 'PRO' ? (customRoleId ?? null) : null
@@ -106,6 +106,9 @@ export async function PATCH(
         customRoleId: resolvedCustomRoleId,
       })
       .where(and(eq(tenantMembers.tenantId, ctx.tenant.id), eq(tenantMembers.userId, userId)))
+      if (email) {
+        await db.update(users).set({ email }).where(eq(users.id, userId))
+      }
 
     // Audit Log
     await db.insert(auditLogs).values({

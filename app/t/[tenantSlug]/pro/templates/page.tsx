@@ -1,7 +1,7 @@
-import { requirePermissionSession } from '@/lib/tenant-server'
+import { requireTenantSession } from '@/lib/tenant-server'
 import TemplatesPage from '../../admin/templates/page'
 
 export default async function ProTemplatesPage() {
-  await requirePermissionSession('templates.manage')
+  await requireTenantSession()
   return <TemplatesPage />
 }

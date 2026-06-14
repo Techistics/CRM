@@ -83,13 +83,20 @@ export async function GET(request: Request) {
     }
 
     const timesheets = await db
-      .select({
-        userId: tenantTimesheets.userId,
-        totalMinutes: sql<number>`SUM(COALESCE(${tenantTimesheets.totalMinutes}, 0))::int`,
-      })
-      .from(tenantTimesheets)
-      .where(and(...timesheetWhere))
-      .groupBy(tenantTimesheets.userId)
+  .select({
+    userId: tenantTimesheets.userId,
+    totalMinutes: sql<number>`
+      SUM(
+        CASE
+          WHEN ${tenantTimesheets.punchOut} IS NOT NULL THEN COALESCE(${tenantTimesheets.totalMinutes}, 0)
+          ELSE EXTRACT(EPOCH FROM (NOW() - ${tenantTimesheets.punchIn})) / 60
+        END
+      )::int
+    `,
+  })
+  .from(tenantTimesheets)
+  .where(and(...timesheetWhere))
+  .groupBy(tenantTimesheets.userId)
 
     // Query today's edits count (lead activities today)
     const todayStart = new Date()
@@ -106,7 +113,7 @@ export async function GET(request: Request) {
     const edits = await db
       .select({
         userId: leadActivities.userId,
-        editCount: sql<number>`COUNT(${leadActivities.id})::int`,
+        editCount: sql<number>`COUNT(DISTINCT ${leadActivities.leadId})::int`,
       })
       .from(leadActivities)
       .where(and(...activitiesWhere))

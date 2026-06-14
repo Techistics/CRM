@@ -356,11 +356,11 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
                 </div>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
-                <SelectItem value="dead"> Dead</SelectItem>
-                <SelectItem value="cold"> Cold</SelectItem>
-                <SelectItem value="warm"> Warm</SelectItem>
-                <SelectItem value="hot"> Hot</SelectItem>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="dead"> Dormant</SelectItem>
+                <SelectItem value="cold"> Stale</SelectItem>
+                <SelectItem value="warm"> Fading</SelectItem>
+                <SelectItem value="hot"> Fresh</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -506,7 +506,7 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
         </div>
       ) : filteredLeads.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-500">
-          No leads match this heat filter.
+          No leads match this active filter.
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f172a] shadow-crm-sm">
@@ -532,7 +532,7 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
                   <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 md:table-cell">City</th>
                   <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 lg:table-cell">Qualification</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Stage</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Heat</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Active</th>
                   <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:table-cell">Assigned To</th>
                 </tr>
               </thead>

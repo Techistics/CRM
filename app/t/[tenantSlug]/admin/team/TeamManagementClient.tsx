@@ -60,6 +60,7 @@ export default function TeamManagementClient({
   const router = useRouter()
   const [members, setMembers] = useState(initialMembers)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [editEmail, setEditEmail] = useState('')
 
   useEffect(() => {
     setMembers(initialMembers)
@@ -139,6 +140,7 @@ export default function TeamManagementClient({
 
   function startEdit(member: TeamMember) {
     setEditId(member.id)
+    setEditEmail(member.email)
     setEditRole(member.role)
     setEditCustomRoleId(member.customRoleId ?? 'none')
     setEditOpen(true)
@@ -153,6 +155,7 @@ export default function TeamManagementClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           role: editRole, 
+          email: editEmail.trim(),
           customRoleId: editCustomRoleId === 'none' ? null : editCustomRoleId 
         }),
       })
@@ -397,6 +400,7 @@ export default function TeamManagementClient({
             <DialogTitle>Edit member role</DialogTitle>
             <DialogDescription>Update this user&apos;s workspace role.</DialogDescription>
           </DialogHeader>
+          <Input type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
           <Select value={editRole} onValueChange={(v) => setEditRole(v as TeamRole)}>
             <SelectTrigger>
               <SelectValue />

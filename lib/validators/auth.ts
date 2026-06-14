@@ -20,6 +20,6 @@ export const teamResendSchema = z.object({
 
 export const roleUpdateSchema = z.object({
   role: z.enum(['ADMIN', 'PRO']),
-  // Optional custom role ID; allow null or undefined when no custom role is selected
+  email: z.string().email().optional(),
   customRoleId: z.string().uuid().nullable().optional()
 })

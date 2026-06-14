@@ -98,6 +98,29 @@ export async function PATCH(
         type: 'lead_assigned',
         leadId: id,
       })
+      const adminMembers = await db
+        .select({ userId: tenantMembers.userId })
+        .from(tenantMembers)
+        .where(and(
+          eq(tenantMembers.tenantId, ctx.tenant.id),
+          eq(tenantMembers.role, 'ADMIN'),
+          isNull(tenantMembers.deletedAt)
+        ))
+
+      const adminRecipients = adminMembers
+        .map(m => m.userId)
+        .filter(uid => uid !== ctx.dbUserId && uid !== assignedTo)
+
+      for (const userId of adminRecipients) {
+        await db.insert(notifications).values({
+          tenantId: ctx.tenant.id,
+          userId,
+          title: 'Lead assigned',
+          body: `${lead.fullName} has been assigned to a counselor`,
+          type: 'lead_assigned',
+          leadId: id,
+        })
+      }
 
       const [agent] = await db
         .select({ id: users.id, name: users.name, email: users.email })

@@ -60,8 +60,10 @@ export async function GET(req: Request) {
       filters.push(gte(consultantLogs.createdAt, new Date(from)))
     }
     if (to) {
-      filters.push(lte(consultantLogs.createdAt, new Date(to)))
-    }
+  const toDate = new Date(to)
+  toDate.setHours(23, 59, 59, 999)
+  filters.push(lte(consultantLogs.createdAt, toDate))
+}
 
     const logs = await db
       .select({

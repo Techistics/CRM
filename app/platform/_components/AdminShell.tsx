@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 import { crmConfig } from '@/lib/config/theme'
-// import { ThemeToggle } from '@/components/shared/theme-toggle'
+import { ThemeToggle } from '@/components/shared/theme-toggle'
 import { TopNavSearch } from './TopNavSearch'
 
 type AdminShellProps = {
@@ -178,7 +178,7 @@ export function AdminShell({ children }: AdminShellProps) {
               </Button>
               <p className="truncate text-[13px] font-medium text-[var(--muted-text)]">{breadcrumb}</p>
             </div>
-            {/* <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            <div className="flex shrink-0 items-center gap-2 sm:gap-4">
               <ThemeToggle />
               <div className="hidden sm:block">
                 <TopNavSearch />
@@ -190,7 +190,7 @@ export function AdminShell({ children }: AdminShellProps) {
                 <span className="hidden sm:inline">New workspace</span>
                 <span className="sm:hidden">New</span>
               </Link>
-            </div> */}
+            </div>
           </header>
           <main className="crm-page w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
             {children}

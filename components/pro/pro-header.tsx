@@ -7,12 +7,11 @@ import { Menu, Search, Square } from 'lucide-react'
 import NotificationBell from '@/app/components/NotificationBell'
 import { useSidebar } from '@/components/sidebar-provider'
 import { Button } from '@/components/ui/button'
-// import { ThemeToggle } from '@/components/shared/theme-toggle'
+import { ThemeToggle } from '@/components/shared/theme-toggle'
 
 import type { Tenant } from '@/types/models'
 
 function TimesheetPunchBar() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [activeSession, setActiveSession] = useState<any>(null)
   const [duration, setDuration] = useState('')
   const [loading, setLoading] = useState(true)
@@ -32,6 +31,28 @@ function TimesheetPunchBar() {
       setLoading(false)
     }
   }
+  useEffect(() => {
+  if (!activeSession) return
+
+  const sendHeartbeat = () => {
+    navigator.sendBeacon('/api/timesheets/heartbeat')
+  }
+
+  sendHeartbeat()
+  const interval = setInterval(sendHeartbeat, 30000)
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      navigator.sendBeacon('/api/timesheets/heartbeat')
+    }
+  }
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+
+  return () => {
+    clearInterval(interval)
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }
+}, [activeSession])
 
   useEffect(() => {
     fetchStatus()
@@ -161,7 +182,7 @@ export function ProHeader({
           <div className="flex items-center gap-2">
             <TimesheetPunchBar />
             <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
-            {/* <ThemeToggle /> */}
+            <ThemeToggle />
             <NotificationBell tenantSlug={tenant.slug} portalBase="pro" />
             <UserMenu user={user} role="PRO" tenantSlug={tenant.slug} />
           </div>

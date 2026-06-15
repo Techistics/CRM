@@ -509,6 +509,7 @@ export const tenantTimesheets = pgTable('tenant_timesheets', {
   totalMinutes: integer('total_minutes'), // nullable, to be computed on punchOut
   date: date('date').notNull(),
   createdAt: timestamp('created_at').defaultNow(),
+  lastHeartbeat: timestamp('last_heartbeat', { withTimezone: true }),
 })
 
 export const invitationRelations = relations(invitations, ({ one }) => ({

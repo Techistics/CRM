@@ -12,34 +12,6 @@ interface UploadResult {
 }
 
 export function getStorageConfig() {
-  const isSupabase = !!process.env.SUPABASE_ACCESS_KEY_ID
-
-  if (isSupabase) {
-    const projectRef = process.env.SUPABASE_PROJECT_REF
-    const accessKeyId = process.env.SUPABASE_ACCESS_KEY_ID
-    const secretAccessKey = process.env.SUPABASE_SECRET_ACCESS_KEY
-    const bucket = process.env.SUPABASE_BUCKET_NAME
-    const region = process.env.SUPABASE_REGION || 'us-east-1'
-
-    if (!projectRef || !accessKeyId || !secretAccessKey || !bucket) {
-      throw new Error(
-        'Supabase storage is partially configured. Set SUPABASE_PROJECT_REF, SUPABASE_ACCESS_KEY_ID, SUPABASE_SECRET_ACCESS_KEY, and SUPABASE_BUCKET_NAME.',
-      )
-    }
-
-    return {
-      endpoint: `https://${projectRef}.supabase.co/storage/v1/s3`,
-      region,
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-      },
-      bucket,
-      publicUrl: `https://${projectRef}.supabase.co/storage/v1/object/public/${bucket}`,
-      forcePathStyle: true,
-    }
-  }
-
   const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID
   const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID
   const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
@@ -67,7 +39,6 @@ function getClient(): S3Client {
     region: config.region,
     endpoint: config.endpoint,
     credentials: config.credentials,
-    forcePathStyle: (config as { forcePathStyle?: boolean }).forcePathStyle,
   })
 }
 

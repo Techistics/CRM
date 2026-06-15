@@ -100,10 +100,11 @@ export async function POST(
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 180)
     const key = `crm/${ctx.tenant.id}/leads/${id}/${Date.now()}-${safeName}`
 
+    
     let storageUrl: string
     try {
       const buffer = await file.arrayBuffer()
-      const result = await uploadFile(
+      const result = await uploadFile( 
         Buffer.from(buffer),
         key,
         file.type || 'application/octet-stream',

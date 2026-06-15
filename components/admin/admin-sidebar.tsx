@@ -46,7 +46,7 @@ export function AdminSidebar({ teamBadge }: { teamBadge: string }) {
       >
         {/* Brand header */}
         <div className="flex h-[60px] shrink-0 items-center gap-2.5 border-b border-slate-200 dark:border-slate-800 px-4">
-          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">Edu CRM</span>
+          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">Consulty</span>
           <Button
             variant="ghost"
             size="icon"

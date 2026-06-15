@@ -76,7 +76,7 @@ const [showPicker, setShowPicker] = useState(false)
       <div className="mb-8 text-center">
         <h1 className="text-xl font-semibold text-black">Sign In</h1>
         <p className="text-sm text-black mt-1">
-          Welcome back to Edu CRM
+          Welcome back to Consulty
         </p>
       </div>
 

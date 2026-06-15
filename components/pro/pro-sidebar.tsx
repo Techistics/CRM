@@ -40,7 +40,7 @@ export function ProSidebar() {
             E
           </div>
           <div>
-            <h1 className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate leading-none">Edu CRM</h1>
+            <h1 className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate leading-none">Consulty</h1>
             <span className="text-[9px] uppercase tracking-wider text-brand font-semibold">
               Pro Portal
             </span>

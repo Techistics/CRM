@@ -73,7 +73,7 @@ function SignUpForm() {
       <div className="mb-8 text-center">
         <h1 className="text-xl font-semibold text-slate-900">Create Account</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Join the Edu CRM platform
+          Join the Consulty platform
         </p>
       </div>
 

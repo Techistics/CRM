@@ -17,14 +17,14 @@ export async function sendInviteEmail({
 }) {
   try {
     const { data, error } = await resend.emails.send({
-      from: `Edu CRM <${fromEmail}>`,
+      from: `Consulty <${fromEmail}>`,
       to: email,
       subject: `You've been invited to join ${tenantName}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px;">
           <h1 style="font-size: 24px; font-weight: 600; color: #111827;">Join the team</h1>
           <p style="margin-top: 16px; font-size: 16px; color: #4b5563; line-height: 24px;">
-            You have been invited to join the <strong>${tenantName}</strong> workspace on Edu CRM.
+            You have been invited to join the <strong>${tenantName}</strong> workspace on Consulty.
           </p>
           ${workspaceUrl ? `<p style="margin-top: 8px; font-size: 14px; color: #6b7280;">Workspace URL: <a href="${workspaceUrl}" style="color: #2563eb; text-decoration: none;">${workspaceUrl}</a></p>` : ''}
           <div style="margin-top: 24px;">
@@ -61,14 +61,14 @@ export async function sendPasswordResetEmail({
 }) {
   try {
     const { data, error } = await resend.emails.send({
-      from: `Edu CRM <${fromEmail}>`,
+      from: `Consulty <${fromEmail}>`,
       to: email,
       subject: 'Reset your password',
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px;">
           <h1 style="font-size: 24px; font-weight: 600; color: #111827;">Reset your password</h1>
           <p style="margin-top: 16px; font-size: 16px; color: #4b5563; line-height: 24px;">
-            We received a request to reset your password for your Edu CRM account. Click the button below to proceed:
+            We received a request to reset your password for your Consulty account. Click the button below to proceed:
           </p>
           <div style="margin-top: 24px;">
             <a href="${resetLink}" 
@@ -157,7 +157,7 @@ export async function sendLeadAssignedEmail({
 }) {
   try {
     const { data, error } = await resend.emails.send({
-      from: `Edu CRM <${fromEmail}>`,
+      from: `Consulty <${fromEmail}>`,
       to: agentEmail,
       subject: `New lead assigned to you: ${leadName}`,
       html: buildBaseEmailTemplate({
@@ -213,7 +213,7 @@ export async function sendReminderEmail({
 }) {
   try {
     const { data, error } = await resend.emails.send({
-      from: `Edu CRM <${fromEmail}>`,
+      from: `Consulty <${fromEmail}>`,
       to: agentEmail,
       subject: `Reminder: ${reminderTitle} — ${leadName}`,
       html: buildBaseEmailTemplate({
@@ -263,7 +263,7 @@ export async function sendAccessApprovedEmail({
 }) {
   try {
     const { data, error } = await resend.emails.send({
-      from: `Edu CRM <${fromEmail}>`,
+      from: `Consulty <${fromEmail}>`,
       to: userEmail,
       subject: `Your access request has been approved — ${workspaceName}`,
       html: buildBaseEmailTemplate({

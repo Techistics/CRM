@@ -40,15 +40,15 @@ export function getStorageConfig() {
     }
   }
 
-  const accountId = process.env.R2_ACCOUNT_ID
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY
-  const bucket = process.env.R2_BUCKET_NAME
-  const publicUrl = process.env.R2_PUBLIC_URL
+  const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID
+  const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID
+  const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY
+  const bucket = process.env.CLOUDFLARE_R2_BUCKET_NAME
+  const publicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL
 
   if (!accountId || !accessKeyId || !secretAccessKey || !bucket || !publicUrl) {
     throw new Error(
-      'Storage is not configured. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, and R2_PUBLIC_URL.',
+      'Storage is not configured. Set CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME, and CLOUDFLARE_R2_PUBLIC_URL.',
     )
   }
 

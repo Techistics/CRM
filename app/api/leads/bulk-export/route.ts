@@ -5,10 +5,11 @@ import { z } from 'zod'
 import { db } from '@/db'
 import { leadTagAssignments, leadTags, leads, users } from '@/db/schema'
 import { errorResponse, withApiErrorHandling } from '@/lib/api-response'
+import { leadsVisibleWhere } from '@/lib/leads-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
 
 const bodySchema = z.object({
-  leadIds: z.array(z.string().uuid()).min(1),
+  leadIds: z.array(z.string().uuid()).min(1).max(500),
   tenantSlug: z.string().min(1),
 })
 
@@ -46,7 +47,12 @@ export async function POST(req: NextRequest) {
       })
       .from(leads)
       .leftJoin(users, eq(users.id, leads.assignedTo))
-      .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.id, parsed.data.leadIds)))
+      .where(
+        and(
+          leadsVisibleWhere(ctx.tenant.id, ctx.role, ctx.dbUserId),
+          inArray(leads.id, parsed.data.leadIds),
+        ),
+      )
 
     const tags = await db
       .select({

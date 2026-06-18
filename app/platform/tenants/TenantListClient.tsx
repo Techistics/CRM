@@ -27,6 +27,23 @@ export function TenantListClient({
   memberCountByTenant: Record<string, number>
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [switchingSlug, setSwitchingSlug] = useState<string | null>(null)
+
+  const handleSwitchTenant = async (slug: string) => {
+    setSwitchingSlug(slug)
+    try {
+      const res = await fetch('/api/admin/switch-tenant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantSlug: slug }),
+      })
+      if (!res.ok) throw new Error('Switch failed')
+      window.location.href = `/t/${slug}/admin/overview`
+    } catch {
+      import('sonner').then(({ toast }) => toast.error('Failed to enter workspace'))
+      setSwitchingSlug(null)
+    }
+  }
 
   const selectedCount = selectedIds.size
   const selectedAll = tenants.length > 0 && tenants.every((t) => selectedIds.has(t.id))
@@ -124,6 +141,13 @@ export function TenantListClient({
                   <span className="rounded-full bg-[var(--foreground)]/5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[var(--muted-text)]">
                     {memberCountByTenant[t.id] ?? 0} members
                   </span>
+                  <button
+                    onClick={() => handleSwitchTenant(t.slug)}
+                    disabled={switchingSlug !== null}
+                    className="rounded-[8px] bg-[var(--accent-color)] px-4 py-2 text-[12px] font-semibold text-[var(--accent-text)] shadow-sm transition-all hover:brightness-95 active:scale-95 disabled:opacity-50"
+                  >
+                    {switchingSlug === t.slug ? 'Entering...' : 'Enter workspace'}
+                  </button>
                   <a
                     href={`/t/${t.slug}`}
                     className="rounded-[8px] border-[0.5px] border-[var(--card-border-color)] bg-transparent px-4 py-2 text-[12px] font-semibold text-[var(--text-strong)] transition-all hover:bg-[var(--foreground)]/5 active:scale-95"

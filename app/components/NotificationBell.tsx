@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useToast } from '@/hooks/use-toast'
 
 import { tenantPath } from '@/lib/tenant-path'
 
@@ -21,6 +22,7 @@ export default function NotificationBell({
   tenantSlug: string
   portalBase: 'admin' | 'pro'
 }) {
+  const { toast } = useToast()
   const [notifs, setNotifs] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -30,9 +32,14 @@ export default function NotificationBell({
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const res = await fetch('/api/notifications')
-      const data = await res.json()
-      if (!cancelled) setNotifs(data.notifications ?? [])
+      try {
+        const res = await fetch('/api/notifications')
+        const data = await res.json()
+        if (!cancelled) setNotifs(data.notifications ?? [])
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to load notifications'
+        toast({ variant: 'destructive', title: 'Error', description: msg })
+      }
     }
     void load()
     const interval = setInterval(() => {
@@ -54,25 +61,35 @@ export default function NotificationBell({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  async function markAllRead() {
-    await fetch('/api/notifications/read', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notificationId: 'all' }),
-    })
-    setNotifs((prev) => prev.map((n) => ({ ...n, read: true })))
-  }
+    async function markAllRead() {
+      try {
+        await fetch('/api/notifications/read', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notificationId: 'all' }),
+        })
+        setNotifs((prev) => prev.map((n) => ({ ...n, read: true })))
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to mark all read'
+        toast({ variant: 'destructive', title: 'Error', description: msg })
+      }
+    }
 
-  async function markRead(id: string) {
-    await fetch('/api/notifications/read', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notificationId: id }),
-    })
-    setNotifs((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    )
-  }
+    async function markRead(id: string) {
+      try {
+        await fetch('/api/notifications/read', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notificationId: id }),
+        })
+        setNotifs((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+        )
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to mark notification read'
+        toast({ variant: 'destructive', title: 'Error', description: msg })
+      }
+    }
 
   function formatTime(d: string) {
     const date = new Date(d)

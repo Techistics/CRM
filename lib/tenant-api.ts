@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { eq, and, isNull } from 'drizzle-orm'
 
 import { db } from '@/db'
-import { tenants, auditLogs } from '@/db/schema'
+import { tenants } from '@/db/schema'
 import type { Tenant } from '@/types/models'
 
 import { getSession } from '@/lib/auth'
@@ -65,21 +65,19 @@ export async function requireTenantMemberApi(): Promise<
     }
   }
 
-  const actor = await resolveTenantAccess(session.userId, t.tenant)
-  if (!actor) {
+  if (session.tenantId && session.tenantId !== t.tenant.id) {
     return {
       ok: false,
       response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
     }
   }
 
-  if (session.globalRole === 'SUPER_ADMIN') {
-    await db.insert(auditLogs).values({
-      actorUserId: session.userId,
-      tenantId: t.tenant.id,
-      action: 'SUPER_ADMIN_ACTION',
-      metadata: { bypass: true, path: 'requireTenantMemberApi' },
-    })
+  const actor = await resolveTenantAccess(session.userId, t.tenant)
+  if (!actor) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
+    }
   }
 
   return {

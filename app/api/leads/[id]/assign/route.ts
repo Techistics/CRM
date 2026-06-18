@@ -3,12 +3,11 @@ import { and, eq, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { db } from '@/db'
-import { leads, notifications, tenantMembers, users, customRoles } from '@/db/schema'
+import { leads, notifications, tenantMembers, users } from '@/db/schema'
 import { sendLeadAssignedEmail } from '@/lib/mail'
-import { requirePermissionApi } from '@/lib/tenant-api'
-import { getLeadInTenant } from '@/lib/lead-tenant'
+import { requireTenantMemberApi, requirePermissionApi } from '@/lib/tenant-api'
+import { getLeadForMemberAction } from '@/lib/lead-tenant'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
-import { getPermissionsForMember, type Permission } from '@/lib/authz'
 
 const assignSchema = z.object({
   assignedTo: z.string().uuid().optional().nullable(),
@@ -19,8 +18,18 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requirePermissionApi('leads.view')
-    if (!ctx.ok) return ctx.response
+    // PRO users can always reassign to admin — no leads.assign permission needed for that path.
+    // ADMIN users still require leads.assign permission.
+    const memberCtx = await requireTenantMemberApi()
+    if (!memberCtx.ok) return memberCtx.response
+
+    const ctx = memberCtx
+
+    // If caller is ADMIN, enforce leads.assign permission
+    if (ctx.role === 'ADMIN') {
+      const permCtx = await requirePermissionApi('leads.assign')
+      if (!permCtx.ok) return permCtx.response
+    }
 
     const { id } = await params
     const body = await req.json().catch(() => null)
@@ -31,52 +40,41 @@ export async function PATCH(
 
     const { assignedTo } = parsed.data
 
-    const lead = await getLeadInTenant(id, ctx.tenant.id)
+    const lead = await getLeadForMemberAction(
+      id,
+      ctx.tenant.id,
+      ctx.role,
+      ctx.dbUserId,
+    )
     if (!lead) return errorResponse('Lead not found', 'NOT_FOUND', 404)
 
-    // ADMIN can assign to anyone
-    // PRO can only assign to: admins OR PROs with leads.receive permission (excluding themselves)
     if (ctx.role === 'PRO') {
       if (!assignedTo) return errorResponse('PRO cannot unassign leads', 'FORBIDDEN', 403)
 
-      // Find target member
       const [targetMember] = await db
-        .select()
+        .select({ role: tenantMembers.role })
         .from(tenantMembers)
-        .where(and(
-          eq(tenantMembers.tenantId, ctx.tenant.id),
-          eq(tenantMembers.userId, assignedTo),
-          isNull(tenantMembers.deletedAt),
-        ))
+        .where(
+          and(
+            eq(tenantMembers.tenantId, ctx.tenant.id),
+            eq(tenantMembers.userId, assignedTo),
+            isNull(tenantMembers.deletedAt),
+          ),
+        )
         .limit(1)
 
-      if (!targetMember) return errorResponse('Assignee is not in this workspace', 'INVALID_ASSIGNEE', 400)
-
-      if (targetMember.role === 'ADMIN') {
-        // Always allowed — PRO can assign to admin
-      } else if (targetMember.role === 'PRO') {
-        // Check if target PRO has leads.receive permission
-        let targetPermissions: Permission[] = getPermissionsForMember('PRO', null)
-        if (targetMember.customRoleId) {
-          const roleRow = await db.query.customRoles.findFirst({
-            where: eq(customRoles.id, targetMember.customRoleId),
-            columns: { permissions: true },
-          })
-          targetPermissions = getPermissionsForMember('PRO', (roleRow?.permissions as Permission[]) ?? null)
-        }
-        if (!targetPermissions.includes('leads.receive')) {
-          return errorResponse('This PRO cannot receive reassigned leads', 'FORBIDDEN', 403)
-        }
-        // Cannot assign to self
-        if (assignedTo === ctx.dbUserId) {
-          return errorResponse('You cannot assign a lead to yourself', 'FORBIDDEN', 403)
-        }
-      } else {
-        return errorResponse('Invalid assignee role', 'FORBIDDEN', 403)
+      if (!targetMember) {
+        return errorResponse('Assignee is not in this workspace', 'INVALID_ASSIGNEE', 400)
+      }
+      if (targetMember.role !== 'ADMIN') {
+        return errorResponse(
+          'PRO users can only assign leads to workspace admins',
+          'FORBIDDEN',
+          403,
+        )
       }
     }
 
-    // Build update payload
     const isProReassigning = ctx.role === 'PRO'
     await db
       .update(leads)
@@ -88,7 +86,6 @@ export async function PATCH(
       })
       .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenant.id)))
 
-    // Notification + email
     if (assignedTo) {
       await db.insert(notifications).values({
         tenantId: ctx.tenant.id,
@@ -101,15 +98,17 @@ export async function PATCH(
       const adminMembers = await db
         .select({ userId: tenantMembers.userId })
         .from(tenantMembers)
-        .where(and(
-          eq(tenantMembers.tenantId, ctx.tenant.id),
-          eq(tenantMembers.role, 'ADMIN'),
-          isNull(tenantMembers.deletedAt)
-        ))
+        .where(
+          and(
+            eq(tenantMembers.tenantId, ctx.tenant.id),
+            eq(tenantMembers.role, 'ADMIN'),
+            isNull(tenantMembers.deletedAt),
+          ),
+        )
 
       const adminRecipients = adminMembers
-        .map(m => m.userId)
-        .filter(uid => uid !== ctx.dbUserId && uid !== assignedTo)
+        .map((m) => m.userId)
+        .filter((uid) => uid !== ctx.dbUserId && uid !== assignedTo)
 
       for (const userId of adminRecipients) {
         await db.insert(notifications).values({

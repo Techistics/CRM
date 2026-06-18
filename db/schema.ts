@@ -40,6 +40,9 @@ export const users = pgTable('users', {
   resetToken: text('reset_token'),
   resetTokenExpiry: timestamp('reset_token_expiry'),
   globalRole: text('global_role', { enum: ['SUPER_ADMIN'] }),
+  credentialVersion: integer('credential_version').notNull().default(0),
+  totpSecret: text('totp_secret'),
+  totpEnabled: boolean('totp_enabled').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow(),
 })
 
@@ -58,6 +61,7 @@ export const tenantMembers = pgTable(
     deletedAt: timestamp('deleted_at'),
     createdAt: timestamp('created_at').defaultNow(),
     tenantPassword: text('tenant_password'),
+    credentialVersion: integer('credential_version').notNull().default(0),
     customRoleId: uuid('custom_role_id')
       .references(() => customRoles.id, { onDelete: 'set null' }),
   },

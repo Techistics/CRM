@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Loader2, User, Clock, TrendingUp, CheckCircle2, FileText } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { format } from 'date-fns'
+import { useToast } from '@/hooks/use-toast'
 
 type Lead = {
   id: string
@@ -19,25 +19,31 @@ type Lead = {
 }
 
 type DrilldownPayload = {
-  punchInToday: string | null
-  totalHours: number
+  punchInToday: string | null;
+  totalHours: number;
   leads: {
-    touchedToday: Lead[]
-    cold: Lead[]
-    dead: Lead[]
-    active: Lead[]
-  }
-  activityGraph: Array<{ date: string; count: number }>
-}
+    touchedToday: Lead[];
+    cold: Lead[];
+    dead: Lead[];
+    active: Lead[];
+  };
+  activityGraph: Array<{ date: string; count: number }>;
+  leadActivities: Array<{
+    leadId: string;
+    logs: Array<{ type: string; note: string | null; createdAt: string }>;
+    otherActivities: Array<{ type: string; note: string | null; createdAt: string }>;
+  }>;
+};
 
 export default function CounselorDrilldownPage() {
+  const { toast } = useToast();
   const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
-  
+
   const tenantSlug = params?.tenantSlug as string
   const counselorId = params?.counselorId as string
-  
+
   const from = searchParams?.get('from') || new Date().toISOString().split('T')[0]
   const to = searchParams?.get('to') || new Date().toISOString().split('T')[0]
   const counselorName = searchParams?.get('name') || 'Counselor'
@@ -49,23 +55,7 @@ export default function CounselorDrilldownPage() {
   const [localFrom, setLocalFrom] = useState(from)
   const [localTo, setLocalTo] = useState(to)
 
-  const [consultantLogs, setConsultantLogs] = useState<any[]>([])
-  const [consultantLogsLoading, setConsultantLogsLoading] = useState(false)
-  const [expandedLogId, setExpandedLogId] = useState<string | null>(null)
-
-  const fetchConsultantLogs = async () => {
-    setConsultantLogsLoading(true)
-    try {
-      const res = await fetch(`/api/logs?userId=${counselorId}&from=${from}&to=${to}`)
-      const data = await res.json()
-      setConsultantLogs(data ?? [])
-    } catch { setConsultantLogs([]) }
-    finally { setConsultantLogsLoading(false) }
-  }
-
-  useEffect(() => {
-    if (counselorId) fetchConsultantLogs()
-  }, [counselorId, from, to])
+  const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!counselorId || !tenantSlug) return
@@ -79,14 +69,36 @@ export default function CounselorDrilldownPage() {
           setDrilldownData(data)
         }
       } catch (err) {
-        console.error(err)
-        setDrilldownData(null)
+        const message = err instanceof Error ? err.message : 'Import failed';
+        toast({ variant: 'destructive', title: 'Import Failed', description: message });
       } finally {
         setLoadingDrilldown(false)
       }
     }
     fetchDrilldown()
   }, [counselorId, tenantSlug, from, to])
+
+  useEffect(() => {
+    if (!loadingDrilldown && drilldownData) {
+      if (!drilldownData.leadActivities || drilldownData.leadActivities.length === 0) {
+        toast({
+          title: 'No Lead Activities',
+          description: 'No lead activities data available for the selected period.',
+          variant: 'default',
+        })
+      }
+    }
+  }, [loadingDrilldown, drilldownData])
+
+  useEffect(() => {
+    if (!loadingDrilldown && !drilldownData) {
+      toast({
+        title: 'No Drilldown Data',
+        description: 'Failed to retrieve drilldown data.',
+        variant: 'destructive',
+      })
+    }
+  }, [loadingDrilldown, drilldownData])
 
   const chartPoints = useMemo(() => {
     if (!drilldownData || !drilldownData.activityGraph || drilldownData.activityGraph.length === 0) {
@@ -122,7 +134,7 @@ export default function CounselorDrilldownPage() {
             <div className="flex items-center gap-2">
               {counselorName}
               <Badge variant="outline" className="text-xs font-normal text-muted-foreground ml-2">
-                {counselorEmail}  
+                {counselorEmail}
               </Badge>
             </div>
             <div className="flex items-center gap-2 flex-wrap mt-1">
@@ -163,20 +175,18 @@ export default function CounselorDrilldownPage() {
             <div className="flex justify-center items-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
             </div>
-          ) : !drilldownData ? (
-            <p className="text-muted-foreground text-center">Failed to load detailed performance metrics.</p>
           ) : (
             <>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left Stats card */}
-              <div className="space-y-4">
+                <div className="space-y-4">
                 <div className="bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/10 dark:to-purple-950/10 border border-indigo-100/50 dark:border-indigo-900/30 rounded-xl p-5 space-y-4">
                   <div>
                     <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Earliest Punch-In Today</p>
                     <div className="flex items-center gap-2 mt-1">
                       <Clock className="h-4 w-4 text-indigo-600" />
                       <span className="font-semibold text-foreground">
-                        {drilldownData.punchInToday
+                        {drilldownData?.punchInToday
                           ? new Date(drilldownData.punchInToday).toLocaleTimeString()
                           : 'Not punched in today'}
                       </span>
@@ -187,7 +197,7 @@ export default function CounselorDrilldownPage() {
                     <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Total Clocked Hours (Range)</p>
                     <div className="flex items-center gap-2 mt-1">
                       <Clock className="h-4 w-4 text-indigo-600" />
-                      <span className="font-semibold text-foreground">{drilldownData.totalHours} hours</span>
+                      <span className="font-semibold text-foreground">{drilldownData?.totalHours ?? 0} hours</span>
                     </div>
                   </div>
                 </div>
@@ -196,13 +206,13 @@ export default function CounselorDrilldownPage() {
                 <div className="border rounded-xl p-4 space-y-3">
                   <h3 className="font-semibold text-sm text-foreground flex items-center gap-1.5 border-b pb-2">
                     <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                    Leads Touched in Range ({drilldownData.leads.touchedToday.length})
+                    Leads Touched in Range ({drilldownData?.leads?.touchedToday?.length ?? 0})
                   </h3>
-                  {drilldownData.leads.touchedToday.length === 0 ? (
+                  {drilldownData?.leads?.touchedToday?.length === 0 ? (
                     <p className="text-xs text-muted-foreground">No leads touched by counselor in this period.</p>
                   ) : (
                     <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
-                      {drilldownData.leads.touchedToday.map((l) => (
+                      {drilldownData?.leads?.touchedToday?.map((l) => (
                         <div key={l.id} className="flex justify-between items-center bg-muted/20 p-2.5 rounded-lg border border-border/40 hover:bg-muted/40 transition-colors">
                           <Link
                             href={`/t/${tenantSlug}/admin/leads/${l.id}`}
@@ -220,7 +230,7 @@ export default function CounselorDrilldownPage() {
                 </div>
               </div>
 
-              {/* Right 30-Day Graph card */}
+              {/* 30-Day Graph */}
               <div className="lg:col-span-2 border rounded-xl p-5 space-y-4 flex flex-col">
                 <div className="flex justify-between items-center">
                   <div>
@@ -232,7 +242,6 @@ export default function CounselorDrilldownPage() {
                   </div>
                 </div>
 
-                {/* Premium SVG chart representation */}
                 {chartPoints.length > 0 ? (
                   <div className="flex-1 flex flex-col justify-center items-center">
                     <svg viewBox="0 0 500 150" className="w-full h-44 mt-2 overflow-visible">
@@ -289,50 +298,87 @@ export default function CounselorDrilldownPage() {
                   </div>
                 )}
               </div>
-            </div>
+              </div>
 
-            {/* Consultant Logs Section */}
-            <div className="mt-8 border-t border-slate-200 dark:border-slate-700 pt-6">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-                <FileText className="h-5 w-5 text-indigo-500" />
-                Consultant Logs
-              </h3>
-              {consultantLogsLoading ? (
-                <div className="flex justify-center py-6">
-                  <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
-                </div>
-              ) : consultantLogs.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-4">No logs in this period</p>
-              ) : (
-                <div className="space-y-3">
-                  {consultantLogs.map(log => (
-                    <div key={log.id} className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                          log.type === 'call' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' :
-                          log.type === 'message' ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400' :
-                          'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400'
-                        }`}>
-                          {log.type}
-                        </span>
-                        <Link href={`/t/${tenantSlug}/admin/leads/${log.leadId}`} className="text-sm font-medium text-sky-600 hover:underline">
-                          {log.leadFullName}
-                        </Link>
-                        <span className="text-xs text-slate-400 ml-auto">
-                          {format(new Date(log.createdAt), 'MMM d, yyyy · h:mm a')}
-                        </span>
+              {/* Activity Section */}
+              <div className="mt-8 border-t border-slate-200 dark:border-slate-700 pt-6">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-indigo-500" />
+                  Activity
+                </h3>
+                {(drilldownData?.leadActivities?.length ?? 0) > 0 ? (
+                  <div className="space-y-4">
+                    {drilldownData?.leadActivities?.map(group => (
+                      <div key={group.leadId} className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <Link href={`/t/${tenantSlug}/admin/leads/${group.leadId}`} className="text-sm font-medium text-sky-600 hover:underline">
+                            Lead {group.leadId}
+                          </Link>
+                          {/* Last activity timestamp */}
+                          <span className="text-xs text-muted-foreground">
+                            {(() => {
+                              const activities = [...group.logs, ...group.otherActivities];
+                              if (activities.length === 0) return null;
+                              const latest = activities.reduce((max, a) => (a.createdAt > max ? a.createdAt : max), activities[0].createdAt);
+                              return new Date(latest).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+                            })()}
+                          </span>
+                        </div>
+                        {/* Primary logs */}
+                        {group.logs.length > 0 && (
+                          <div className="mb-2">
+                            <h4 className="text-sm font-medium text-slate-700 mb-1">Logs</h4>
+                            <ul className="space-y-1">
+                              {group.logs.map((log, idx) => (
+                                <li key={idx} className="flex items-center gap-2">
+                                  <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                                    log.type === 'call'
+                                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400'
+                                      : log.type === 'message'
+                                      ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400'
+                                      : 'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400'
+                                  }`}>
+                                    {log.type}
+                                  </span>
+                                  <p
+                                    onClick={() => setExpandedActivityId(expandedActivityId === `${group.leadId}-${idx}` ? null : `${group.leadId}-${idx}`)}
+                                    className={`text-sm text-slate-700 dark:text-slate-300 cursor-pointer ${expandedActivityId === `${group.leadId}-${idx}` ? '' : 'line-clamp-2'}`}
+                                  >
+                                    {log.note}
+                                  </p>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {/* Other activities */}
+                        {group.otherActivities.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium text-slate-700 mb-1">Other Activities</h4>
+                            <ul className="flex flex-wrap gap-2">
+                              {group.otherActivities.map((act, idx) => (
+                                <li key={idx} className="inline-block">
+                                  <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                                    act.type === 'call'
+                                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400'
+                                      : act.type === 'message'
+                                      ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400'
+                                      : 'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400'
+                                  }`}>
+                                    {act.type}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
-                      <p 
-                        onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)}
-                        className={`text-sm text-slate-700 dark:text-slate-300 cursor-pointer ${expandedLogId === log.id ? '' : 'line-clamp-2'}`}
-                      >
-                        {log.body}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No activity data available for this period.</p>
+                )}
+              </div>
             </>
           )}
         </CardContent>

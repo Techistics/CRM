@@ -11,6 +11,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url().optional().default('http://localhost:5000'),
   RESEND_API_KEY: z.string().min(1).optional(),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  TOTP_ENCRYPTION_KEY: z.string().length(64).regex(/^[0-9a-fA-F]+$/, 'Must be a 64-char hex string (32 bytes)'),
 })
 
 const parsed = envSchema.safeParse(process.env)

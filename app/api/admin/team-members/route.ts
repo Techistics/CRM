@@ -118,40 +118,13 @@ export async function POST(req: NextRequest) {
         .limit(1)
 
       if (existing) {
-        // Soft‑deleted record? (deletedAt NOT NULL)
-        if (existing.deletedAt) {
-          // Restore the member and set the requested role
-          await db.update(tenantMembers)
-            .set({ deletedAt: null, role: role as 'ADMIN' | 'PRO', customRoleId: resolvedCustomRoleId })
-            .where(eq(tenantMembers.id, existing.id))
-
-          // Send the invite link to the restored member
-          const rootOrigin = getRootOrigin()
-          const targetPath = role === 'ADMIN' ? 'admin/overview' : 'pro/overview'
-          const loginLink = `${rootOrigin}/t/${ctx.tenant.slug}/${targetPath}`
-          const workspaceUrl = `${rootOrigin}/t/${ctx.tenant.slug}`
-
-          await sendInviteEmail({
-            email: userInDb.email,
-            tenantName: ctx.tenant.name,
-            inviteLink: loginLink,
-            workspaceUrl,
-          })
-
-          return successResponse({
-            message: 'Member restored and link sent.',
-            email: userInDb.email,
-            role,
-            status: 'ACTIVE',
-          })
+        if (!existing.deletedAt) {
+          return errorResponse(
+            'User is already a member of this workspace',
+            'ALREADY_MEMBER',
+            400,
+          )
         }
-
-        // Active record (deletedAt IS NULL) – reject the request
-        return errorResponse(
-          'User is already a member of this workspace',
-          'ALREADY_MEMBER',
-          400
-        )
       }
     }
 
@@ -272,7 +245,7 @@ export async function PATCH(req: NextRequest) {
       targetUserEmail: email,
       tenantId: ctx.tenant.id,
       action: 'INVITE_SENT',
-      metadata: { resend: true, oldToken: invite.token, newToken }
+      metadata: { resend: true, invitationId: invite.id }
     })
 
     // Resend Email

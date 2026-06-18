@@ -1,9 +1,11 @@
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { eq, and, isNull } from 'drizzle-orm'
+
 import { db } from '@/db'
 import { users, tenantMembers, tenants } from '@/db/schema'
 import { encrypt } from '@/lib/auth'
+import { getCredentialVersionForSession } from '@/lib/session-credential'
 import { loginSchema } from '@/lib/validators/auth'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
@@ -22,7 +24,7 @@ export async function POST(req: NextRequest) {
     const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1)
     if (!user) return errorResponse('No account found with this email.', 'USER_NOT_FOUND', 404)
 
-    // 2. SUPER_ADMIN path — no tenantSlug needed, verify against users.password
+    // 2. SUPER_ADMIN path — two-step MFA flow
     if (user.globalRole === 'SUPER_ADMIN') {
       if (!isSuperAdminLogin) {
         return errorResponse('Please use the platform login page.', 'USE_PLATFORM_LOGIN', 403)
@@ -31,70 +33,92 @@ export async function POST(req: NextRequest) {
       const valid = await bcrypt.compare(password, user.password)
       if (!valid) return errorResponse('Incorrect password.', 'INVALID_PASSWORD', 401)
 
-      const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000)
-      const sessionToken = await encrypt({ userId: user.id, globalRole: 'SUPER_ADMIN', expiresAt })
-      const response = successResponse({ user: { id: user.id, email: user.email, name: user.name, globalRole: user.globalRole }, memberships: [] })
-      response.cookies.set('session', sessionToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', expires: expiresAt, sameSite: 'lax', path: '/' })
-      return response
+      const { signMfaToken, generateTotpSecret, encryptSecret } = await import('@/lib/totp')
+
+      // MFA already configured — issue challenge token, no session yet
+      if (user.totpEnabled) {
+        const mfaToken = await signMfaToken(user.id)
+        return successResponse({ requiresMfa: true, mfaToken })
+      }
+
+      // First login — generate secret and save (not yet enabled)
+      const plainSecret = generateTotpSecret()
+      const encryptedSecret = encryptSecret(plainSecret)
+      await db
+        .update(users)
+        .set({ totpSecret: encryptedSecret })
+        .where(eq(users.id, user.id))
+
+      const mfaToken = await signMfaToken(user.id)
+      return successResponse({ requiresMfaSetup: true, setupSecret: plainSecret, mfaToken })
     }
 
-    // 3. Regular user — auto-detect tenant from memberships
+        // 3. Standard User path — verify against users.password and fetch memberships
+    if (!user.password) return errorResponse('No password set.', 'NO_PASSWORD', 400)
+    const valid = await bcrypt.compare(password, user.password)
+    if (!valid) return errorResponse('Incorrect password.', 'INVALID_PASSWORD', 401)
+
     const memberships = await db
       .select({
-        tenantId: tenantMembers.tenantId,
-        role: tenantMembers.role,
-        tenantPassword: tenantMembers.tenantPassword,
-        tenantSlug: tenants.slug,
+        tenantId: tenants.id,
         tenantName: tenants.name,
+        tenantSlug: tenants.slug,
+        role: tenantMembers.role,
       })
       .from(tenantMembers)
-      .innerJoin(tenants, eq(tenants.id, tenantMembers.tenantId))
-      .where(and(
-        eq(tenantMembers.userId, user.id),
-        isNull(tenantMembers.deletedAt),
-        eq(tenants.status, 'active')
-      ))
+      .innerJoin(tenants, eq(tenantMembers.tenantId, tenants.id))
+      .where(eq(tenantMembers.userId, user.id))
 
-    if (!memberships.length) return errorResponse('You are not a member of any workspace.', 'NOT_MEMBER', 403)
-
-    // 4. Find membership where password matches
-    let validMembership = null
-    for (const m of memberships) {
-      const passwordToCheck = m.tenantPassword ?? user.password
-      if (!passwordToCheck) continue
-      const valid = await bcrypt.compare(password, passwordToCheck)
-      if (valid) { validMembership = m; break }
+    if (memberships.length === 0) {
+      return errorResponse('User has no workspace memberships.', 'NO_WORKSPACE', 403)
     }
-    if (!validMembership) return errorResponse('Incorrect password.', 'INVALID_PASSWORD', 401)
 
-    // 5. Single workspace → issue scoped session directly
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000)
+    const credentialVersion = await getCredentialVersionForSession({ userId: user.id })
+
     if (memberships.length === 1) {
-      const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000)
+      const { tenantId, role, tenantSlug } = memberships[0]
       const sessionToken = await encrypt({
-        userId: user.id, globalRole: null,
-        tenantId: validMembership.tenantId,
-        tenantSlug: validMembership.tenantSlug,
-        role: validMembership.role as 'ADMIN' | 'PRO',
+        userId: user.id,
+        globalRole: null,
+        tenantId,
+        role,
         expiresAt,
+        credentialVersion,
       })
-      const response = successResponse({
-        user: { id: user.id, email: user.email, name: user.name, globalRole: null },
-        tenantSlug: validMembership.tenantSlug,
-        role: validMembership.role,
+      const response = successResponse({ tenantSlug, role })
+      response.cookies.set('session', sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        expires: expiresAt,
+        sameSite: 'lax',
+        path: '/',
       })
-      response.cookies.set('session', sessionToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', expires: expiresAt, sameSite: 'lax', path: '/' })
       return response
     }
 
-    // 6. Multiple workspaces → return list for frontend picker
-    return successResponse({
-      user: { id: user.id, email: user.email, name: user.name },
+    // multiple memberships – return workspace list without setting tenant in session
+    const sessionToken = await encrypt({
+      userId: user.id,
+      globalRole: null,
+      expiresAt,
+      credentialVersion,
+    })
+    const response = successResponse({
       workspaces: memberships.map(m => ({
-        tenantId: m.tenantId,
         tenantSlug: m.tenantSlug,
+        tenantId: m.tenantId,
         role: m.role,
         name: m.tenantName,
       })),
     })
+    response.cookies.set('session', sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      expires: expiresAt,
+      sameSite: 'lax',
+      path: '/',
+    })
+    return response
   })
 }

@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { db } from '@/db'
 import { users, invitations, tenantMembers, auditLogs } from '@/db/schema'
 import { encrypt } from '@/lib/auth'
+import { getCredentialVersionForSession } from '@/lib/session-credential'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
 const registerSchema = z.object({
@@ -86,6 +87,7 @@ export async function POST(req: NextRequest) {
           .values({
             email,
             name,
+            password: hashedPassword,
             globalRole: null
           })
           .returning()
@@ -118,6 +120,10 @@ export async function POST(req: NextRequest) {
   .limit(1)
 
 const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000)
+const credentialVersion = await getCredentialVersionForSession({
+  userId: user.id,
+  tenantId: invite.tenantId,
+})
 const sessionToken = await encrypt({
   userId: user.id,
   globalRole: null,
@@ -125,6 +131,7 @@ const sessionToken = await encrypt({
   tenantSlug: tenantRow.slug,
   role: invite.role as 'ADMIN' | 'PRO',
   expiresAt,
+  credentialVersion,
 })
 
 const response = successResponse({

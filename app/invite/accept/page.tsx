@@ -40,18 +40,39 @@ function AcceptInviteContent() {
       return
     }
 
+    async function acceptExistingUser() {
+      const res = await fetch('/api/invite/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, existingUserAccept: true }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error || 'Failed to accept invitation')
+      }
+      window.location.href = json.data.redirectUrl
+    }
+
     async function fetchInvite() {
       try {
-        const res = await fetch(`/api/invite/accept?token=${token}`)
+        const res = await fetch(`/api/invite/accept?token=${encodeURIComponent(token ?? '')}`)
         const data = await res.json()
-        if (!res.ok) {
+        if (!res.ok || !data.ok) {
           setError(data.error || 'This invitation link is invalid or has expired.')
-        } else {
-          setInviteData(data.data)
+          setLoading(false)
+          return
         }
-      } catch {
-        setError('Failed to load invitation details.')
-      } finally {
+
+        const info = data.data
+        if (info?.existingUser) {
+          await acceptExistingUser()
+          return
+        }
+
+        setInviteData(info)
+        setLoading(false)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load invitation details.')
         setLoading(false)
       }
     }
@@ -82,7 +103,9 @@ function AcceptInviteContent() {
       successMsg: 'Account created successfully!',
     })
 
-    if (result?.tenantSlug) {
+    if (result?.redirectUrl) {
+      window.location.href = result.redirectUrl
+    } else if (result?.tenantSlug) {
       const base = `/t/${result.tenantSlug}`
       window.location.href = result.role === 'ADMIN' ? `${base}/admin/overview` : `${base}/pro/overview`
     } else {

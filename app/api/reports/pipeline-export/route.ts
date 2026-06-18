@@ -5,18 +5,21 @@ import { leads, tenants, pipelineStages, users, pipelineSubStatuses } from '@/db
 import { getSession } from '@/lib/auth'
 import { resolveTenantAccess } from '@/lib/tenant-access'
 import { can } from '@/lib/authz'
+import { leadsVisibleWhere } from '@/lib/leads-scope'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const from = searchParams.get('from')
   const to = searchParams.get('to')
   const tenantSlug = searchParams.get('tenantSlug')
+  const page = Math.max(1, Number(searchParams.get('page')) || 1)
+  const pageSize = Math.min(100, Math.max(1, Number(searchParams.get('pageSize')) || 50))
+  const offset = (page - 1) * pageSize
 
   if (!tenantSlug) {
     return NextResponse.json({ error: 'tenantSlug is required' }, { status: 400 })
   }
 
-  // Auth check
   const session = await getSession()
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -37,8 +40,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  // Build query
-  const filters = [eq(leads.tenantId, tenant.id)]
+  const filters = [
+    leadsVisibleWhere(tenant.id, access.role, session.userId),
+    eq(leads.tenantId, tenant.id),
+  ]
   if (from) filters.push(gte(leads.createdAt, new Date(from)))
   if (to) {
     const toDate = new Date(to)
@@ -70,22 +75,21 @@ export async function GET(req: NextRequest) {
     .leftJoin(users, eq(leads.assignedTo, users.id))
     .where(and(...filters))
     .orderBy(leads.primaryStage, leads.createdAt)
+    .limit(pageSize)
+    .offset(offset)
 
-  // Fetch stage labels
   const stageRows = await db
     .select({ key: pipelineStages.key, label: pipelineStages.label })
     .from(pipelineStages)
     .where(eq(pipelineStages.tenantId, tenant.id))
-  const stageLabelMap = new Map(stageRows.map(s => [s.key, s.label]))
+  const stageLabelMap = new Map(stageRows.map((s) => [s.key, s.label]))
 
-  // Fetch sub-status labels
   const subStatusRows = await db
     .select({ id: pipelineSubStatuses.id, label: pipelineSubStatuses.label })
     .from(pipelineSubStatuses)
     .where(eq(pipelineSubStatuses.tenantId, tenant.id))
-  const subStatusLabelMap = new Map(subStatusRows.map(s => [s.id, s.label]))
+  const subStatusLabelMap = new Map(subStatusRows.map((s) => [s.id, s.label]))
 
-  // Group by stage
   const stageGroups = new Map<string, typeof leadRows>()
   for (const row of leadRows) {
     const key = String(row.stage)
@@ -94,11 +98,11 @@ export async function GET(req: NextRequest) {
   }
 
   const csvLines: string[] = []
-  // Stage summary at top
   csvLines.push('"PIPELINE REPORT SUMMARY"')
+  csvLines.push(`"Page: ${page}, Page size: ${pageSize}, Rows on page: ${leadRows.length}"`)
   csvLines.push(['Stage', 'Total Leads', 'Active', 'Dead'].join(','))
   for (const [stageKey, rows] of stageGroups) {
-    const dead = rows.filter(r => r.isDead).length
+    const dead = rows.filter((r) => r.isDead).length
     csvLines.push([
       `"${stageLabelMap.get(stageKey) ?? stageKey}"`,
       rows.length,
@@ -108,7 +112,6 @@ export async function GET(req: NextRequest) {
   }
   csvLines.push('')
 
-  // Per-stage detail
   const headers = ['Lead ID','Name','Email','Phone','City','Country','Intake','Destination','Program','Sub Status','Closed Action','Assigned To','Last Contacted','Status','Created']
   for (const [stageKey, rows] of stageGroups) {
     csvLines.push(`"Stage: ${stageLabelMap.get(stageKey) ?? stageKey}"`)
@@ -136,12 +139,15 @@ export async function GET(req: NextRequest) {
   }
 
   const csv = csvLines.join('\n')
-  const filename = `pipeline-report-${from || 'all'}-${to || 'now'}.csv`
+  const filename = `pipeline-report-${from || 'all'}-${to || 'now'}-p${page}.csv`
 
   return new NextResponse(csv, {
     headers: {
       'Content-Type': 'text/csv',
       'Content-Disposition': `attachment; filename="${filename}"`,
+      'X-Page': String(page),
+      'X-Page-Size': String(pageSize),
+      'X-Row-Count': String(leadRows.length),
     },
   })
 }

@@ -215,10 +215,37 @@ export async function GET(request: Request) {
       }
     }
 
-    const activityGraph = Array.from(dateMap.entries()).map(([date, count]) => ({
-      date,
-      count,
-    }))
+    const activityGraph = Array.from(dateMap.entries()).map(([date, count]) => ({ date, count }))
+
+    // 5. Lead Activities grouped by lead (logs vs other activities)
+    const activityRows = await db
+      .select({
+        leadId: leadActivities.leadId,
+        type: leadActivities.type,
+        note: leadActivities.note,
+        createdAt: leadActivities.createdAt,
+      })
+      .from(leadActivities)
+      .where(
+        and(
+          eq(leadActivities.tenantId, tenant.id),
+          eq(leadActivities.userId, targetUserId),
+          ...(startDate ? [gte(leadActivities.createdAt, startDate)] : []),
+          ...(endDate ? [lte(leadActivities.createdAt, endDate)] : []),
+        ),
+      )
+
+    const leadActivitiesByLead = activityRows.reduce((acc, row) => {
+      const group = acc[row.leadId] ?? { leadId: row.leadId, logs: [], otherActivities: [] }
+      if (row.type === 'note' || row.type === 'stage_change') {
+        group.logs.push({ type: row.type, note: row.note, createdAt: row.createdAt })
+      } else {
+        group.otherActivities.push({ type: row.type, note: row.note, createdAt: row.createdAt })
+      }
+      acc[row.leadId] = group
+      return acc
+    }, {} as Record<string, { leadId: string; logs: any[]; otherActivities: any[] }>)
+    const leadActivitiesArray = Object.values(leadActivitiesByLead)
 
     const payload = {
       punchInToday,
@@ -230,6 +257,7 @@ export async function GET(request: Request) {
         active: activeLeads,
       },
       activityGraph,
+      leadActivities: leadActivitiesArray,
     }
 
     return NextResponse.json(payload)

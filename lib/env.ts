@@ -14,6 +14,13 @@ const envSchema = z.object({
   TOTP_ENCRYPTION_KEY: z.string().length(64).regex(/^[0-9a-fA-F]+$/, 'Must be a 64-char hex string (32 bytes)'),
 })
 
+console.log('ENV CHECK:', {
+  hasDB: !!process.env.DATABASE_URL,
+  hasJWT: !!process.env.JWT_SECRET,
+  hasTOTP: !!process.env.TOTP_ENCRYPTION_KEY,
+  totpLen: process.env.TOTP_ENCRYPTION_KEY?.length,
+})
+
 const parsed = envSchema.safeParse(process.env)
 
 if (!parsed.success) {

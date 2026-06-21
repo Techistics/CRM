@@ -34,7 +34,7 @@ export function AcceptInviteButton({ invitationId }: { invitationId: string }) {
     return (
       <div className="flex items-center gap-2 rounded-[8px] border-[0.5px] border-white/10 bg-[#0f1117] px-3 py-2 text-[12px] text-white/70">
         <div className="rounded-full bg-[rgba(203,239,127,0.2)] p-1">
-          <Check className="h-3 w-3 text-[#CBEF7F]" strokeWidth={2} />
+          <Check className="h-3 w-3 text-[#0DA2E7]" strokeWidth={2} />
         </div>
         Joined Workspace
       </div>

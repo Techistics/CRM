@@ -142,7 +142,7 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
               }}
               className={`w-full rounded-[12px] border px-4 py-3 text-left transition-colors ${
                 mode === 'default'
-                  ? 'border-[#CBEF7F]/40 bg-[#CBEF7F]/10'
+                  ? 'border-[#0DA2E7]/40 bg-[#0DA2E7]/10'
                   : 'border-[var(--card-border-color)] hover:bg-[var(--main-bg)]'
               }`}
             >
@@ -160,7 +160,7 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
               }}
               className={`w-full rounded-[12px] border px-4 py-3 text-left transition-colors ${
                 mode === 'custom'
-                  ? 'border-[#CBEF7F]/40 bg-[#CBEF7F]/10'
+                  ? 'border-[#0DA2E7]/40 bg-[#0DA2E7]/10'
                   : 'border-[var(--card-border-color)] hover:bg-[var(--main-bg)]'
               }`}
             >
@@ -174,7 +174,7 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="h-10 rounded-[10px] bg-[#CBEF7F] px-4 text-[13px] font-medium text-[#2C5000]"
+                className="h-10 rounded-[10px] bg-[#0DA2E7] px-4 text-[13px] font-medium text-[#2C5000]"
               >
                 Continue
               </button>
@@ -272,7 +272,7 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
                 <button
                   type="button"
                   onClick={() => setStep(3)}
-                  className="h-10 rounded-[10px] bg-[#CBEF7F] px-4 text-[13px] font-medium text-[#2C5000]"
+                  className="h-10 rounded-[10px] bg-[#0DA2E7] px-4 text-[13px] font-medium text-[#2C5000]"
                 >
                   Continue
                 </button>
@@ -481,7 +481,7 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
                 type="button"
                 onClick={save}
                 disabled={saving}
-                className="h-10 rounded-[10px] bg-[#CBEF7F] px-4 text-[13px] font-medium text-[#2C5000] disabled:opacity-60"
+                className="h-10 rounded-[10px] bg-[#0DA2E7] px-4 text-[13px] font-medium text-[#2C5000] disabled:opacity-60"
               >
                 {saving ? 'Saving…' : 'Finish Setup'}
               </button>

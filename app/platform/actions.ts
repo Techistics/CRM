@@ -189,3 +189,24 @@ export async function bulkDeleteWorkspaceAction(formData: FormData) {
   revalidatePath('/platform/tenants')
   return { success: true }
 }
+
+export async function toggleTenantStatusAction(formData: FormData) {
+  const allowed = await isPlatformSuperAdmin()
+  if (!allowed) throw new Error('Forbidden')
+
+  const tenantId = String(formData.get('tenantId') ?? '').trim()
+  const newStatus = String(formData.get('newStatus') ?? '').trim()
+
+  if (!tenantId) throw new Error('Workspace is required')
+  if (newStatus !== 'active' && newStatus !== 'suspended') {
+    throw new Error('Invalid status')
+  }
+
+  await db
+    .update(tenants)
+    .set({ status: newStatus as 'active' | 'suspended' })
+    .where(eq(tenants.id, tenantId))
+
+  revalidatePath('/platform/tenants')
+  return { success: true }
+}

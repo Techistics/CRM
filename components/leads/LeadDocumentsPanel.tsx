@@ -13,7 +13,6 @@ import {
   Check,
   X,
   RefreshCw,
-  ClipboardCheck,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -32,7 +31,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import type { LeadDocumentChecklistItem } from '@/types/models'
 import { apiCall } from '@/lib/utils/api-handler'
 
 type DocRow = {
@@ -65,20 +63,18 @@ function FileThumb({
   return (
     <div
       className={cn(
-        'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] shadow-inner',
+        'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-[0.5px] border-[var(--card-border-color)] bg-[var(--main-bg)] shadow-inner',
         className,
       )}
     >
-      <Icon className="h-6 w-6 text-gray-400" />
+      <Icon className="h-5 w-5 text-[var(--muted-text)]" />
     </div>
   )
 }
 
 export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
   const [documents, setDocuments] = useState<DocRow[]>([])
-  const [checklistItems, setChecklistItems] = useState<LeadDocumentChecklistItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [loadingChecklist, setLoadingChecklist] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [label, setLabel] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -101,26 +97,11 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
     }
   }, [leadId])
 
-  const loadChecklist = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/leads/${leadId}/checklist`, {
-        cache: 'no-store',
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to load checklist')
-      setChecklistItems(data.data?.items ?? [])
-    } catch (e) {
-      console.error('Checklist Load Error:', e)
-    }
-  }, [leadId])
-
   const refreshAll = useCallback(async () => {
     setLoading(true)
-    setLoadingChecklist(true)
-    await Promise.all([loadDocuments(), loadChecklist()])
+    await loadDocuments()
     setLoading(false)
-    setLoadingChecklist(false)
-  }, [loadDocuments, loadChecklist])
+  }, [loadDocuments])
 
   useEffect(() => {
     void refreshAll()
@@ -146,7 +127,6 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
     if (data) {
       setFile(null)
       setLabel('')
-      // Force immediate re-fetch
       await loadDocuments()
     }
     setUploading(false)
@@ -181,92 +161,27 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
     }
   }
 
-  async function toggleChecklistItem(itemId: string, nextSubmitted: boolean) {
-    const res = await fetch(`/api/leads/${leadId}/checklist`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemId, isSubmitted: nextSubmitted }),
-    })
-    if (!res.ok) {
-      toast.error('Unable to update checklist.')
-      return
-    }
-    await loadChecklist()
-  }
-
-  const checklistProgress = {
-    done: checklistItems.filter(it => it.isSubmitted).length,
-    total: checklistItems.length
-  }
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
-      {/* 1. Country Document Checklist Section */}
-      <section className="rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden backdrop-blur-sm shadow-xl">
-        <div className="bg-white/[0.03] px-6 py-4 border-b border-white/5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-             <ClipboardCheck className="h-4 w-4 text-emerald-400" />
-             <h3 className="text-sm font-semibold text-white tracking-wide">Submission Checklist</h3>
-          </div>
-          <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
-            {checklistProgress.done}/{checklistProgress.total} COMPLETED
-          </span>
-        </div>
-        <div className="p-6">
-          {loadingChecklist ? (
-             <div className="flex items-center justify-center py-6">
-               <Loader2 className="h-6 w-6 animate-spin text-gray-700" />
-             </div>
-          ) : checklistItems.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-4 italic">No required documents for this country.</p>
-          ) : (
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {checklistItems.map((item) => {
-                const isSubmitted = item.isSubmitted === true
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => toggleChecklistItem(item.id, !isSubmitted)}
-                    className={cn(
-                      "group flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left",
-                      isSubmitted 
-                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300"
-                        : "bg-white/[0.02] border-white/5 text-gray-400 hover:border-white/20 hover:bg-white/[0.04]"
-                    )}
-                  >
-                    <div className={cn(
-                      "h-5 w-5 rounded-md border flex items-center justify-center transition-colors",
-                      isSubmitted ? "bg-emerald-500 border-none" : "border-white/20 group-hover:border-white/40"
-                    )}>
-                      {isSubmitted && <Check className="h-3.5 w-3.5 text-white" />}
-                    </div>
-                    <span className="text-xs font-semibold">{item.documentLabel}</span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </section>
 
       {/* 2. Upload Form */}
       <form
         onSubmit={onUpload}
-        className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 sm:p-8 backdrop-blur-sm shadow-xl"
+        className="rounded-[12px] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] p-6 sm:p-8 shadow-crm-sm"
       >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-white tracking-wide">
+            <h3 className="text-[14px] font-medium text-[var(--text-strong)]">
               Quick Upload
             </h3>
-            <p className="text-xs text-gray-500 max-w-sm">
+            <p className="text-[12px] text-[var(--muted-text)] max-w-sm">
               Add transcripts, passports, or relevant student files securely.
             </p>
           </div>
           <Button
             type="submit"
             disabled={uploading || !file}
-            className="shrink-0 gap-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl h-10 px-6 transition-all"
+            className="shrink-0 gap-2 bg-[var(--accent-color)] hover:brightness-95 text-[var(--accent-text)] rounded-[8px] h-10 px-6 font-medium text-[13px] transition-all shadow-sm"
           >
             {uploading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -277,19 +192,19 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
           </Button>
         </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="doc-file" className="text-gray-400 text-xs font-medium">
+          <div className="space-y-1.5">
+            <Label htmlFor="doc-file" className="text-[var(--muted-text)] text-[12px] font-medium">
               File Selector
             </Label>
             <Input
               id="doc-file"
               type="file"
-              className="cursor-pointer bg-white/5 border-white/10 text-gray-300 rounded-xl focus:ring-blue-500/50 h-11"
+              className="cursor-pointer bg-[var(--main-bg)] border-[0.5px] border-[var(--card-border-color)] text-[var(--text-strong)] rounded-[8px] h-10 focus-visible:ring-0 focus-visible:border-[var(--text-strong)] text-xs"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="doc-label" className="text-gray-400 text-xs font-medium">
+          <div className="space-y-1.5">
+            <Label htmlFor="doc-label" className="text-[var(--muted-text)] text-[12px] font-medium">
               Display Name / Label
             </Label>
             <Input
@@ -297,7 +212,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="e.g. Higher Secondary Certificate"
-              className="bg-white/5 border-white/10 text-gray-300 rounded-xl focus:ring-blue-500/50 h-11"
+              className="bg-[var(--main-bg)] border-[0.5px] border-[var(--card-border-color)] text-[var(--text-strong)] rounded-[8px] h-10 focus-visible:ring-0 focus-visible:border-[var(--text-strong)] text-xs placeholder:text-[var(--muted-text)]"
             />
           </div>
         </div>
@@ -305,16 +220,16 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
 
       {/* 3. Document List */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between border-b border-white/5 pb-4 px-2">
+        <div className="flex items-center justify-between border-b border-[var(--card-border-color)] pb-4 px-2">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-white/5 border border-white/10">
-              <HardDrive className="h-4 w-4 text-gray-400" />
+            <div className="p-2 rounded-[8px] bg-[var(--main-bg)] border-[0.5px] border-[var(--card-border-color)]">
+              <HardDrive className="h-4 w-4 text-[var(--muted-text)]" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">
+              <h3 className="text-[14px] font-medium text-[var(--text-strong)]">
                 Stored Documents
               </h3>
-              <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">
+              <p className="text-[11px] text-[var(--muted-text)] font-medium">
                 {loading ? 'Consulting storage…' : `${documents.length} Managed Files`}
               </p>
             </div>
@@ -323,7 +238,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
             variant="ghost"
             size="icon"
             onClick={refreshAll}
-            className="h-8 w-8 text-gray-500 hover:text-white"
+            className="h-8 w-8 text-[var(--muted-text)] hover:text-[var(--text-strong)] hover:bg-[var(--main-bg)] rounded-[6px]"
             title="Refresh List"
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
@@ -332,12 +247,12 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-500/50" />
+            <Loader2 className="h-6 w-6 animate-spin text-[var(--muted-text)]" />
           </div>
         ) : documents.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-white/5 bg-white/[0.01] py-16 text-center">
-            <FileText className="h-10 w-10 text-gray-700 mx-auto mb-4" />
-            <p className="text-sm text-gray-500 font-medium">
+          <div className="rounded-[12px] border border-dashed border-[var(--card-border-color)] bg-[var(--card-bg)] py-16 text-center shadow-crm-xs">
+            <FileText className="h-8 w-8 text-[var(--muted-text)] mx-auto mb-3" />
+            <p className="text-[13px] text-[var(--muted-text)] font-medium">
               Archive is empty. Start by uploading a file.
             </p>
           </div>
@@ -346,7 +261,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
             {documents.map((d) => (
               <div
                 key={d.id}
-                className="group relative flex items-start gap-4 rounded-2xl border border-white/5 bg-white/[0.03] p-4 transition-all hover:bg-white/[0.06] hover:border-white/10"
+                className="group relative flex items-start gap-4 rounded-[12px] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] p-4 shadow-crm-xs transition-all hover:border-[var(--text-strong)]"
               >
                 <FileThumb mimeType={d.mimeType} />
                 <div className="min-w-0 flex-1">
@@ -355,13 +270,13 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
                       <Input
                         value={editLabel}
                         onChange={(e) => setEditLabel(e.target.value)}
-                        className="h-8 bg-gray-900 border-white/20 text-xs"
+                        className="h-8 bg-[var(--main-bg)] border-[0.5px] border-[var(--card-border-color)] text-[var(--text-strong)] text-xs rounded-[6px]"
                         autoFocus
                       />
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+                        className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-[6px]"
                         onClick={() => onRename(d.id)}
                       >
                         <Check className="h-4 w-4" />
@@ -369,7 +284,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 text-gray-500 hover:text-gray-400 hover:bg-white/5"
+                        className="h-8 w-8 text-[var(--muted-text)] hover:text-[var(--text-strong)] hover:bg-[var(--main-bg)] rounded-[6px]"
                         onClick={() => setEditingId(null)}
                       >
                         <X className="h-4 w-4" />
@@ -378,11 +293,11 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
                   ) : (
                     <div className="flex items-start justify-between gap-2">
                       <div className="truncate">
-                        <p className="truncate text-sm font-semibold text-white group-hover:text-blue-400 transition-colors">
+                        <p className="truncate text-[13px] font-semibold text-[var(--text-strong)] transition-colors">
                           {d.label || d.fileName}
                         </p>
                         {d.label && (
-                          <p className="mt-0.5 truncate text-[10px] text-gray-500 font-medium lowercase italic">
+                          <p className="mt-0.5 truncate text-[11px] text-[var(--muted-text)] font-medium lowercase italic">
                             Originally: {d.fileName}
                           </p>
                         )}
@@ -391,7 +306,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="h-7 w-7 text-gray-400 hover:text-white hover:bg-white/10"
+                          className="h-7 w-7 text-[var(--muted-text)] hover:text-[var(--text-strong)] hover:bg-[var(--main-bg)] rounded-[6px]"
                           onClick={() => {
                             setEditingId(d.id)
                             setEditLabel(d.label ?? d.fileName)
@@ -405,28 +320,28 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="h-7 w-7 text-gray-400 hover:text-red-400 hover:bg-red-500/10"
+                              className="h-7 w-7 text-[var(--muted-text)] hover:text-red-600 hover:bg-red-50 rounded-[6px]"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </AlertDialogTrigger>
-                          <AlertDialogContent className="bg-gray-900 border-white/10">
+                          <AlertDialogContent className="bg-[var(--card-bg)] border-[0.5px] border-[var(--card-border-color)] rounded-[12px]">
                             <AlertDialogHeader>
-                              <AlertDialogTitle className="text-white">
+                              <AlertDialogTitle className="text-[var(--text-strong)] text-[16px] font-semibold">
                                 Delete Document?
                               </AlertDialogTitle>
-                              <AlertDialogDescription className="text-gray-400">
+                              <AlertDialogDescription className="text-[var(--muted-text)] text-[13px]">
                                 This will permanently remove the file from storage.
                                 This action cannot be undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                              <AlertDialogCancel className="bg-white/5 border-white/10 text-white hover:bg-white/10">
+                              <AlertDialogCancel className="bg-[var(--main-bg)] border-[0.5px] border-[var(--card-border-color)] text-[var(--text-strong)] hover:brightness-95 rounded-[8px] text-xs">
                                 Cancel
                               </AlertDialogCancel>
                               <AlertDialogAction
                                 onClick={() => onDelete(d.id)}
-                                className="bg-red-600 hover:bg-red-500 text-white"
+                                className="bg-red-500 hover:bg-red-600 text-white rounded-[8px] text-xs"
                               >
                                 Delete Permanently
                               </AlertDialogAction>
@@ -437,9 +352,9 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
                     </div>
                   )}
 
-                  <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-medium text-gray-500">
-                    <span className="text-gray-400">{formatSize(d.sizeBytes)}</span>
-                    <span className="text-gray-700">|</span>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-medium text-[var(--muted-text)]">
+                    <span>{formatSize(d.sizeBytes)}</span>
+                    <span className="opacity-40">•</span>
                     <span>
                       {d.createdAt
                         ? new Date(d.createdAt).toLocaleDateString(undefined, {
@@ -451,7 +366,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
                     </span>
                     {d.uploaderName && (
                       <>
-                        <span className="text-gray-700">|</span>
+                        <span className="opacity-40">•</span>
                         <span className="truncate max-w-[100px]">
                           {d.uploaderName}
                         </span>
@@ -463,7 +378,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
                     href={d.storageUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-blue-500 hover:text-blue-400 transition-colors"
+                    className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-[var(--muted-text)] hover:text-[var(--text-strong)] hover:underline transition-colors"
                   >
                     View File <ExternalLink className="h-3 w-3" />
                   </a>

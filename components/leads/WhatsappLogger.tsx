@@ -37,22 +37,22 @@ export function WhatsappLogger({
   }
 
   return (
-    <div className="max-w-3xl mx-auto my-6">
-      <div className="bg-white border border-gray-100 shadow-sm rounded-xl overflow-hidden">
+    <div className="w-full pb-12 animate-in fade-in duration-500">
+      <div className="bg-[var(--card-bg)] border-[0.5px] border-[var(--card-border-color)] shadow-crm-sm rounded-[12px] overflow-hidden">
         {/* Header Section */}
-        <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4 flex items-center justify-between">
+        <div className="border-b border-[var(--card-border-color)] bg-[var(--main-bg)] px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center shadow-sm border border-green-100">
+            <div className="w-8 h-8 rounded-lg bg-green-500/10 text-green-500 flex items-center justify-center border border-green-500/20">
               <MessageCircle className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">WhatsApp Workspace</h2>
-              <p className="text-xs text-gray-500">Quickly message {leadName}</p>
+              <h2 className="text-[14px] font-medium text-[var(--text-strong)]">WhatsApp Workspace</h2>
+              <p className="text-xs text-[var(--muted-text)]">Quickly message {leadName}</p>
             </div>
           </div>
           
           {!leadPhone && (
-            <span className="text-xs font-medium text-red-600 bg-red-50 px-2.5 py-1 rounded-full border border-red-100">
+            <span className="text-[11px] font-semibold text-red-600 bg-red-500/10 px-2.5 py-0.5 rounded-full border border-red-500/20">
               Missing Phone Number
             </span>
           )}
@@ -62,13 +62,13 @@ export function WhatsappLogger({
         <div className="p-6 space-y-5">
           {/* Scrollable Template Picker Section */}
           <div className="space-y-2">
-            <label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
+            <label className="text-xs font-medium text-[var(--muted-text)] flex items-center gap-1.5">
               <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
               Select Response Template
             </label>
             
             {/* Scroll Container with defined height */}
-            <div className="max-h-[160px] overflow-y-auto pr-1 border border-gray-100 rounded-lg p-2 bg-gray-50/30 scrollbar-thin scrollbar-thumb-gray-200">
+            <div className="max-h-[160px] overflow-y-auto pr-1 border border-[var(--card-border-color)] rounded-[8px] p-2 bg-[var(--main-bg)]">
               <TemplateSelector
                 leadId={leadId}
                 tenantSlug={tenantSlug}
@@ -83,10 +83,10 @@ export function WhatsappLogger({
 
           {/* Message Textarea */}
           <div className="space-y-2">
-            <label className="text-xs font-medium text-gray-700">Custom Message</label>
+            <label className="text-xs font-medium text-[var(--muted-text)]">Custom Message</label>
             <Textarea
               placeholder="Select a template above or type your direct message here..."
-              className="min-h-[140px] max-h-[240px] border-gray-200 focus-visible:ring-indigo-500 rounded-lg resize-y p-3.5 text-sm"
+              className="min-h-[140px] max-h-[240px] bg-[var(--main-bg)] border-[0.5px] border-[var(--card-border-color)] text-[var(--text-strong)] focus-visible:ring-0 focus-visible:border-[var(--text-strong)] rounded-[8px] resize-y p-3.5 text-xs placeholder:text-[var(--muted-text)]"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
             />
@@ -94,19 +94,18 @@ export function WhatsappLogger({
         </div>
 
         {/* Action Footer */}
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex items-center justify-between gap-4">
-          <p className="text-[11px] text-gray-400 max-w-[60%]">
+        <div className="bg-[var(--main-bg)] px-6 py-4 border-t border-[var(--card-border-color)] flex items-center justify-between gap-4">
+          <p className="text-[11px] font-medium text-[var(--muted-text)] max-w-[60%]">
             Clicking send opens the official WhatsApp chat web/app portal with your compiled text ready.
           </p>
           
           <Button 
             onClick={handleOpenWhatsapp} 
             disabled={!leadPhone}
-            className="bg-[#25D366] hover:bg-[#20bd5c] text-white font-medium shadow-sm gap-2 h-10 px-5 rounded-lg transition-colors duration-150"
+            className="bg-[#0da2e7] dark:bg-[#0da2e7] hover:bg-[#0a98d1] text-white font-medium shadow-sm gap-2 h-10 px-5 rounded-[8px] text-[13px] transition-colors duration-150"
           >
             <Send className="h-4 w-4" />
             Open WhatsApp Chat
-            <ExternalLink className="h-3.5 w-3.5 opacity-70" />
           </Button>
         </div>
       </div>

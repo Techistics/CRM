@@ -64,12 +64,12 @@ function PasswordStep({
   return (
     <>
       <div className="mb-8 text-center">
-        <h1 className="text-xl font-semibold text-slate-900">Platform Admin</h1>
-        <p className="text-sm text-slate-500 mt-1">Super Admin access only</p>
+        <h1 className="text-xl font-semibold text-black">Platform Admin</h1>
+        <p className="text-sm text-blue-500 mt-1">Super Admin access only</p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email" className='text-blue-900'>Email</Label>
           <Input
             id="email"
             type="email"
@@ -77,17 +77,18 @@ function PasswordStep({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="h-10 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-sky-500"
+            className="h-10 bg-white border-blue-200 text-blue-900 placeholder:text-blue-400 focus:border-sky-500"
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password" className='text-blue-900'>Password</Label>
           <PasswordInput
             id="password"
             value={password}
+            placeholder='XXXXXX'
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="h-10 bg-white border-slate-200 text-slate-900 focus:border-sky-500"
+            className="h-10 bg-white border-blue-200 text-blue-900 focus:border-sky-500"
           />
         </div>
         {error && <p className="text-[12px] font-medium text-red-500">{error}</p>}
@@ -133,8 +134,8 @@ function MfaStep({
         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-sky-100">
           <ShieldCheck className="h-6 w-6 text-sky-500" />
         </div>
-        <h1 className="text-xl font-semibold text-slate-900">Two-factor authentication</h1>
-        <p className="text-sm text-slate-500 mt-1">Enter the 6-digit code from your authenticator app</p>
+        <h1 className="text-xl font-semibold text-blue-900">Two-factor authentication</h1>
+        <p className="text-sm text-blue-500 mt-1">Enter the 6-digit code from your authenticator app</p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
@@ -150,7 +151,7 @@ function MfaStep({
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
             required
             autoFocus
-            className="h-10 bg-white border-slate-200 text-slate-900 text-center tracking-[0.3em] text-lg font-mono placeholder:text-slate-400 focus:border-sky-500"
+            className="h-10 bg-white border-blue-200 text-blue-900 text-center tracking-[0.3em] text-lg font-mono placeholder:text-blue-400 focus:border-sky-500"
           />
         </div>
         {error && <p className="text-[12px] font-medium text-red-500">{error}</p>}
@@ -207,17 +208,17 @@ function SetupStep({
         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-sky-100">
           <KeyRound className="h-6 w-6 text-sky-500" />
         </div>
-        <h1 className="text-xl font-semibold text-slate-900">Set up two-factor authentication</h1>
-        <p className="text-sm text-slate-500 mt-1">This only happens once — future logins will just ask for your code</p>
+        <h1 className="text-xl font-semibold text-blue-900">Set up two-factor authentication</h1>
+        <p className="text-sm text-blue-500 mt-1">This only happens once — future logins will just ask for your code</p>
       </div>
 
-      <div className="mb-5 rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-2">
-        <p className="text-[12px] font-semibold uppercase tracking-wider text-slate-500">
+      <div className="mb-5 rounded-xl bg-blue-50 border border-blue-200 p-4 space-y-2">
+        <p className="text-[12px] font-semibold uppercase tracking-wider text-blue-500">
           Enter this key in Google Authenticator or Authy
         </p>
         <code
           ref={secretRef}
-          className="block break-all rounded-lg bg-white border border-slate-200 px-3 py-2.5 font-mono text-[13px] text-slate-800 select-all"
+          className="block break-all rounded-lg bg-white border border-blue-200 px-3 py-2.5 font-mono text-[13px] text-blue-800 select-all"
         >
           {setupSecret}
         </code>
@@ -244,7 +245,7 @@ function SetupStep({
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
             required
             autoFocus
-            className="h-10 bg-white border-slate-200 text-slate-900 text-center tracking-[0.3em] text-lg font-mono placeholder:text-slate-400 focus:border-sky-500"
+            className="h-10 bg-white border-blue-200 text-blue-900 text-center tracking-[0.3em] text-lg font-mono placeholder:text-blue-400 focus:border-sky-500"
           />
         </div>
         {error && <p className="text-[12px] font-medium text-red-500">{error}</p>}
@@ -274,7 +275,7 @@ function PlatformSignInForm() {
   const [step, setStep] = useState<Step>({ name: 'password' })
 
   return (
-    <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 p-8 shadow-crm-md">
+    <div className="w-full max-w-md rounded-2xl bg-white border border-blue-200 p-8 shadow-crm-md">
       {step.name === 'password' && (
         <PasswordStep
           onRequiresMfa={(mfaToken) => setStep({ name: 'mfa', mfaToken })}
@@ -293,7 +294,7 @@ function PlatformSignInForm() {
 
 export default function PlatformSignInPage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-100 px-4">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-blue-100 px-4">
       <Suspense fallback={<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}>
         <PlatformSignInForm />
       </Suspense>

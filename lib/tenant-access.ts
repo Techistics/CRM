@@ -8,6 +8,20 @@ export async function resolveTenantAccess(
   userId: string,
   tenant: Tenant,
 ): Promise<{ dbUserId: string; role: TenantAppRole; permissions: Permission[] } | null> {
+  // ── Suspended workspace guard ────────────────────────────────────────────────
+  // Compute SA bypass first (cheap session read, no extra DB query yet).
+  if (tenant.status === 'suspended') {
+    const session = await getSession()
+    const saBypass =
+      (await isPlatformSuperAdminUserId(userId)) &&
+      session?.superAdminActiveTenantId === tenant.id
+    if (!saBypass) {
+      // Block real members and any non-bypassing caller from a suspended workspace.
+      return null
+    }
+  }
+  // ────────────────────────────────────────────────────────────────────────────
+
   const result = await getTenantMembershipWithPermissions(userId, tenant.id)
   if (result) {
     return {

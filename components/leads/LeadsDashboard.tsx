@@ -342,7 +342,7 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
           <div className="relative w-full md:w-64">
             <SearchInput
               placeholder="Search leads..."
-              className="w-full h-9 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+              className="text-black w-full h-9 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
             />
           </div>
 
@@ -367,15 +367,15 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
 
           <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="h-9 rounded-lg border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 gap-2 text-sm">
-                <MoreHorizontal className="h-4 w-4 text-gray-500" />
-                <span className="text-sm font-medium hover:text-[#0DA2E7] dark:hover:text-white">Actions</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 p-1 rounded-lg shadow-crm-md border-slate-200 dark:border-slate-700">
-              {isAdmin && (
+          {isAdmin && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-9 rounded-lg border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 gap-2 text-sm">
+                  <MoreHorizontal className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm font-medium hover:text-[#0DA2E7] dark:hover:text-white">Actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 p-1 rounded-lg shadow-crm-md border-slate-200 dark:border-slate-700">
                 <DropdownMenuItem 
                   onClick={handleExportAll} 
                   disabled={bulkActionLoading}
@@ -384,17 +384,15 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
                   <Download className="h-4 w-4 text-gray-500" />
                   <span>Export All CSV</span>
                 </DropdownMenuItem>
-              )}
-              {isAdmin && (
                 <DropdownMenuItem asChild className="flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer text-sm">
                   <Link href={tenantPath(tenantSlug, '/admin/import')}>
                     <Upload className="h-4 w-4 text-gray-500" />
                     <span>Import Leads</span>
                   </Link>
                 </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           {isAdmin && <CreateLeadDialog tenantSlug={tenantSlug} />}
         </div>

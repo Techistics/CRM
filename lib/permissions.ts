@@ -33,6 +33,7 @@ export const DEFAULT_PRO_PERMISSIONS: Permission[] = [
   'leads.create',
   'leads.edit',
   'kanban.view',
+  'analytics.view',
 ]
 
 export function hasPermission(permissions: Permission[], check: Permission): boolean {

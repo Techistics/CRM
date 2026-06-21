@@ -53,24 +53,10 @@ export default async function PlatformTenantsPage({
             Manage all active workspaces and team memberships across the platform.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/platform/tenants/recycle-bin"
-            className="rounded-[8px] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] px-[16px] py-[8px] text-[13px] font-semibold text-[var(--text-strong)] transition-all hover:bg-[var(--foreground)]/5 shadow-sm"
-          >
-            Recycle Bin
-          </Link>
-          <Link
-            href="/platform/tenants/new"
-            className="rounded-[8px] bg-[var(--accent-color)] px-[16px] py-[8px] text-[13px] font-semibold text-[var(--accent-text)] shadow-sm transition-all hover:brightness-95 active:scale-95"
-          >
-            New workspace
-          </Link>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] px-5 py-4 shadow-sm">
+        <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] px-5 py-4 shadow-sm  bg-green-200">
           <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--muted-text)]">Total Workspaces</p>
           <p className="mt-1 text-[26px] font-bold text-[var(--text-strong)]">{all.length}</p>
         </div>
@@ -78,7 +64,7 @@ export default async function PlatformTenantsPage({
           <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--muted-text)]">Active Users</p>
           <p className="mt-1 text-[26px] font-bold text-[var(--text-strong)]">{activeUsers}</p>
         </div>
-        <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] px-5 py-4 shadow-sm">
+        <div className="rounded-[var(--radius-card)] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] px-5 py-4 shadow-sm  bg-red-200">
           <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--muted-text)]">Pending Invites</p>
           <p className="mt-1 text-[26px] font-bold text-[var(--text-strong)]">{pendingInvites}</p>
         </div>

@@ -59,7 +59,7 @@ export function ThemeToggle() {
       onClick={toggleTheme}
       aria-label={mounted ? `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode` : 'Toggle theme'}
       aria-pressed={theme === 'dark'}
-      className="group relative inline-flex h-9 w-[74px] items-center rounded-full p-1 outline-none transition-all focus-visible:ring-2 focus-visible:ring-[#CBEF7F]/60"
+      className="group relative inline-flex h-9 w-[74px] items-center rounded-full p-1 outline-none transition-all focus-visible:ring-2 focus-visible:ring-[#0DA2E7]/60"
       style={{
         background:
           theme === 'dark'

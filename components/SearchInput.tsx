@@ -47,7 +47,7 @@ function SearchInputInner({
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
         className={cn(
-          "bg-gray-800 border-gray-700 text-white placeholder-gray-500 rounded-lg px-4 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-emerald-500/50",
+          "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-lg px-4 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-emerald-500/50",
           className,
         )}
       />
@@ -68,7 +68,7 @@ export default function SearchInput({
   className?: string
 }) {
   return (
-    <Suspense fallback={<div className="w-64 h-9 bg-gray-800 rounded-lg animate-pulse"></div>}>
+    <Suspense fallback={<div className="w-64 h-9 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse"></div>}>
       <SearchInputInner placeholder={placeholder} className={className} />
     </Suspense>
   )

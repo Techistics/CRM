@@ -44,7 +44,10 @@ export async function GET(request: Request) {
     const leadDateCondition = leadDateConditions.length > 0 ? and(...leadDateConditions) : undefined
 
     // Build main user stats query
-    const whereConditions = [eq(tenantMembers.tenantId, tenant.id)]
+    const whereConditions = [
+      eq(tenantMembers.tenantId, tenant.id),
+      eq(tenantMembers.role, 'PRO')
+    ]
     if (role === 'PRO') {
       whereConditions.push(eq(users.id, dbUserId))
     }

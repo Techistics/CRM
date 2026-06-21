@@ -4,6 +4,9 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowUp, ArrowDown, Plus, Trash, Save, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const BRAND = '#0DA2E7'
 
 interface PipelineStagesEditorProps {
   onSaved?: () => void
@@ -17,7 +20,6 @@ export default function PipelineStagesEditor({ onSaved }: PipelineStagesEditorPr
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Load stages from the GET endpoint (tenant derived from session)
   useEffect(() => {
     (async () => {
       try {
@@ -37,7 +39,6 @@ export default function PipelineStagesEditor({ onSaved }: PipelineStagesEditorPr
     })();
   }, []);
 
-  /* Helpers -------------------------------------------------------- */
   const addStage = () => {
     setStages((prev) => [
       ...prev,
@@ -109,11 +110,13 @@ export default function PipelineStagesEditor({ onSaved }: PipelineStagesEditorPr
   };
 
   return (
-    <div className="mt-8 space-y-4 ">
-      <h2 className="text-xl font-semibold">Pipeline Stages</h2>
+    <div className="mt-8 space-y-4">
+      <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+        Pipeline Stages
+      </h2>
 
       {isLocked ? (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
           Stages have been locked. Contact support to change stages.
         </p>
       ) : null}
@@ -129,20 +132,21 @@ export default function PipelineStagesEditor({ onSaved }: PipelineStagesEditorPr
           {stages?.map((stage, idx) => (
             <li
               key={stage.key}
-              className="flex items-center gap-2 bg-gray-50 p-2 rounded"
+              className="flex items-center gap-2 bg-gray-50 dark:bg-slate-800/50 border border-transparent dark:border-slate-700 p-2 rounded-lg"
             >
               <Input
                 value={stage.label}
                 onChange={(e) => renameStage(idx, e.target.value)}
                 disabled={isLocked}
                 placeholder="Stage label"
-                className="flex-1"
+                className="flex-1 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-700 placeholder-slate-400 dark:placeholder-slate-500 focus-visible:ring-2 focus-visible:ring-[#0DA2E7]/30 focus-visible:border-[#0DA2E7]"
               />
               <Button
                 variant="ghost"
                 size="icon"
                 disabled={isLocked || idx === 0}
                 onClick={() => moveStage(idx, 'up')}
+                className="text-slate-500 dark:text-slate-400 hover:text-[#0DA2E7] hover:bg-[#0DA2E7]/10"
               >
                 <ArrowUp className="h-4 w-4" />
               </Button>
@@ -151,6 +155,7 @@ export default function PipelineStagesEditor({ onSaved }: PipelineStagesEditorPr
                 size="icon"
                 disabled={isLocked || idx === stages.length - 1}
                 onClick={() => moveStage(idx, 'down')}
+                className="text-slate-500 dark:text-slate-400 hover:text-[#0DA2E7] hover:bg-[#0DA2E7]/10"
               >
                 <ArrowDown className="h-4 w-4" />
               </Button>
@@ -168,19 +173,29 @@ export default function PipelineStagesEditor({ onSaved }: PipelineStagesEditorPr
       )}
 
       {!isLocked && (
-        <Button variant="outline" size="sm" onClick={addStage}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={addStage}
+          className="border-[#0DA2E7]/40 text-[#0DA2E7] hover:bg-[#0DA2E7]/10 hover:text-[#0DA2E7]"
+        >
           <Plus className="mr-1 h-4 w-4" /> Add Stage
         </Button>
       )}
 
       {!isLocked && (
         <Button
-          className="mt-4 bg-blue-600 hover:bg-blue-700 text-white ml-4"
+          className="mt-4 ml-4 text-white"
+          style={{ backgroundColor: BRAND }}
           onClick={handleSave}
           disabled={saving}
         >
-          <Save className="mr-2 h-4 w-4 text-black" />
-          <span className='dark:text-black '> {saving ? 'Saving…' : 'Save Stages'}</span>
+          {saving ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="mr-2 h-4 w-4" />
+          )}
+          <span>{saving ? 'Saving…' : 'Save Stages'}</span>
         </Button>
       )}
     </div>

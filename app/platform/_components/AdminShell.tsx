@@ -10,6 +10,7 @@ import {
   List,
   Menu,
   Settings,
+  Trash,
   Users,
   X,
 } from 'lucide-react'
@@ -75,63 +76,61 @@ export function AdminShell({ children }: AdminShellProps) {
 
   const sidebarNav = (
     <>
-          <nav className="flex-1 space-y-6 p-3">
-            <div className="space-y-1.5">
-              <p className="px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted-text)]">Platform</p>
-              {platformNav.map((item) => {
-                const active = isActive(pathname, item)
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    onClick={() => setMobileNavOpen(false)}
-                    className={`flex items-center gap-2.5 rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium transition-all ${
-                      active
-                        ? 'bg-[var(--accent-color)]/15 text-[var(--accent-text)]'
-                        : 'text-[var(--text-main)] hover:bg-[var(--foreground)]/5 hover:text-[var(--text-strong)]'
-                    }`}
-                  >
-                    <item.icon className={`h-[16px] w-[16px] ${active ? 'opacity-100' : 'opacity-60'}`} />
-                    <span>{item.label}</span>
-                  </Link>
-                )
-              })}
-            </div>
+      <nav className="flex-1 space-y-6 p-3">
+        <div className="space-y-1.5">
+          <p className="px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted-text)]">Platform</p>
+          {platformNav.map((item) => {
+            const active = isActive(pathname, item)
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                onClick={() => setMobileNavOpen(false)}
+                className={`flex items-center gap-2.5 rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium transition-all ${active
+                    ? 'bg-[var(--accent-color)]/15 text-[var(--accent-text)]'
+                    : 'text-[var(--text-main)] hover:bg-[var(--foreground)]/5 hover:text-[var(--text-strong)]'
+                  }`}
+              >
+                <item.icon className={`h-[16px] w-[16px] ${active ? 'opacity-100' : 'opacity-60'}`} />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+        </div>
 
-            <div className="space-y-1.5">
-              <p className="px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted-text)]">System</p>
-              {systemNav.map((item) => {
-                const active = isActive(pathname, item)
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    onClick={() => setMobileNavOpen(false)}
-                    className={`flex items-center gap-2.5 rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium transition-all ${
-                      active
-                        ? 'bg-[var(--accent-color)]/15 text-[var(--accent-text)]'
-                        : 'text-[var(--text-main)] hover:bg-[var(--foreground)]/5 hover:text-[var(--text-strong)]'
-                    }`}
-                  >
-                    <item.icon className={`h-[16px] w-[16px] ${active ? 'opacity-100' : 'opacity-60'}`} />
-                    <span>{item.label}</span>
-                  </Link>
-                )
-              })}
-            </div>
-          </nav>
+        <div className="space-y-1.5">
+          <p className="px-2 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--muted-text)]">System</p>
+          {systemNav.map((item) => {
+            const active = isActive(pathname, item)
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                onClick={() => setMobileNavOpen(false)}
+                className={`flex items-center gap-2.5 rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium transition-all ${active
+                    ? 'bg-[var(--accent-color)]/15 text-[var(--accent-text)]'
+                    : 'text-[var(--text-main)] hover:bg-[var(--foreground)]/5 hover:text-[var(--text-strong)]'
+                  }`}
+              >
+                <item.icon className={`h-[16px] w-[16px] ${active ? 'opacity-100' : 'opacity-60'}`} />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+        </div>
+      </nav>
 
-          <div className="mt-auto border-t-[0.5px] border-t-[var(--card-border-color)] px-4 py-4">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-color)] text-[12px] font-bold text-[var(--accent-text)] shadow-sm">
-                {adminInitials}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-semibold text-[var(--text-strong)]">{adminName}</p>
-                <p className="text-[11px] font-medium text-[var(--muted-text)]">Super Admin</p>
-              </div>
-            </div>
+      <div className="mt-auto border-t-[0.5px] border-t-[var(--card-border-color)] px-4 py-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-color)] text-[12px] font-bold text-[var(--accent-text)] shadow-sm">
+            {adminInitials}
           </div>
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-semibold text-[var(--text-strong)]">{adminName}</p>
+            <p className="text-[11px] font-medium text-[var(--muted-text)]">Super Admin</p>
+          </div>
+        </div>
+      </div>
     </>
   )
 
@@ -178,18 +177,33 @@ export function AdminShell({ children }: AdminShellProps) {
               </Button>
               <p className="truncate text-[13px] font-medium text-[var(--muted-text)]">{breadcrumb}</p>
             </div>
-            <div className="flex shrink-0 items-center gap-2 sm:gap-4">
-              <ThemeToggle />
-              <div className="hidden sm:block">
-                <TopNavSearch />
+            <div className="flex w-full items-center justify-between gap-2 sm:gap-4 overflow-x-auto no-scrollbar">
+              {/* Left side items grouped together */}
+              <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                <ThemeToggle />
+                <div className="hidden sm:block">
+                  <TopNavSearch />
+                </div>
               </div>
-              <Link
-                href="/platform/tenants/new"
-                className="rounded-[8px] bg-[var(--accent-color)] px-3 py-2 text-xs font-semibold text-[var(--accent-text)] shadow-sm transition-all hover:brightness-95 active:scale-95 sm:px-4 sm:text-[13px]"
-              >
-                <span className="hidden sm:inline">New workspace</span>
-                <span className="sm:hidden">New</span>
-              </Link>
+
+              {/* Right side buttons locked inline */}
+              <div className="flex items-center gap-2 sm:gap-4 shrink-0 whitespace-nowrap">
+                <Link
+                  href="/platform/tenants/new"
+                  className="rounded-[8px] bg-[var(--accent-color)] px-3 py-2 text-xs font-semibold text-[var(--accent-text)] shadow-sm transition-all hover:brightness-95 active:scale-95 sm:px-4 sm:text-[13px]"
+                >
+                  <span className="hidden sm:inline text-black">New workspace</span>
+                  <span className="sm:hidden">New</span>
+                </Link>
+
+                <Link
+                  href="/platform/tenants/recycle-bin"
+                  className="flex items-center rounded-[8px] border-[0.5px] border-[var(--card-border-color)] bg-red-500 px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-red-700 shadow-sm sm:px-4 sm:text-[13px]"
+                >
+                  <Trash className="h-4 w-4 mr-1.5 shrink-0" />
+                  <span>Recycle Bin</span>
+                </Link>
+              </div>
             </div>
           </header>
           <main className="crm-page w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">

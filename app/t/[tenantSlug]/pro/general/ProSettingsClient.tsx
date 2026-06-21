@@ -2,18 +2,23 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { KeyRound, Bell, Loader2, User } from 'lucide-react'
+import { KeyRound, Bell, Loader2, User, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 
 export default function ProSettingsClient() {
-  // ── Change Password ──
+  // ── Change Password State ──
   const [cpLoading, setCpLoading] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+
+  // ── Visibility States ──
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   // ── Notification Prefs (UI only — stored in localStorage for formality) ──
   const [emailNotif, setEmailNotif] = useState(true)
@@ -45,6 +50,9 @@ export default function ProSettingsClient() {
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
+      setShowCurrentPassword(false)
+      setShowNewPassword(false)
+      setShowConfirmPassword(false)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to change password')
     } finally {
@@ -61,7 +69,7 @@ export default function ProSettingsClient() {
 
       {/* Change Password */}
       <Card className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden dark:bg-[#0f172a] dark:border-slate-700">
-        <CardHeader className=" border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 px-6 py-4">
+        <CardHeader className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 px-6 py-4">
           <div className="flex items-center gap-2">
             <KeyRound className="h-5 w-5 text-emerald-500" />
             <div>
@@ -73,34 +81,61 @@ export default function ProSettingsClient() {
         <CardContent className="p-6 space-y-4">
           <div className="grid gap-2">
             <Label className="text-sm font-medium text-slate-700 pt-2 dark:text-slate-300">Current Password</Label>
-            <Input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="Enter current password"
-              className="h-9 border-slate-200 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
-            />
+            <div className="relative">
+              <Input
+                type={showCurrentPassword ? "text" : "password"}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Enter current password"
+                className="h-9 pr-10 border-slate-200 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+              >
+                {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">New Password</Label>
-              <Input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Min. 8 characters"
-                className="h-9 border-slate-200 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
-              />
+              <div className="relative">
+                <Input
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Min. 8 characters"
+                  className="h-9 pr-10 border-slate-200 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                >
+                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <div className="grid gap-2">
               <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Confirm New Password</Label>
-              <Input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repeat new password"
-                className="h-9 border-slate-200 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
-              />
+              <div className="relative">
+                <Input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repeat new password"
+                  className="h-9 pr-10 border-slate-200 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder:text-slate-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
           </div>
           <div className="flex justify-end pt-1">
@@ -170,7 +205,7 @@ export default function ProSettingsClient() {
         </CardContent>
       </Card>
 
-      {/* Account Info (read-only formality) */}
+      {/* Account Info */}
       <Card className="bg-white border border-slate-200 rounded-xl shadow-crm-sm overflow-hidden dark:bg-[#0f172a] dark:border-slate-700">
         <CardHeader className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 px-6 py-4">
           <div className="flex items-center gap-2">

@@ -24,7 +24,6 @@
     --muted-foreground: 215.4 16.3% 40%;
     /* Darker for better contrast */
     --accent: 80 76% 71%;
-    /* #CBEF7F */
     --accent-foreground: 80 100% 15%;
     /* Deep dark green */
     --destructive: 0 84.2% 60.2%;
@@ -102,7 +101,7 @@
     --space-12: 48px;
 
     /* Legacy / app tokens */
-    --accent-color: #CBEF7F;
+    --accent-color: #0DA2E7;
     --accent-text: #2C5000;
     --accent-hover: #b8e05a;
     --font-app: var(--font-sans), system-ui, sans-serif;
@@ -371,11 +370,11 @@ textarea {
 .dark h1,
 .dark h2,
 .dark h3 {
-  color: #f1f5f9;
+  color: #069BAF;
 }
 
 .dark p,
 .dark span:not([class*="text-"]),
 .dark label {
-  color: #cbd5e1;
+  color: #069BAF;
 }

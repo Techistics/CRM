@@ -38,7 +38,7 @@ export function RestoreTenantButton({ tenantId }: { tenantId: string }) {
       <AlertDialogTrigger asChild>
         <button
           type="button"
-          className="rounded-[8px] border-[0.5px] border-[rgba(44,80,0,0.3)] bg-transparent px-3 py-1.5 text-[12px] text-[#2C5000] transition-colors hover:bg-[#CBEF7F]/20"
+          className="rounded-[8px] border-[0.5px] border-[rgba(44,80,0,0.3)] bg-transparent px-3 py-1.5 text-[12px] text-[#2C5000] transition-colors hover:bg-[#0DA2E7]/20"
         >
           Restore
         </button>
@@ -55,7 +55,7 @@ export function RestoreTenantButton({ tenantId }: { tenantId: string }) {
           <button
             onClick={handleRestore}
             disabled={isPending}
-            className="inline-flex h-10 items-center justify-center rounded-md bg-[#CBEF7F] px-4 py-2 text-sm font-medium text-[#2C5000] transition-colors hover:bg-[#b0d85a] disabled:opacity-50"
+            className="inline-flex h-10 items-center justify-center rounded-md bg-[#0DA2E7] px-4 py-2 text-sm font-medium text-[#2C5000] transition-colors hover:bg-[#b0d85a] disabled:opacity-50"
           >
             {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             {isPending ? 'Restoring...' : 'Restore'}

@@ -159,7 +159,7 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
       <DialogTrigger asChild>
         <Button
           size="sm"
-          className="gap-1.5 border border-[#b7df65] bg-[#CBEF7F] text-[#1A2B40] shadow-sm hover:bg-[#bfe873] hover:text-[#1A2B40] hover:shadow-md transition-all active:scale-95"
+          className="gap-1.5 border border-[#b7df65] bg-[#0DA2E7] text-[#1A2B40] shadow-sm hover:bg-[#bfe873] hover:text-[#1A2B40] hover:shadow-md transition-all active:scale-95"
         >
           <Plus className="h-4 w-4" />
           New Lead

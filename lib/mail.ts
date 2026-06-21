@@ -4,6 +4,109 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 export const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
 
+/**
+ * Core Enterprise Template Wrapper
+ * Modeled after premium SaaS platforms (Stripe, Vercel, Linear)
+ */
+function buildBaseEmailTemplate({
+  workspaceName,
+  heading,
+  intro,
+  detailsHtml,
+  ctaLabel,
+  ctaUrl,
+  footerText,
+}: {
+  workspaceName: string
+  heading: string
+  intro: string
+  detailsHtml?: string
+  ctaLabel: string
+  ctaUrl: string
+  footerText: string
+}) {
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${heading}</title>
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 48px 16px;">
+          <tr>
+            <td align="center">
+              <table width="100%" max-width="560px" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05); overflow: hidden;">
+                
+                <!-- Header / Brand Section -->
+                <tr>
+                  <td style="padding: 32px 32px 20px 32px; border-bottom: 1px solid #f1f5f9;">
+                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td>
+                          <span style="font-size: 13px; font-weight: 700; text-transform: uppercase; tracking-ratio: 0.05em; color: #4f46e5; letter-spacing: 0.5px;">${workspaceName}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Content Body -->
+                <tr>
+                  <td style="padding: 32px;">
+                    <h1 style="margin: 0 0 16px 0; color: #0f172a; font-size: 22px; font-weight: 600; tracking-ratio: -0.025em; line-height: 28px;">${heading}</h1>
+                    <p style="margin: 0 0 24px 0; color: #475569; font-size: 15px; line-height: 24px;">${intro}</p>
+                    
+                    <!-- Optional Data Block Box -->
+                    ${detailsHtml ? `
+                      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 28px; background-color: #f8fafc; border-left: 3px solid #4f46e5; border-radius: 4px;">
+                        <tr>
+                          <td style="padding: 16px 20px;">
+                            ${detailsHtml}
+                          </td>
+                        </tr>
+                      </table>
+                    ` : ''}
+
+                    <!-- Action Button CTA -->
+                    <table border="0" cellspacing="0" cellpadding="0" style="margin-top: 8px; margin-bottom: 32px;">
+                      <tr>
+                        <td align="center" bgcolor="#0f172a" style="border-radius: 6px;">
+                          <a href="${ctaUrl}" target="_blank" style="display: inline-block; padding: 11px 24px; font-size: 14px; font-weight: 500; color: #ffffff; text-decoration: none; border-radius: 6px; background-color: #0f172a; border: 1px solid #0f172a;">
+                            ${ctaLabel}
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Security / System Disclaimer Note -->
+                    <p style="margin: 0; color: #94a3b8; font-size: 13px; line-height: 20px; border-top: 1px solid #f1f5f9; padding-top: 24px;">
+                      ${footerText}
+                    </p>
+                  </td>
+                </tr>
+
+              </table>
+
+              <!-- Global Footer Information -->
+              <table width="100%" max-width="560px" border="0" cellspacing="0" cellpadding="0" style="max-width: 560px; margin-top: 24px;">
+                <tr>
+                  <td align="center" style="padding: 0 32px; color: #94a3b8; font-size: 12px; line-height: 18px; text-align: center;">
+                    This is an automated operational transmission from Consulty CRM.<br>
+                    &copy; ${new Date().getFullYear()} Consulty. All rights reserved.
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `
+}
+
 export async function sendInviteEmail({
   email,
   tenantName,
@@ -19,25 +122,21 @@ export async function sendInviteEmail({
     const { data, error } = await resend.emails.send({
       from: `Consulty <${fromEmail}>`,
       to: email,
-      subject: `You've been invited to join ${tenantName}`,
-      html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px;">
-          <h1 style="font-size: 24px; font-weight: 600; color: #111827;">Join the team</h1>
-          <p style="margin-top: 16px; font-size: 16px; color: #4b5563; line-height: 24px;">
-            You have been invited to join the <strong>${tenantName}</strong> workspace on Consulty.
+      subject: `Invitation to join ${tenantName} on Consulty`,
+      html: buildBaseEmailTemplate({
+        workspaceName: 'Consulty',
+        heading: 'Workspace Invitation',
+        intro: `You have been provisioned access and officially invited to join the <strong>${tenantName}</strong> organization workspace.`,
+        detailsHtml: workspaceUrl ? `
+          <p style="margin: 0; font-size: 14px; color: #334155; line-height: 20px;">
+            <strong style="color: #0f172a;">Target Endpoint Workspace:</strong><br> 
+            <a href="${workspaceUrl}" style="color: #4f46e5; text-decoration: none; word-break: break-all;">${workspaceUrl}</a>
           </p>
-          ${workspaceUrl ? `<p style="margin-top: 8px; font-size: 14px; color: #6b7280;">Workspace URL: <a href="${workspaceUrl}" style="color: #2563eb; text-decoration: none;">${workspaceUrl}</a></p>` : ''}
-          <div style="margin-top: 24px;">
-            <a href="${inviteLink}" 
-               style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block;">
-               Accept Invitation
-            </a>
-          </div>
-          <p style="margin-top: 24px; font-size: 14px; color: #9ca3af;">
-            If you didn't expect this invitation, you can safely ignore this email.
-          </p>
-        </div>
-      `,
+        ` : undefined,
+        ctaLabel: 'Accept Architecture Invitation',
+        ctaUrl: inviteLink,
+        footerText: "Security Note: If you were not anticipating this institutional invitation, please safely drop or ignore this transmission.",
+      }),
     })
 
     if (error) {
@@ -63,24 +162,15 @@ export async function sendPasswordResetEmail({
     const { data, error } = await resend.emails.send({
       from: `Consulty <${fromEmail}>`,
       to: email,
-      subject: 'Reset your password',
-      html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px;">
-          <h1 style="font-size: 24px; font-weight: 600; color: #111827;">Reset your password</h1>
-          <p style="margin-top: 16px; font-size: 16px; color: #4b5563; line-height: 24px;">
-            We received a request to reset your password for your Consulty account. Click the button below to proceed:
-          </p>
-          <div style="margin-top: 24px;">
-            <a href="${resetLink}" 
-               style="background-color: #2563eb; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500; display: inline-block;">
-               Reset Password
-            </a>
-          </div>
-          <p style="margin-top: 24px; font-size: 14px; color: #9ca3af;">
-            This link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.
-          </p>
-        </div>
-      `,
+      subject: 'Reset your identity credentials',
+      html: buildBaseEmailTemplate({
+        workspaceName: 'Consulty Security',
+        heading: 'Reset your password',
+        intro: 'A credential modification request was submitted for your Consulty account infrastructure. Click the button below to configure your profile securely.',
+        ctaLabel: 'Modify Account Password',
+        ctaUrl: resetLink,
+        footerText: 'Operational Parameter: This security link will expire safely within 1 hour. If you did not trigger this action, your credentials are safe and no further steps are required.',
+      }),
     })
 
     if (error) {
@@ -93,47 +183,6 @@ export async function sendPasswordResetEmail({
     console.error('Email send fatal error:', err)
     return { success: false, error: err }
   }
-}
-
-function buildBaseEmailTemplate({
-  workspaceName,
-  heading,
-  intro,
-  detailsHtml,
-  ctaLabel,
-  ctaUrl,
-  footerText,
-}: {
-  workspaceName: string
-  heading: string
-  intro: string
-  detailsHtml: string
-  ctaLabel: string
-  ctaUrl: string
-  footerText: string
-}) {
-  return `
-    <div style="font-family: sans-serif; background-color: #f1f5f9; padding: 24px;">
-      <div style="max-width: 600px; margin: 0 auto;">
-        <div style="background-color: #1d4ed8; padding: 24px; color: #ffffff; border-radius: 10px 10px 0 0;">
-          <div style="font-size: 20px; font-weight: 700;">${workspaceName} CRM</div>
-        </div>
-        <div style="background: #ffffff; padding: 32px; border-radius: 0 0 10px 10px; border: 1px solid #e2e8f0; border-top: 0;">
-          <h1 style="margin: 0 0 12px; color: #0f172a; font-size: 24px;">${heading}</h1>
-          <p style="margin: 0; color: #334155; line-height: 24px;">${intro}</p>
-          <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin: 16px 0;">
-            ${detailsHtml}
-          </div>
-          <a href="${ctaUrl}" style="background: #1d4ed8; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block;">
-            ${ctaLabel}
-          </a>
-          <p style="color: #94a3b8; font-size: 12px; margin-top: 24px;">
-            ${footerText}
-          </p>
-        </div>
-      </div>
-    </div>
-  `
 }
 
 export async function sendLeadAssignedEmail({
@@ -159,20 +208,22 @@ export async function sendLeadAssignedEmail({
     const { data, error } = await resend.emails.send({
       from: `Consulty <${fromEmail}>`,
       to: agentEmail,
-      subject: `New lead assigned to you: ${leadName}`,
+      subject: `CRM Assignment: ${leadName}`,
       html: buildBaseEmailTemplate({
         workspaceName,
-        heading: 'New lead assigned',
-        intro: `Hi ${agentName}, a new lead has been assigned to you.`,
+        heading: 'New Allocation Assigned',
+        intro: `Hello ${agentName}, a new customer asset profile has been routed and assigned to your queue within the network system.`,
         detailsHtml: `
-          <p style="margin: 0 0 8px; color: #0f172a;"><strong>Lead:</strong> ${leadName}</p>
-          <p style="margin: 0 0 8px; color: #0f172a;"><strong>Contact:</strong> ${contactNumber || 'N/A'}</p>
-          <p style="margin: 0 0 8px; color: #0f172a;"><strong>Email:</strong> ${leadEmail || 'N/A'}</p>
-          <p style="margin: 0; color: #0f172a;"><strong>Stage:</strong> ${stage}</p>
+          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 14px; line-height: 22px;">
+            <tr><td style="padding-bottom: 6px; color: #64748b; width: 90px; font-weight: 500;">Lead Name:</td><td style="padding-bottom: 6px; color: #0f172a; font-weight: 600;">${leadName}</td></tr>
+            <tr><td style="padding-bottom: 6px; color: #64748b;">Contact:</td><td style="padding-bottom: 6px; color: #0f172a;">${contactNumber || '—'}</td></tr>
+            <tr><td style="padding-bottom: 6px; color: #64748b;">Email Info:</td><td style="padding-bottom: 6px; color: #0f172a; text-decoration: none;">${leadEmail || '—'}</td></tr>
+            <tr><td style="color: #64748b;">CRM Stage:</td><td><span style="background-color: #e0e7ff; color: #4338ca; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.3px;">${stage.replace('_', ' ')}</span></td></tr>
+          </table>
         `,
-        ctaLabel: 'Open Lead',
+        ctaLabel: 'Initialize Profile Followup',
         ctaUrl: leadUrl,
-        footerText: 'You are receiving this because lead assignment notifications are enabled for your workspace.',
+        footerText: 'Notification Parameter: You are receiving this because pipeline allocation alerts are active for your credential workspace profile.',
       }),
     })
 
@@ -215,22 +266,24 @@ export async function sendReminderEmail({
     const { data, error } = await resend.emails.send({
       from: `Consulty <${fromEmail}>`,
       to: agentEmail,
-      subject: `Reminder: ${reminderTitle} — ${leadName}`,
+      subject: `CRM Task Alert: ${reminderTitle} — ${leadName}`,
       html: buildBaseEmailTemplate({
         workspaceName,
-        heading: 'Lead reminder',
-        intro: `Hi ${agentName}, this is a reminder for one of your leads.`,
+        heading: 'Scheduled Task Reminder',
+        intro: `Hello ${agentName}, this is a system event trigger notice for a target action window on your assigned pipelines.`,
         detailsHtml: `
-          <p style="margin: 0 0 8px; color: #0f172a;"><strong>Reminder:</strong> ${reminderTitle}</p>
-          ${reminderNote ? `<p style="margin: 0 0 8px; color: #0f172a;"><strong>Note:</strong> ${reminderNote}</p>` : ''}
-          <p style="margin: 0 0 8px; color: #0f172a;"><strong>Lead:</strong> ${leadName}</p>
-          ${leadEmail ? `<p style="margin: 0 0 8px; color: #0f172a;"><strong>Email:</strong> ${leadEmail}</p>` : ''}
-          ${leadPhone ? `<p style="margin: 0 0 8px; color: #0f172a;"><strong>Phone:</strong> ${leadPhone}</p>` : ''}
-          <p style="margin: 0; color: #0f172a;"><strong>Due at:</strong> ${dueAt.toLocaleString()}</p>
+          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 14px; line-height: 22px;">
+            <tr><td style="padding-bottom: 6px; color: #64748b; width: 90px; font-weight: 500;">Action Object:</td><td style="padding-bottom: 6px; color: #0f172a; font-weight: 600;">${reminderTitle}</td></tr>
+            ${reminderNote ? `<tr><td style="padding-bottom: 6px; color: #64748b; vertical-align: top;">System Notes:</td><td style="padding-bottom: 6px; color: #475569; font-style: italic;">"${reminderNote}"</td></tr>` : ''}
+            <tr><td style="padding-bottom: 6px; color: #64748b;">Target Lead:</td><td style="padding-bottom: 6px; color: #0f172a;">${leadName}</td></tr>
+            ${leadEmail ? `<tr><td style="padding-bottom: 6px; color: #64748b;">Email Address:</td><td style="padding-bottom: 6px; color: #0f172a;">${leadEmail}</td></tr>` : ''}
+            ${leadPhone ? `<tr><td style="padding-bottom: 6px; color: #64748b;">Phone Record:</td><td style="padding-bottom: 6px; color: #0f172a;">${leadPhone}</td></tr>` : ''}
+            <tr><td style="color: #64748b;">Execution Due:</td><td style="color: #ef4444; font-weight: 600;">${dueAt.toLocaleString()}</td></tr>
+          </table>
         `,
-        ctaLabel: 'View Lead',
+        ctaLabel: 'Execute Pipeline Review',
         ctaUrl: leadUrl,
-        footerText: 'Please follow up with the lead before the due time.',
+        footerText: 'Operational Checklist: Ensure system logs are brought up to spec immediately following communication deployment.',
       }),
     })
 
@@ -265,19 +318,21 @@ export async function sendAccessApprovedEmail({
     const { data, error } = await resend.emails.send({
       from: `Consulty <${fromEmail}>`,
       to: userEmail,
-      subject: `Your access request has been approved — ${workspaceName}`,
+      subject: `Access Provisioned Notice — ${workspaceName}`,
       html: buildBaseEmailTemplate({
         workspaceName,
-        heading: 'Access approved',
-        intro: `Hi ${userName}, your workspace access request has been approved.`,
+        heading: 'Authorization Provisioned',
+        intro: `Hello ${userName}, your core access request credentials have been vetted, signed off, and approved by the domain controller.`,
         detailsHtml: `
-          <p style="margin: 0 0 8px; color: #0f172a;"><strong>Workspace:</strong> ${workspaceName}</p>
-          ${workspaceUrl ? `<p style="margin: 0 0 8px; color: #0f172a;"><strong>URL:</strong> <a href="${workspaceUrl}" style="color: #2563eb; text-decoration: none;">${workspaceUrl}</a></p>` : ''}
-          <p style="margin: 0; color: #0f172a;"><strong>Role:</strong> ${roleName}</p>
+          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 14px; line-height: 22px;">
+            <tr><td style="padding-bottom: 6px; color: #64748b; width: 100px; font-weight: 500;">Environment:</td><td style="padding-bottom: 6px; color: #0f172a; font-weight: 600;">${workspaceName}</td></tr>
+            ${workspaceUrl ? `<tr><td style="padding-bottom: 6px; color: #64748b;">Endpoint Matrix:</td><td style="padding-bottom: 6px; color: #4f46e5;"><a href="${workspaceUrl}" style="color: #4f46e5; text-decoration: none;">${workspaceUrl}</a></td></tr>` : ''}
+            <tr><td style="color: #64748b;">Access Tier:</td><td><span style="background-color: #f1f5f9; color: #334155; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; border: 1px solid #e2e8f0;">${roleName}</span></td></tr>
+          </table>
         `,
-        ctaLabel: 'Sign In',
+        ctaLabel: 'Authenticate Session Dashboard',
         ctaUrl: signInUrl,
-        footerText: 'If you did not request this access, contact your workspace administrator.',
+        footerText: 'Security Notice: If you did not request credential provisioning changes for this specific instance, drop this message and contact network operations.',
       }),
     })
 

@@ -1,15 +1,56 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { DeleteTenantButton } from './DeleteTenantButton'
 import { SubmitInviteButton } from './SubmitInviteButton'
-import { inviteWorkspaceUserAction } from '@/app/platform/actions'
+import { inviteWorkspaceUserAction, toggleTenantStatusAction } from '@/app/platform/actions'
 import { Checkbox } from '@/components/ui/checkbox'
+import { toast } from 'sonner'
+import { Loader2 } from 'lucide-react'
 
 type Tenant = {
   id: string
   name: string
   slug: string
+  status: 'active' | 'suspended'
+}
+
+function PauseTenantButton({ tenantId, currentStatus }: { tenantId: string; currentStatus: 'active' | 'suspended' }) {
+  const [isPending, startTransition] = useTransition()
+  const isPaused = currentStatus === 'suspended'
+  const newStatus = isPaused ? 'active' : 'suspended'
+  const label = isPaused ? 'Resume' : 'Pause'
+  const pendingLabel = isPaused ? 'Resuming...' : 'Pausing...'
+
+  const handleClick = () => {
+    startTransition(async () => {
+      try {
+        const formData = new FormData()
+        formData.append('tenantId', tenantId)
+        formData.append('newStatus', newStatus)
+        await toggleTenantStatusAction(formData)
+        toast.success(`Workspace ${isPaused ? 'resumed' : 'paused'} successfully`)
+      } catch {
+        toast.error(`Failed to ${label.toLowerCase()} workspace`)
+      }
+    })
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={isPending}
+      className={`inline-flex items-center gap-1 rounded-[8px] border-[0.5px] px-3 py-1.5 text-[12px] font-semibold transition-all active:scale-95 disabled:opacity-50 ${
+        isPaused
+          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400'
+          : 'border-amber-500/30 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 dark:text-amber-400'
+      }`}
+    >
+      {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+      {isPending ? pendingLabel : label}
+    </button>
+  )
 }
 
 function getInitials(name: string) {
@@ -64,22 +105,22 @@ export function TenantListClient({
     setSelectedIds(next)
   }
 
-  const [isPending, startTransition] = useState(false)
+  const [isPending, startTransitionBulk] = useState(false)
   
   const handleBulkDelete = () => {
-    startTransition(true)
+    startTransitionBulk(true)
     import('@/app/platform/actions').then(({ bulkDeleteWorkspaceAction }) => {
       const formData = new FormData()
       formData.append('tenantIds', Array.from(selectedIds).join(','))
       bulkDeleteWorkspaceAction(formData)
         .then(() => {
-          import('sonner').then(({ toast }) => toast.success(`Deleted ${selectedCount} workspaces`))
+          toast.success(`Deleted ${selectedCount} workspaces`)
           setSelectedIds(new Set())
         })
         .catch(() => {
-          import('sonner').then(({ toast }) => toast.error('Failed to delete workspaces'))
+          toast.error('Failed to delete workspaces')
         })
-        .finally(() => startTransition(false))
+        .finally(() => startTransitionBulk(false))
     })
   }
 
@@ -131,7 +172,14 @@ export function TenantListClient({
                     {getInitials(t.name)}
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-[15px] font-bold text-[var(--text-strong)]">{t.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-[15px] font-bold text-[var(--text-strong)]">{t.name}</h3>
+                      {t.status === 'suspended' && (
+                        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                          Paused
+                        </span>
+                      )}
+                    </div>
                     <code className="rounded-[4px] bg-[var(--foreground)]/5 px-2 py-0.5 text-[11px] font-medium text-[var(--muted-text)]">
                       {t.slug}
                     </code>
@@ -148,12 +196,7 @@ export function TenantListClient({
                   >
                     {switchingSlug === t.slug ? 'Entering...' : 'Enter workspace'}
                   </button>
-                  <a
-                    href={`/t/${t.slug}`}
-                    className="rounded-[8px] border-[0.5px] border-[var(--card-border-color)] bg-transparent px-4 py-2 text-[12px] font-semibold text-[var(--text-strong)] transition-all hover:bg-[var(--foreground)]/5 active:scale-95"
-                  >
-                    Login as Admin
-                  </a>
+                  <PauseTenantButton tenantId={t.id} currentStatus={t.status} />
                   <DeleteTenantButton tenantId={t.id} />
                 </div>
               </div>

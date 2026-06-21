@@ -24,7 +24,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         },
         classNames: {
           description: 'text-[var(--muted-text)]',
-          actionButton: 'bg-[#CBEF7F] text-[#2C5000]',
+          actionButton: 'bg-[#0DA2E7] text-[#2C5000]',
           cancelButton: 'bg-muted text-muted-foreground',
         },
       }}

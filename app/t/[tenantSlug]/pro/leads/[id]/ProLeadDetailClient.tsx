@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { apiCall } from '@/lib/utils/api-handler'
 import { WhatsappLogger } from '@/components/leads/WhatsappLogger'
 import { LeadReminders } from '@/components/leads/LeadReminders'
+import { LeadDeleteButton } from '@/components/leads/LeadDeleteButton'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { ActivityRow } from '@/types/leads'
 
@@ -22,11 +23,19 @@ export default function ProLeadDetailClient({
   activities: initialActivities,
   allUsers,
   currentUser,
+  canDelete = false,
+  canAssign = false,
+  canViewPayments = false,
+  canEditPayments = false,
 }: {
   lead: Lead
   activities: ActivityRow[]
-  allUsers: { id: string; name: string | null; role: string }[]
+  allUsers: { id: string; name: string | null; role: string; permissions?: unknown }[]
   currentUser: { id: string }
+  canDelete?: boolean
+  canAssign?: boolean
+  canViewPayments?: boolean
+  canEditPayments?: boolean
 }) {
   const router = useRouter()
   const params = useParams()
@@ -49,6 +58,8 @@ export default function ProLeadDetailClient({
   const [saving, setSaving] = useState(false)
   const [addingNote, setAddingNote] = useState(false);
   const [assignedTo, setAssignedTo] = useState(lead.assignedTo ?? '')
+  const [selectedAssignee, setSelectedAssignee] = useState(lead.assignedTo ?? '')
+  const [savingAssignee, setSavingAssignee] = useState(false)
   const [isDeadState, setIsDeadState] = useState<boolean>(lead.isDeadManual ?? false)
   // NEW – dead‑status UI state
   
@@ -163,22 +174,31 @@ const [savingSubStatus, setSavingSubStatus] = useState(false)
 
   useEffect(() => { fetchSubStatuses(stage) }, [stage])
 
-  const adminUsers = useMemo(() => allUsers.filter((u) => u.role === 'ADMIN'), [allUsers])
+  const assignableUsers = useMemo(() => allUsers.filter((u) => {
+    if (u.role === 'ADMIN') return true
+    if (canAssign) return true // PRO with leads.assign can assign to any workspace member
+    const perms = Array.isArray(u.permissions) ? u.permissions : []
+    return perms.includes('leads.receive')
+  }), [allUsers, canAssign])
 
-  const handleAssign = async (userId: string) => {
-    setAssignedTo(userId)
+  const handleSaveAssign = async () => {
+    if (selectedAssignee === assignedTo) return
+    setSavingAssignee(true)
     const data = await apiCall(async () => {
       const res = await fetch(`/api/leads/${lead.id}/assign`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignedTo: userId }),
+        body: JSON.stringify({ assignedTo: selectedAssignee || null }),
       })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Could not assign lead')
       return res.json()
     }, { successMsg: 'Lead assigned', errorMsg: 'Could not assign lead' })
+    setSavingAssignee(false)
     if (!data) {
-      setAssignedTo(lead.assignedTo ?? '')
+      setSelectedAssignee(assignedTo)
       return
     }
+    setAssignedTo(selectedAssignee)
     router.refresh()
   }
 
@@ -471,11 +491,13 @@ const [savingSubStatus, setSavingSubStatus] = useState(false)
                       />
                     </label>
                   ))}
+                  {canViewPayments && (
                   <div className="col-span-2 grid grid-cols-3 gap-3">
                     <label className="col-span-1 flex flex-col gap-1">
                       <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Currency</span>
                       <select
                         value={profileForm.dealCurrency}
+                        disabled={!canEditPayments || isDeadState}
                         onChange={(e) =>
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
                           setProfileForm((prev: any) => ({ ...prev, dealCurrency: e.target.value }))
@@ -497,6 +519,7 @@ const [savingSubStatus, setSavingSubStatus] = useState(false)
                         step="0.01"
                         placeholder="0.00"
                         value={profileForm.dealValue}
+                        disabled={!canEditPayments || isDeadState}
                         onChange={(e) =>
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
                           setProfileForm((prev: any) => ({ ...prev, dealValue: e.target.value }))
@@ -505,6 +528,7 @@ const [savingSubStatus, setSavingSubStatus] = useState(false)
                       />
                     </label>
                   </div>
+                  )}
                 </div>
                 <button
                   onClick={async () => {
@@ -536,17 +560,26 @@ const [savingSubStatus, setSavingSubStatus] = useState(false)
               {/* NEW – Assigned To UI */}
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Assigned To</h2>
-                <select
-                  value={assignedTo}
-                  disabled={isDeadState}
-                  onChange={(e) => handleAssign(e.target.value)}
-                  className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
-                >
-                  <option value="">Unassigned</option>
-                  {adminUsers.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name ?? u.id}</option>
-                  ))}
-                </select>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <select
+                    value={selectedAssignee}
+                    disabled={isDeadState || savingAssignee}
+                    onChange={(e) => setSelectedAssignee(e.target.value)}
+                    className="flex-1 h-9 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
+                  >
+                    <option value="">Unassigned</option>
+                    {assignableUsers.map((u) => (
+                      <option key={u.id} value={u.id}>{u.name ?? u.id} {u.role === 'ADMIN' ? '(Admin)' : ''}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleSaveAssign}
+                    disabled={selectedAssignee === assignedTo || isDeadState || savingAssignee}
+                    className="h-9 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center min-w-[80px]"
+                  >
+                    {savingAssignee ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                  </button>
+                </div>
               </div>
 
               {/* NEW – Mark as Dead UI */}
@@ -587,6 +620,14 @@ const [savingSubStatus, setSavingSubStatus] = useState(false)
                   >
                     {savingDead ? <Loader2 className="h-4 w-4 animate-spin" /> : isDeadState ? 'Re‑open' : 'Save'}
                   </button>
+                )}
+                {canDelete && (
+                  <LeadDeleteButton
+                    leadId={lead.id}
+                    leadName={lead.fullName}
+                    redirectPath={tenantPath(tenantSlug, '/pro/leads')}
+                    disabled={isDeadState}
+                  />
                 )}
               </div>
             </div>

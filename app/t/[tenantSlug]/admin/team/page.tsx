@@ -39,7 +39,10 @@ export default async function TeamPage() {
       total: count(leads.id),
     })
     .from(leads)
-    .where(and(tScope, eq(leads.stage, 'new_lead')))
+    .where(and(
+      tScope,
+      isNull(leads.deletedAt),
+    ))
     .groupBy(leads.assignedTo)
 
   const paidCounts = await db

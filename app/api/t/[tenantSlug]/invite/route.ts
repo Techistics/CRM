@@ -6,6 +6,9 @@ import { requirePermissionApi } from '@/lib/tenant-api'
 import { createInvitationAndSendEmail } from '@/lib/invitations/service'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { validateCustomRoleId } from '@/lib/validate-custom-role'
+import {
+  validateTeamInviteForActor,
+} from '@/lib/team-access'
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -27,6 +30,10 @@ export async function POST(req: NextRequest) {
 
     const { email, role, customRoleId } = parsed.data
     const normalizedEmail = email.toLowerCase().trim()
+
+    const inviteError = validateTeamInviteForActor(ctx.role, role, customRoleId)
+    if (inviteError) return errorResponse(inviteError, 'FORBIDDEN', 403)
+
     const roleError = await validateCustomRoleId(ctx.tenant.id, role, customRoleId)
     if (roleError) return errorResponse(roleError, 'INVALID_CUSTOM_ROLE', 400)
     const resolvedCustomRoleId = role === 'PRO' ? (customRoleId ?? null) : null

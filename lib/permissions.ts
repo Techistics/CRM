@@ -10,6 +10,8 @@ export const ALL_PERMISSIONS = [
   'templates.manage',
   'kanban.view',
   'teams.manage',
+  'payments.view',
+  'payments.edit',
 ] as const
 
 export type Permission = typeof ALL_PERMISSIONS[number]
@@ -26,6 +28,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'kanban.view': 'View Kanban',
   'teams.manage': 'Manage Team',
   'leads.receive': 'Receive Reassigned Leads',
+  'payments.view': 'View Payments',
+  'payments.edit': 'Edit Payments',
 }
 
 export const DEFAULT_PRO_PERMISSIONS: Permission[] = [

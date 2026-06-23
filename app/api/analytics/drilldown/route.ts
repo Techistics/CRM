@@ -3,12 +3,14 @@ import { db } from '@/db'
 import { leads, tenantTimesheets, leadActivities } from '@/db/schema'
 import { eq, and, gte, lte, or, isNull, sql } from 'drizzle-orm'
 import { requirePermissionApi } from '@/lib/tenant-api'
+import { canViewAllAnalytics, toMemberScope } from '@/lib/member-scope'
 
 export async function GET(request: Request) {
   const ctx = await requirePermissionApi('analytics.view')
   if (!ctx.ok) return ctx.response
 
-  const { tenant, dbUserId, role } = ctx
+  const { tenant, dbUserId } = ctx
+  const viewAll = canViewAllAnalytics(toMemberScope(ctx))
 
     // Grab URL parameters
     const { searchParams } = new URL(request.url)
@@ -16,8 +18,7 @@ export async function GET(request: Request) {
     const fromParam = searchParams.get('from')
     const toParam = searchParams.get('to')
 
-    // If role is PRO, override parameter to use own dbUserId
-    const targetUserId = role === 'PRO' ? dbUserId : (counselorIdParam || dbUserId)
+    const targetUserId = viewAll ? (counselorIdParam || dbUserId) : dbUserId
 
     let startDate: Date | null = null
     let endDate: Date | null = null

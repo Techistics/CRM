@@ -6,6 +6,8 @@ import { db } from '@/db'
 import { leads, tenantMembers, users } from '@/db/schema'
 import { errorResponse, successResponse, withApiErrorHandling } from '@/lib/api-response'
 import { sendLeadAssignedEmail } from '@/lib/mail'
+import { leadIdsInScopeWhere } from '@/lib/leads-scope'
+import { toMemberScope } from '@/lib/member-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
 
 const bodySchema = z.object({
@@ -44,10 +46,19 @@ export async function POST(req: NextRequest) {
       
     if (!member) return errorResponse('Assignee is not in this workspace', 'INVALID_ASSIGNEE', 400)
 
+    const scopedIds = await db
+      .select({ id: leads.id })
+      .from(leads)
+      .where(leadIdsInScopeWhere(ctx.tenant.id, parsed.data.leadIds, toMemberScope(ctx)))
+
+    if (scopedIds.length === 0) {
+      return successResponse({ updated: 0 })
+    }
+
     const updatedRows = await db
       .update(leads)
       .set({ assignedTo: parsed.data.assignedTo, updatedAt: new Date() })
-      .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.id, parsed.data.leadIds)))
+      .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.id, scopedIds.map((r) => r.id))))
       .returning({ id: leads.id })
 
     if (member.email && updatedRows.length > 0) {

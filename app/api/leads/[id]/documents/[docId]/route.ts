@@ -4,6 +4,7 @@ import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { leadActivities, leadUploadedDocuments } from '@/db/schema'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
+import { toMemberScope } from '@/lib/member-scope'
 import { requireLeadEditApi, requireLeadViewApi } from '@/lib/tenant-api'
 import { deleteFile, getStorageConfig } from '@/lib/storage'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
@@ -20,8 +21,7 @@ export async function DELETE(
     const lead = await getLeadForMemberAction(
       id,
       ctx.tenant.id,
-      ctx.role,
-      ctx.dbUserId,
+      toMemberScope(ctx),
     )
     if (!lead) {
       return errorResponse('Lead not found or access denied', 'NOT_FOUND', 404)
@@ -80,8 +80,7 @@ export async function PATCH(
     const lead = await getLeadForMemberAction(
       id,
       ctx.tenant.id,
-      ctx.role,
-      ctx.dbUserId,
+      toMemberScope(ctx),
     )
     if (!lead) {
       return errorResponse('Lead not found or access denied', 'NOT_FOUND', 404)

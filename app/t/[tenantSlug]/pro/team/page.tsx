@@ -1,5 +1,5 @@
 import { db } from '@/db'
-import { users, leads, tenantMembers, invitations, customRoles } from '@/db/schema'
+import { users, leads, tenantMembers, invitations } from '@/db/schema'
 import { eq, count, and, isNull } from 'drizzle-orm'
 
 import { requirePermissionSession } from '@/lib/tenant-server'
@@ -47,11 +47,6 @@ export default async function ProTeamPage() {
     .from(invitations)
     .where(and(eq(invitations.tenantId, tenant.id), eq(invitations.status, 'PENDING')))
 
-  const roles = await db
-    .select({ id: customRoles.id, name: customRoles.name })
-    .from(customRoles)
-    .where(eq(customRoles.tenantId, tenant.id))
-
   const inviteData = pendingInvites.map((invite) => ({
     id: invite.id,
     name: '—',
@@ -84,7 +79,7 @@ export default async function ProTeamPage() {
         activeLeads: Number(m.activeLeads),
         paidLeads: Number(m.paidLeads),
       }))}
-      customRoles={roles}
+      isAdmin={false}
     />
   )
 }

@@ -14,6 +14,7 @@ import {
   Filter,
   MoreHorizontal,
   Upload,
+  AlertTriangle,
 } from 'lucide-react'
 
 import Pagination from '@/components/Pagination'
@@ -77,14 +78,22 @@ export type Agent = {
 
 interface LeadsDashboardProps {
   role: 'ADMIN' | 'PRO'
+  tenantWideAccess?: boolean
+  canDelete?: boolean
+  canEditPayments?: boolean
 }
 
-export function LeadsDashboard({ role }: LeadsDashboardProps) {
+export function LeadsDashboard({
+  role,
+  tenantWideAccess = false,
+  canDelete = false,
+  canEditPayments = false,
+}: LeadsDashboardProps) {
   const router = useRouter()
   const routeParams = useParams<{ tenantSlug: string }>()
   const searchParams = useSearchParams()
   const tenantSlug = routeParams.tenantSlug
-  const isAdmin = role === 'ADMIN'
+  const isAdmin = role === 'ADMIN' || tenantWideAccess
 
   const [leads, setLeads] = useState<LeadRow[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
@@ -119,9 +128,11 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
       if (tagsParam) params.set('tags', tagsParam)
       if (stageFilter) params.set('stage', stageFilter)
 
+      params.set('_t', Date.now().toString())
+
       const [leadsRes, agentsRes] = await Promise.all([
-        fetch(`/api/leads?${params.toString()}`),
-        fetch('/api/admin/team-members'),
+        fetch(`/api/leads?${params.toString()}`, { cache: 'no-store' }),
+        fetch('/api/admin/team-members', { cache: 'no-store' }),
       ])
       const leadsData = await leadsRes.json()
       const agentsData = await agentsRes.json()
@@ -363,6 +374,39 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
                 <SelectItem value="hot"> Fresh</SelectItem>
               </SelectContent>
             </Select>
+            {isAdmin && agents.length > 0 && (
+              <Select
+                value={assignedTo ?? 'all'}
+                onValueChange={(val) => {
+                  const sp = new URLSearchParams(searchParams.toString())
+                  if (val === 'all') sp.delete('assignedTo')
+                  else sp.set('assignedTo', val)
+                  sp.delete('page')
+                  router.push(`?${sp.toString()}`)
+                }}
+              >
+                <SelectTrigger className="h-8 w-40 border-none bg-transparent shadow-none focus:ring-0">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-3.5 w-3.5 text-gray-500" />
+                    <SelectValue placeholder="Filter by PRO" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All PROs</SelectItem>
+                  <SelectItem value="unassigned">
+                    <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-medium">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      <span>Unassigned</span>
+                    </div>
+                  </SelectItem>
+                  {agents.map((agent) => (
+                    <SelectItem key={agent.userId} value={agent.userId}>
+                      {agent.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
@@ -394,7 +438,7 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
             </DropdownMenu>
           )}
 
-          {isAdmin && <CreateLeadDialog tenantSlug={tenantSlug} />}
+          {isAdmin && <CreateLeadDialog tenantSlug={tenantSlug} showPaymentFields={role === 'ADMIN' || canEditPayments} />}
         </div>
       </div>
 
@@ -469,7 +513,7 @@ export function LeadsDashboard({ role }: LeadsDashboardProps) {
             </Button>
           )}
 
-          {isAdmin && (
+          {(isAdmin || canDelete) && (
             <Button
               variant="outline"
               size="sm"

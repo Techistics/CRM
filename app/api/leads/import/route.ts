@@ -292,13 +292,19 @@ export async function POST(req: NextRequest) {
 
       const assignableMembers = parsed.data.assignToAgentIds.length > 0
         ? await db
-            .select({ userId: tenantMembers.userId, name: users.name, email: users.email })
+            .select({
+              userId: tenantMembers.userId,
+              name: users.name,
+              email: users.email,
+              role: tenantMembers.role,
+            })
             .from(tenantMembers)
             .innerJoin(users, eq(users.id, tenantMembers.userId))
             .where(
               and(
                 eq(tenantMembers.tenantId, ctx.tenant.id),
                 inArray(tenantMembers.userId, parsed.data.assignToAgentIds),
+                ...(ctx.role !== 'ADMIN' ? [eq(tenantMembers.role, 'PRO')] : []),
               ),
             )
         : []
@@ -333,12 +339,39 @@ export async function POST(req: NextRequest) {
         }
       })
 
-      if (rowsToInsert.length > 0) {
+      const [importBatch] = await db
+        .insert(csvImports)
+        .values({
+          tenantId: ctx.tenant.id,
+          importedBy: ctx.dbUserId,
+          fileName: parsed.data.fileName ?? 'manual_confirm',
+          totalRows: parsed.data.totalRows ?? rowsToInsert.length,
+          importedRows: 0,
+          skippedRows: (parsed.data.duplicateRows ?? 0) + (parsed.data.errorRows ?? 0),
+          status: 'processing',
+        })
+        .returning({ id: csvImports.id })
+
+      const importBatchId = importBatch.id
+
+      const rowsToInsertWithBatch: (typeof leads.$inferInsert)[] = rowsToInsert.map((row) => ({
+        ...row,
+        csvImportId: importBatchId,
+      }))
+
+      let insertedCount = 0
+      if (rowsToInsertWithBatch.length > 0) {
         await db.transaction(async (tx) => {
-          const inserted = await tx.insert(leads).values(rowsToInsert).onConflictDoNothing().returning({
-            id: leads.id,
-            primaryStage: leads.primaryStage,
-          })
+          const inserted = await tx
+            .insert(leads)
+            .values(rowsToInsertWithBatch)
+            .onConflictDoNothing()
+            .returning({
+              id: leads.id,
+              primaryStage: leads.primaryStage,
+            })
+
+          insertedCount = inserted.length
 
           if (inserted.length > 0) {
             await tx.insert(leadStageAssignments).values(
@@ -353,21 +386,19 @@ export async function POST(req: NextRequest) {
         })
       }
 
+      await db
+        .update(csvImports)
+        .set({
+          importedRows: insertedCount,
+          status: 'done',
+        })
+        .where(eq(csvImports.id, importBatchId))
+
       const assignedCounts = new Map<string, number>()
       rowsToInsert.forEach((row) => {
         if (row.assignedTo) {
           assignedCounts.set(row.assignedTo, (assignedCounts.get(row.assignedTo) ?? 0) + 1)
         }
-      })
-
-      await db.insert(csvImports).values({
-        tenantId: ctx.tenant.id,
-        importedBy: ctx.dbUserId,
-        fileName: parsed.data.fileName ?? 'manual_confirm',
-        totalRows: parsed.data.totalRows ?? rowsToInsert.length,
-        importedRows: rowsToInsert.length,
-        skippedRows: (parsed.data.duplicateRows ?? 0) + (parsed.data.errorRows ?? 0),
-        status: 'done',
       })
 
       // Send ONE email per agent summarizing their new leads
@@ -393,7 +424,8 @@ export async function POST(req: NextRequest) {
       }
 
       return successResponse({
-        imported: rowsToInsert.length,
+        imported: insertedCount,
+        importBatchId,
         assigned: Array.from(assignedCounts.values()).reduce((acc, value) => acc + value, 0),
         skipped: (parsed.data.duplicateRows ?? 0) + (parsed.data.errorRows ?? 0),
         agentBreakdown: assignableMembers.map((member) => ({

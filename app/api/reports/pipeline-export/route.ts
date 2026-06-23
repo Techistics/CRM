@@ -6,6 +6,7 @@ import { getSession } from '@/lib/auth'
 import { resolveTenantAccess } from '@/lib/tenant-access'
 import { can } from '@/lib/authz'
 import { leadsVisibleWhere } from '@/lib/leads-scope'
+import { toMemberScope } from '@/lib/member-scope'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
   }
 
   const filters = [
-    leadsVisibleWhere(tenant.id, access.role, session.userId),
+    leadsVisibleWhere(tenant.id, toMemberScope({ role: access.role, dbUserId: session.userId, customRoleId: access.customRoleId })),
     eq(leads.tenantId, tenant.id),
   ]
   if (from) filters.push(gte(leads.createdAt, new Date(from)))

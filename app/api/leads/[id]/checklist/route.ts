@@ -7,6 +7,7 @@ import { getChecklistTemplateForCountry } from '@/constants/documents'
 import { db } from '@/db'
 import { leadDocumentChecklist, leadActivities } from '@/db/schema'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
+import { toMemberScope } from '@/lib/member-scope'
 import { requireLeadEditApi, requireLeadViewApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
@@ -29,8 +30,7 @@ export async function GET(
     const lead = await getLeadForMemberAction(
       id,
       ctx.tenant.id,
-      ctx.role,
-      ctx.dbUserId,
+      toMemberScope(ctx),
     )
     if (!lead) {
       return errorResponse('Lead not found', 'NOT_FOUND', 404)
@@ -81,8 +81,7 @@ export async function PATCH(
     const lead = await getLeadForMemberAction(
       id,
       ctx.tenant.id,
-      ctx.role,
-      ctx.dbUserId,
+      toMemberScope(ctx),
     )
     if (!lead) {
       return errorResponse('Lead not found', 'NOT_FOUND', 404)

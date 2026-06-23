@@ -2,6 +2,7 @@ import { desc, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { leads, users } from '@/db/schema'
 import { leadsVisibleWhere } from '@/lib/leads-scope'
+import { toMemberScope } from '@/lib/member-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
 import { successResponse, withApiErrorHandling } from '@/lib/api-response'
 
@@ -10,7 +11,7 @@ export async function GET() {
     const ctx = await requirePermissionApi('kanban.view')
     if (!ctx.ok) return ctx.response
 
-    const scope = leadsVisibleWhere(ctx.tenant.id, ctx.role, ctx.dbUserId)
+    const scope = leadsVisibleWhere(ctx.tenant.id, toMemberScope(ctx))
 
     const allLeads = await db
       .select({

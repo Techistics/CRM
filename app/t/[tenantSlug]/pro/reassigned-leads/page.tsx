@@ -1,4 +1,4 @@
-import { eq, and, isNotNull } from 'drizzle-orm'
+import { eq, and, isNotNull, isNull } from 'drizzle-orm'
 import { db } from '@/db'
 import { leads, users } from '@/db/schema'
 import { requirePermissionSession } from '@/lib/tenant-server'
@@ -25,6 +25,7 @@ export default async function ProReassignedLeadsPage() {
       eq(leads.tenantId, tenant.id),
       eq(leads.assignedTo, dbUserId),
       isNotNull(leads.reassignedFrom),
+      isNull(leads.deletedAt),
     ))
 
   return <ProReassignedLeadsClient leads={myLeads} tenantSlug={tenant.slug} />

@@ -299,6 +299,54 @@ export async function sendReminderEmail({
   }
 }
 
+export async function sendUnassignedLeadsAlertEmail({
+  recipientEmail,
+  recipientName,
+  removedMemberName,
+  unassignedCount,
+  workspaceName,
+  leadsUrl,
+}: {
+  recipientEmail: string
+  recipientName: string
+  removedMemberName: string
+  unassignedCount: number
+  workspaceName: string
+  leadsUrl: string
+}) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: `Consulty <${fromEmail}>`,
+      to: recipientEmail,
+      subject: `Action Required: ${unassignedCount} Unassigned Lead(s) in ${workspaceName}`,
+      html: buildBaseEmailTemplate({
+        workspaceName,
+        heading: 'Unassigned Leads Require Attention',
+        intro: `Hello ${recipientName}, a team member (<strong>${removedMemberName}</strong>) was removed from the workspace and their leads are now unassigned and awaiting redistribution.`,
+        detailsHtml: `
+          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 14px; line-height: 22px;">
+            <tr><td style="padding-bottom: 6px; color: #64748b; width: 130px; font-weight: 500;">Removed Member:</td><td style="padding-bottom: 6px; color: #0f172a; font-weight: 600;">${removedMemberName}</td></tr>
+            <tr><td style="color: #64748b;">Unassigned Leads:</td><td><span style="background-color: #fef3c7; color: #92400e; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 4px;">${unassignedCount} lead${unassignedCount !== 1 ? 's' : ''} need assignment</span></td></tr>
+          </table>
+        `,
+        ctaLabel: 'View Unassigned Leads',
+        ctaUrl: leadsUrl,
+        footerText: 'Operational Notice: You are receiving this because you have lead assignment authority in this workspace. Please redistribute these leads at your earliest convenience.',
+      }),
+    })
+
+    if (error) {
+      console.error('Resend error:', error)
+      return { success: false, error }
+    }
+
+    return { success: true, data }
+  } catch (err) {
+    console.error('Email send fatal error:', err)
+    return { success: false, error: err }
+  }
+}
+
 export async function sendAccessApprovedEmail({
   userEmail,
   userName,

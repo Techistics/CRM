@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 
@@ -211,7 +211,15 @@ async function acceptExistingUser(req: NextRequest, token: string) {
         role: invite.role,
         customRoleId: invite.customRoleId,
       })
-      .onConflictDoNothing()
+      .onConflictDoUpdate({
+        target: [tenantMembers.tenantId, tenantMembers.userId],
+        set: {
+          role: invite.role,
+          customRoleId: invite.customRoleId,
+          deletedAt: sql`null`,
+          credentialVersion: sql`${tenantMembers.credentialVersion} + 1`,
+        },
+      })
 
     const [tenant] = await tx
       .select({ slug: tenants.slug })
@@ -303,7 +311,16 @@ async function acceptNewUser(
         tenantPassword: hashedPassword,
         customRoleId: invite.customRoleId,
       })
-      .onConflictDoNothing()
+      .onConflictDoUpdate({
+        target: [tenantMembers.tenantId, tenantMembers.userId],
+        set: {
+          role: invite.role,
+          customRoleId: invite.customRoleId,
+          tenantPassword: hashedPassword,
+          deletedAt: sql`null`,
+          credentialVersion: sql`${tenantMembers.credentialVersion} + 1`,
+        },
+      })
 
     const [tenant] = await tx
       .select({ slug: tenants.slug })

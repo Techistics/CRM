@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LeadDocumentsPanel } from '@/components/leads/LeadDocumentsPanel'
 import { apiCall } from '@/lib/utils/api-handler'
 import { WhatsappLogger } from '@/components/leads/WhatsappLogger'
+import { LeadDeleteButton } from '@/components/leads/LeadDeleteButton'
 
 export default function LeadDetailClient({
   lead,
@@ -563,6 +564,12 @@ export default function LeadDetailClient({
                     {savingDead ? <Loader2 className="h-4 w-4 animate-spin" /> : isDeadState ? 'Re-open' : 'Save'}
                   </button>
                 )}
+                <LeadDeleteButton
+                  leadId={lead.id}
+                  leadName={lead.fullName}
+                  redirectPath={tenantPath(tenantSlug, '/admin/leads')}
+                  disabled={isDeadState}
+                />
               </div>
               {/* Assigned To card */}
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">

@@ -6,6 +6,7 @@ import { db } from '@/db'
 import { leads, leadActivities, leadStageAssignments, tenantMembers, notifications } from '@/db/schema'
 import { requireTenantMemberApi } from '@/lib/tenant-api'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
+import { toMemberScope } from '@/lib/member-scope'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 import { validateStageTransition } from '@/lib/lead-stage-validation'
@@ -71,8 +72,7 @@ export async function PATCH(
     const lead = await getLeadForMemberAction(
       id,
       ctx.tenant.id,
-      ctx.role,
-      ctx.dbUserId,
+      toMemberScope(ctx),
     )
     if (!lead) {
       return errorResponse('Lead not found or no access', 'NOT_FOUND', 404)

@@ -5,6 +5,8 @@ import { z } from 'zod'
 import { db } from '@/db'
 import { leads, leadActivities, leadStageAssignments } from '@/db/schema'
 import { errorResponse, successResponse, withApiErrorHandling } from '@/lib/api-response'
+import { leadIdsInScopeWhere } from '@/lib/leads-scope'
+import { toMemberScope } from '@/lib/member-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 import { validateStageTransition } from '@/lib/lead-stage-validation'
@@ -35,10 +37,21 @@ export async function POST(req: NextRequest) {
     }
     if (!pipeline.stageKeys.has(stage)) return errorResponse('Invalid stage', 'VALIDATION_ERROR', 400)
 
+    const scopedIds = await db
+      .select({ id: leads.id })
+      .from(leads)
+      .where(leadIdsInScopeWhere(ctx.tenant.id, parsed.data.leadIds, toMemberScope(ctx)))
+
+    if (scopedIds.length === 0) {
+      return successResponse({ updated: 0 })
+    }
+
+    const allowedLeadIds = scopedIds.map((r) => r.id)
+
     const affected = await db
       .select({ id: leads.id, fromStage: leads.primaryStage })
       .from(leads)
-      .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.id, parsed.data.leadIds)))
+      .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.id, allowedLeadIds)))
 
     for (const lead of affected) {
       const validation = validateStageTransition(lead.fromStage, stage, pipeline.stages, parsed.data.deadReason)
@@ -58,12 +71,12 @@ export async function POST(req: NextRequest) {
           lastContactedAt: new Date(),
           updatedAt: new Date(),
         })
-        .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.id, parsed.data.leadIds)))
+        .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.id, allowedLeadIds)))
         .returning({ id: leads.id })
 
       await tx
         .delete(leadStageAssignments)
-        .where(and(eq(leadStageAssignments.tenantId, ctx.tenant.id), inArray(leadStageAssignments.leadId, parsed.data.leadIds)))
+        .where(and(eq(leadStageAssignments.tenantId, ctx.tenant.id), inArray(leadStageAssignments.leadId, allowedLeadIds)))
 
       if (updatedRows.length > 0) {
         await tx.insert(leadStageAssignments).values(

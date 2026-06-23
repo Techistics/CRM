@@ -1,11 +1,13 @@
 import { requirePermissionSession } from '@/lib/tenant-server'
-// Import the component directly instead of using next/dynamic
+import { can } from '@/lib/authz'
 import ImportPage from '../../admin/import/page'
 
 export default async function ProImportPage() {
-  // 1. Run the permission check safely on the server
-  await requirePermissionSession('import.leads')
-  
-  // 2. Render the page
-  return <ImportPage />
+  const ctx = await requirePermissionSession('import.leads')
+  return (
+    <ImportPage
+      canDeleteBatches={can(ctx.permissions, 'leads.delete')}
+      leadsListPath={`/t/${ctx.tenant.slug}/pro/leads`}
+    />
+  )
 }

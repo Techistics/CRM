@@ -1,16 +1,17 @@
 import { NextRequest } from 'next/server'
-import { and, count, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
+import { and, count, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm'
 
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'
 import { leads, leadTagAssignments, leadTags, leadStageAssignments } from '@/db/schema'
 import { leadsVisibleWhere } from '@/lib/leads-scope'
+import { toMemberScope } from '@/lib/member-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
 import { leadCreateBodySchema } from '@/lib/validators/lead'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 import { rateLimit } from '@/lib/rate-limit'
-import { stripDealFieldsFromList } from '@/lib/leads/deal-access'
+import { stripDealFieldsFromList, canEditPayments } from '@/lib/leads/deal-access'
 
 export async function GET(req: NextRequest) {
   return withApiErrorHandling(async () => {
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
     const stage = url.searchParams.get('stage')?.trim()
     const idsOnly = url.searchParams.get('idsOnly') === 'true'
 
-    const conditions = [leadsVisibleWhere(ctx.tenant.id, ctx.role, ctx.dbUserId)]
+    const conditions = [leadsVisibleWhere(ctx.tenant.id, toMemberScope(ctx))]
 
     if (q) {
       conditions.push(
@@ -59,7 +60,11 @@ export async function GET(req: NextRequest) {
     }
 
     if (assignedTo) {
-      conditions.push(eq(leads.assignedTo, assignedTo))
+      if (assignedTo === 'unassigned') {
+        conditions.push(isNull(leads.assignedTo))
+      } else {
+        conditions.push(eq(leads.assignedTo, assignedTo))
+      }
     }
 
     if (stage) {
@@ -155,6 +160,7 @@ export async function GET(req: NextRequest) {
       const rowsWithTags = stripDealFieldsFromList(
         await attachTagsToLeads(rows),
         ctx.role,
+        ctx.permissions,
       )
 
       return successResponse({
@@ -193,6 +199,7 @@ export async function GET(req: NextRequest) {
     const rowsWithTags = stripDealFieldsFromList(
       await attachTagsToLeads(rows),
       ctx.role,
+      ctx.permissions,
     )
 
     return successResponse({ leads: rowsWithTags })
@@ -221,6 +228,14 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data
+
+    if (
+      (data.dealValue != null || data.dealCurrency != null) &&
+      !canEditPayments(ctx.role, ctx.permissions)
+    ) {
+      return errorResponse('You do not have permission to set payments', 'FORBIDDEN', 403)
+    }
+
     const nextStage = data.stage as string
     const emailNorm =
       data.email === undefined || data.email === '' || data.email === null
@@ -274,8 +289,12 @@ export async function POST(req: NextRequest) {
           grades: data.grades?.trim() || null,
           source: data.source?.trim() || 'manual',
           assignedTo: data.assignedTo ?? null,
-          dealValue: data.dealValue?.toString() ?? null,
-          dealCurrency: data.dealCurrency,
+          dealValue: canEditPayments(ctx.role, ctx.permissions)
+            ? data.dealValue?.toString() ?? null
+            : null,
+          dealCurrency: canEditPayments(ctx.role, ctx.permissions)
+            ? data.dealCurrency
+            : 'USD',
           // NEW – intake & destination fields
           intakeMonth: data.intakeMonth?.trim() || null,
           destinationCountry: data.destinationCountry?.trim() || null,

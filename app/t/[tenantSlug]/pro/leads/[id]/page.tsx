@@ -1,63 +1,26 @@
 import { notFound } from 'next/navigation'
 import { db } from '@/db'
-import { leads, leadActivities, users, tenantMembers } from '@/db/schema'
+import { leadActivities, users, tenantMembers, customRoles } from '@/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
 import ProLeadDetailClient from './ProLeadDetailClient'
 import { requirePermissionSession } from '@/lib/tenant-server'
+import { getLeadForMemberAction } from '@/lib/lead-tenant'
+import { toMemberScope } from '@/lib/member-scope'
+import { stripDealFields, canViewPayments, canEditPayments } from '@/lib/leads/deal-access'
+import { can } from '@/lib/authz'
 
 export default async function ProLeadDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
-  const { tenant, dbUserId } = await requirePermissionSession('leads.view')
+  const ctx = await requirePermissionSession('leads.view')
   const { id } = await params
 
-  const [lead] = await db
-    .select({
-      id: leads.id,
-      fullName: leads.fullName,
-      email: leads.email,
-      contactNumber: leads.contactNumber,
-      city: leads.city,
-      country: leads.country,
-      stage: leads.stage,
-      primaryStage: leads.primaryStage,
-      lastQualification: leads.lastQualification,
-      grades: leads.grades,
-      source: leads.source,
-      rawData: leads.rawData,
-      assignedTo: leads.assignedTo,
-      tenantId: leads.tenantId,
-      createdBy: leads.createdBy,
-      createdAt: leads.createdAt,
-      updatedAt: leads.updatedAt,
-      lastContactedAt: leads.lastContactedAt,
-      intakeMonth: leads.intakeMonth,
-      destinationCountry: leads.destinationCountry,
-      programOfInterest: leads.programOfInterest,
-      isDeadManual: leads.isDeadManual,
-      deadReason: leads.deadReason,
-      dealValue: leads.dealValue,
-      subStatusId: leads.subStatusId,
-closedAction: leads.closedAction,
-      dealCurrency: leads.dealCurrency,
-      deletedAt: leads.deletedAt,
-reassignedFrom: leads.reassignedFrom,
-    })
-    .from(leads)
-    .where(
-      and(
-        eq(leads.id, id),
-        eq(leads.tenantId, tenant.id),
-      ),
-    )
+  const leadRow = await getLeadForMemberAction(id, ctx.tenant.id, toMemberScope(ctx))
+  if (!leadRow) notFound()
 
-  if (!lead) notFound()
-
-  if (lead.assignedTo !== dbUserId) {
-    notFound()
-  }
+  const lead = stripDealFields(leadRow, ctx.role, ctx.permissions)
 
   const activities = await db
     .select({
@@ -75,7 +38,7 @@ reassignedFrom: leads.reassignedFrom,
     .where(
       and(
         eq(leadActivities.leadId, id),
-        eq(leadActivities.tenantId, tenant.id),
+        eq(leadActivities.tenantId, ctx.tenant.id),
       ),
     )
     .orderBy(desc(leadActivities.createdAt))
@@ -85,17 +48,23 @@ reassignedFrom: leads.reassignedFrom,
       id: users.id,
       name: users.name,
       role: tenantMembers.role,
+      permissions: customRoles.permissions,
     })
     .from(tenantMembers)
     .innerJoin(users, eq(tenantMembers.userId, users.id))
-    .where(eq(tenantMembers.tenantId, tenant.id))
+    .leftJoin(customRoles, eq(tenantMembers.customRoleId, customRoles.id))
+    .where(eq(tenantMembers.tenantId, ctx.tenant.id))
 
   return (
     <ProLeadDetailClient
       lead={lead}
       activities={activities}
       allUsers={allUsers}
-      currentUser={{ id: dbUserId }}
+      currentUser={{ id: ctx.dbUserId }}
+      canDelete={can(ctx.permissions, 'leads.delete')}
+      canAssign={can(ctx.permissions, 'leads.assign')}
+      canViewPayments={canViewPayments(ctx.role, ctx.permissions)}
+      canEditPayments={canEditPayments(ctx.role, ctx.permissions)}
     />
   )
 }

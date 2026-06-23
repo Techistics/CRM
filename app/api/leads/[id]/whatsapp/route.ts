@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { db } from '@/db'
 import { leadActivities, leadWhatsappLogs, leads, users } from '@/db/schema'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
+import { toMemberScope } from '@/lib/member-scope'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { requireLeadEditApi } from '@/lib/tenant-api'
 
@@ -22,7 +23,7 @@ export async function GET(
     if (!ctx.ok) return ctx.response
 
     const { id } = await params
-    const lead = await getLeadForMemberAction(id, ctx.tenant.id, ctx.role, ctx.dbUserId)
+    const lead = await getLeadForMemberAction(id, ctx.tenant.id, toMemberScope(ctx))
     if (!lead) {
       return errorResponse('Lead not found', 'NOT_FOUND', 404)
     }
@@ -58,7 +59,7 @@ export async function POST(
     if (!ctx.ok) return ctx.response
 
     const { id } = await params
-    const lead = await getLeadForMemberAction(id, ctx.tenant.id, ctx.role, ctx.dbUserId)
+    const lead = await getLeadForMemberAction(id, ctx.tenant.id, toMemberScope(ctx))
     if (!lead) {
       return errorResponse('Lead not found', 'NOT_FOUND', 404)
     }

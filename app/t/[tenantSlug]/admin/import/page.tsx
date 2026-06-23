@@ -17,6 +17,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { Badge } from '@/components/ui/badge'
+import { ImportBatchHistory } from '@/components/leads/ImportBatchHistory'
 
 type ImportState = 'idle' | 'parsing' | 'preview' | 'confirming' | 'done'
 
@@ -65,9 +66,16 @@ type ConfirmResponse = {
   agentBreakdown: Array<{ agentId: string; agentName: string; leadsAssigned: number }>
 }
 
-export default function ImportPage() {
+export default function ImportPage({
+  canDeleteBatches = true,
+  leadsListPath,
+}: {
+  canDeleteBatches?: boolean
+  leadsListPath?: string
+}) {
   const routeParams = useParams<{ tenantSlug: string }>()
   const tenantSlug = routeParams.tenantSlug
+  const leadsHref = leadsListPath ?? tenantPath(tenantSlug, '/admin/leads')
   const { toast } = useToast()
   const [state, setState] = useState<ImportState>('idle')
   const [file, setFile] = useState<File | null>(null)
@@ -418,13 +426,15 @@ export default function ImportPage() {
               Import Another File
             </Button>
             <Button asChild>
-              <Link href={tenantPath(tenantSlug, '/admin/leads')}>View Leads →</Link>
+              <Link href={leadsHref}>View Leads →</Link>
             </Button>
           </div>
         </Card>
       )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <ImportBatchHistory canDelete={canDeleteBatches} />
     </div>
   )
 }

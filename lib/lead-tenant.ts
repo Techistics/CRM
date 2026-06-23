@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 
 import { db } from '@/db'
 import { leads } from '@/db/schema'
-import type { TenantAppRole } from '@/lib/tenant-membership'
+import { hasElevatedScope, type MemberScope } from '@/lib/member-scope'
 
 export async function getLeadInTenant(leadId: string, tenantId: string) {
   const [lead] = await db
@@ -12,16 +12,15 @@ export async function getLeadInTenant(leadId: string, tenantId: string) {
   return lead ?? null
 }
 
-/** Agents may only act on leads assigned to them; tenant admins may act on any lead in the workspace. */
+/** Default PRO: assigned leads only. Custom role or admin: any lead in workspace. */
 export async function getLeadForMemberAction(
   leadId: string,
   tenantId: string,
-  role: TenantAppRole,
-  dbUserId: string,
+  scope: MemberScope,
 ) {
   const lead = await getLeadInTenant(leadId, tenantId)
   if (!lead) return null
-  if (role === 'ADMIN') return lead
-  if (lead.assignedTo === dbUserId) return lead
+  if (hasElevatedScope(scope)) return lead
+  if (lead.assignedTo === scope.dbUserId) return lead
   return null
 }

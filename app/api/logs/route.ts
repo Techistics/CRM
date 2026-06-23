@@ -5,6 +5,7 @@ import { db } from '@/db'
 import { consultantLogs, users, leads } from '@/db/schema'
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
+import { toMemberScope } from '@/lib/member-scope'
 
 const postBodySchema = z.object({
   leadId: z.string().uuid(),
@@ -34,8 +35,7 @@ export async function POST(req: Request) {
     const lead = await getLeadForMemberAction(
       leadId,
       ctx.tenant.id,
-      ctx.role,
-      ctx.dbUserId,
+      toMemberScope(ctx),
     )
     if (!lead) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 })

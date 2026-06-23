@@ -65,7 +65,13 @@ interface Agent {
   activeLeadCount: number
 }
 
-export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
+export function CreateLeadDialog({
+  tenantSlug,
+  showPaymentFields = false,
+}: {
+  tenantSlug: string
+  showPaymentFields?: boolean
+}) {
   const [open, setOpen] = useState(false)
   const [loadingAgents, setLoadingAgents] = useState(false)
   const [agents, setAgents] = useState<Agent[]>([])
@@ -369,6 +375,8 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
               )}
             />
 
+            {showPaymentFields && (
+              <>
             {/* Deal Value */}
             <FormField
               control={form.control}
@@ -416,6 +424,8 @@ export function CreateLeadDialog({ tenantSlug }: { tenantSlug: string }) {
                 </FormItem>
               )}
             />
+              </>
+            )}
 
             {/* Notes */}
             <FormField

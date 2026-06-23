@@ -4,6 +4,7 @@ import { db } from '@/db'
 import { leadActivities } from '@/db/schema'
 import { requireTenantMemberApi } from '@/lib/tenant-api'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
+import { toMemberScope } from '@/lib/member-scope'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
 const noteSchema = z.object({
@@ -36,8 +37,7 @@ export async function POST(
     const lead = await getLeadForMemberAction(
       id,
       ctx.tenant.id,
-      ctx.role,
-      ctx.dbUserId,
+      toMemberScope(ctx),
     )
     if (!lead) {
       return errorResponse('Not found or no access', 'FORBIDDEN', 403)

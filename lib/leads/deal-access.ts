@@ -1,15 +1,21 @@
+import { can, type Permission } from '@/lib/authz'
 import type { TenantAppRole } from '@/lib/tenant-membership'
 
-export function isAdminRole(role: TenantAppRole): boolean {
-  return role === 'ADMIN'
+export function canViewPayments(role: TenantAppRole, permissions: Permission[]): boolean {
+  return role === 'ADMIN' || can(permissions, 'payments.view')
 }
 
-/** Remove pricing fields from API payloads for non-admin roles. */
+export function canEditPayments(role: TenantAppRole, permissions: Permission[]): boolean {
+  return role === 'ADMIN' || can(permissions, 'payments.edit')
+}
+
+/** Remove pricing fields from API payloads when the member lacks payments.view. */
 export function stripDealFields<T extends Record<string, unknown>>(
   lead: T,
   role: TenantAppRole,
+  permissions: Permission[],
 ): T {
-  if (isAdminRole(role)) return lead
+  if (canViewPayments(role, permissions)) return lead
   const { dealValue: _dv, dealCurrency: _dc, ...rest } = lead
   return rest as T
 }
@@ -17,7 +23,8 @@ export function stripDealFields<T extends Record<string, unknown>>(
 export function stripDealFieldsFromList<T extends Record<string, unknown>>(
   leads: T[],
   role: TenantAppRole,
+  permissions: Permission[],
 ): T[] {
-  if (isAdminRole(role)) return leads
-  return leads.map((lead) => stripDealFields(lead, role))
+  if (canViewPayments(role, permissions)) return leads
+  return leads.map((lead) => stripDealFields(lead, role, permissions))
 }

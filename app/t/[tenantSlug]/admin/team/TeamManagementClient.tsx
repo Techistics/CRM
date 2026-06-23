@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { Loader2, Clock, Check, Users, Shield, UserCheck, Mail, MoreVertical } from 'lucide-react'
+import { Loader2, Clock, Check, Users, Shield, UserCheck, Mail, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import { Button } from '@/components/ui/button'
@@ -77,9 +77,11 @@ function avatarColor(seed: string) {
 export default function TeamManagementClient({
   initialMembers,
   customRoles = [],
+  isAdmin = true,
 }: {
   initialMembers: TeamMember[]
   customRoles?: { id: string; name: string }[]
+  isAdmin?: boolean
 }) {
   const router = useRouter()
   const [members, setMembers] = useState(initialMembers)
@@ -106,7 +108,7 @@ export default function TeamManagementClient({
   const [resendRole, setResendRole] = useState<TeamRole>('PRO')
 
   const [removeOpen, setRemoveOpen] = useState(false)
-  const [removeId, setRemoveId] = useState<string | null>(null)
+  const [removeMemberData, setRemoveMemberData] = useState<{ id: string; name: string; activeLeadCount: number } | null>(null)
 
   const stats = useMemo(() => {
     const admins = members.filter((m) => m.role === 'ADMIN').length
@@ -226,17 +228,17 @@ export default function TeamManagementClient({
     router.refresh()
   }
 
-  function startRemove(memberId: string) {
-    setRemoveId(memberId)
+  function startRemove(member: TeamMember) {
+    setRemoveMemberData({ id: member.id, name: member.name, activeLeadCount: member.activeLeads ?? 0 })
     setRemoveOpen(true)
   }
 
   async function removeMember() {
-    if (!removeId) return
+    if (!removeMemberData) return
 
-    setBusyId(removeId)
+    setBusyId(removeMemberData.id)
     const data = await apiCall(async () => {
-      const res = await fetch(`/api/admin/team-members/${removeId}`, {
+      const res = await fetch(`/api/admin/team-members/${removeMemberData.id}`, {
         method: 'DELETE',
       })
       return res.json()
@@ -247,9 +249,9 @@ export default function TeamManagementClient({
     setBusyId(null)
     if (!data) return
 
-    setMembers((prev) => prev.filter((m) => m.id !== removeId))
+    setMembers((prev) => prev.filter((m) => m.id !== removeMemberData.id))
     setRemoveOpen(false)
-    setRemoveId(null)
+    setRemoveMemberData(null)
     router.refresh()
   }
 
@@ -395,24 +397,30 @@ export default function TeamManagementClient({
                           {busyId === 'resend' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Resend'}
                         </Button>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={busyId === m.id}
-                          onClick={() => startEdit(m)}
-                          className="hover:border-[#0DA2E7] hover:text-[#0DA2E7]"
-                        >
-                          {busyId === m.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Edit'}
-                        </Button>
+                        <>
+                          {(!isAdmin && m.role === 'ADMIN') ? null : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={busyId === m.id}
+                              onClick={() => startEdit(m)}
+                              className="hover:border-[#0DA2E7] hover:text-[#0DA2E7]"
+                            >
+                              {busyId === m.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Edit'}
+                            </Button>
+                          )}
+                          {(!isAdmin && m.role === 'ADMIN') ? null : (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={busyId === m.id}
+                              onClick={() => startRemove(m)}
+                            >
+                              {busyId === m.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remove'}
+                            </Button>
+                          )}
+                        </>
                       )}
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        disabled={busyId === m.id}
-                        onClick={() => startRemove(m.id)}
-                      >
-                        {busyId === m.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remove'}
-                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -469,20 +477,22 @@ export default function TeamManagementClient({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="PRO">Pro</SelectItem>
-                <SelectItem value="ADMIN">Admin</SelectItem>
+                {isAdmin && <SelectItem value="ADMIN">Admin</SelectItem>}
               </SelectContent>
             </Select>
-            <Select value={inviteCustomRoleId} onValueChange={setInviteCustomRoleId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Custom role (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No custom role</SelectItem>
-                {customRoles.map(r => (
-                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {isAdmin && inviteRole === 'PRO' && (
+              <Select value={inviteCustomRoleId} onValueChange={setInviteCustomRoleId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Custom role (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No custom role</SelectItem>
+                  {customRoles.map(r => (
+                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setInviteOpen(false)}>
@@ -504,31 +514,39 @@ export default function TeamManagementClient({
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit member role</DialogTitle>
-            <DialogDescription>Update this user&apos;s workspace role.</DialogDescription>
+            <DialogTitle>{isAdmin ? 'Edit member role' : 'Edit member'}</DialogTitle>
+            <DialogDescription>
+              {isAdmin ? "Update this user's workspace role." : 'Update this counselor\'s email address.'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Input type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
-            <Select value={editRole} onValueChange={(v) => setEditRole(v as TeamRole)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="PRO">Pro</SelectItem>
-                <SelectItem value="ADMIN">Admin</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={editCustomRoleId} onValueChange={setEditCustomRoleId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Custom role (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No custom role</SelectItem>
-                {customRoles.map(r => (
-                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {isAdmin && (
+              <>
+                <Select value={editRole} onValueChange={(v) => setEditRole(v as TeamRole)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PRO">Pro</SelectItem>
+                    <SelectItem value="ADMIN">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+                {editRole === 'PRO' && (
+                  <Select value={editCustomRoleId} onValueChange={setEditCustomRoleId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Custom role (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No custom role</SelectItem>
+                      {customRoles.map(r => (
+                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
@@ -561,7 +579,7 @@ export default function TeamManagementClient({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="PRO">Pro</SelectItem>
-              <SelectItem value="ADMIN">Admin</SelectItem>
+              {isAdmin && <SelectItem value="ADMIN">Admin</SelectItem>}
             </SelectContent>
           </Select>
           <DialogFooter>
@@ -584,9 +602,25 @@ export default function TeamManagementClient({
       <AlertDialog open={removeOpen} onOpenChange={setRemoveOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove member?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will remove the member from the workspace. This action cannot be undone.
+            <AlertDialogTitle>Remove {removeMemberData?.name ?? 'member'}?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>This will remove the member from the workspace. This action cannot be undone.</p>
+                {(removeMemberData?.activeLeadCount ?? 0) > 0 && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-500" />
+                    <span>
+                      This member has <strong>{removeMemberData?.activeLeadCount} active lead{(removeMemberData?.activeLeadCount ?? 0) > 1 ? 's' : ''}</strong> that will become unassigned.
+                      You can <a
+                        href={`/t/${tenantSlug}/admin/leads?assignedTo=unassigned`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline font-medium"
+                      >view unassigned leads</a> after removal to reassign them.
+                    </span>
+                  </div>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -40,7 +40,7 @@ type DrilldownPayload = {
   activityGraph: Array<{ date: string; count: number }>;
 };
 
-export default function ProAnalyticsClient() {
+export default function ProAnalyticsClient({ viewAll = false }: { viewAll?: boolean }) {
   const { tenantSlug } = useParams() as { tenantSlug: string };
 
   const todayStr = new Date().toISOString().split("T")[0];
@@ -48,6 +48,8 @@ export default function ProAnalyticsClient() {
   const [to, setTo] = useState(todayStr);
 
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [allSummaries, setAllSummaries] = useState<Summary[]>([]);
+  const [selectedCounselorId, setSelectedCounselorId] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
 
   const [drilldown, setDrilldown] = useState<DrilldownPayload | null>(null);
@@ -59,7 +61,17 @@ export default function ProAnalyticsClient() {
       const res = await fetch(`/api/analytics/summary?from=${from}&to=${to}`);
       if (!res.ok) throw new Error("Failed to fetch summary");
       const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) setSummary(data[0]);
+      if (Array.isArray(data) && data.length > 0) {
+        if (viewAll) {
+          setAllSummaries(data);
+          const activeId = selectedCounselorId ?? data[0].userId;
+          setSelectedCounselorId(activeId);
+          setSummary(data.find((row: Summary) => row.userId === activeId) ?? data[0]);
+        } else {
+          setSummary(data[0]);
+          setAllSummaries([]);
+        }
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -70,7 +82,9 @@ export default function ProAnalyticsClient() {
   const fetchDrilldown = async () => {
     setDrilldownLoading(true);
     try {
-      const res = await fetch(`/api/analytics/drilldown?from=${from}&to=${to}`);
+      const counselorQuery =
+        viewAll && selectedCounselorId ? `&counselorId=${selectedCounselorId}` : "";
+      const res = await fetch(`/api/analytics/drilldown?from=${from}&to=${to}${counselorQuery}`);
       if (!res.ok) throw new Error("Failed to fetch drilldown");
       const data = await res.json();
       if (data && !data.error) setDrilldown(data);
@@ -84,9 +98,14 @@ export default function ProAnalyticsClient() {
   useEffect(() => {
     if (tenantSlug) {
       fetchSummary();
+    }
+  }, [tenantSlug, from, to, viewAll]);
+
+  useEffect(() => {
+    if (tenantSlug) {
       fetchDrilldown();
     }
-  }, [tenantSlug, from, to]);
+  }, [tenantSlug, from, to, viewAll, selectedCounselorId]);
 
   const chartPoints = useMemo(() => {
     if (!drilldown?.activityGraph?.length) return [];
@@ -108,7 +127,9 @@ export default function ProAnalyticsClient() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-[var(--card-border-color)] pb-6">
         <div>
           <h1 className="text-[28px] font-bold tracking-tight text-[var(--text-strong)]">Counselor Analytics</h1>
-          <p className="text-xs text-[var(--muted-text)] mt-1">Your personal performance dashboard.</p>
+          <p className="text-xs text-[var(--muted-text)] mt-1">
+            {viewAll ? 'Team performance across all counselors.' : 'Your personal performance dashboard.'}
+          </p>
         </div>
         <div className="flex items-center gap-3 bg-[var(--card-bg)] border-[0.5px] border-[var(--card-border-color)] rounded-[12px] p-3 shadow-crm-sm">
           <div className="flex items-center gap-2 text-xs text-[var(--muted-text)]">
@@ -130,6 +151,56 @@ export default function ProAnalyticsClient() {
           />
         </div>
       </div>
+
+      {viewAll && allSummaries.length > 0 && (
+        <Card className="border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] shadow-crm-sm rounded-[12px] overflow-hidden">
+          <CardHeader className="border-b border-[var(--card-border-color)] pb-3">
+            <CardTitle className="text-sm font-semibold text-[var(--text-strong)]">All Counselors</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--card-border-color)] text-left text-xs text-[var(--muted-text)]">
+                    <th className="px-4 py-3 font-medium">Counselor</th>
+                    <th className="px-4 py-3 font-medium text-center">Total</th>
+                    <th className="px-4 py-3 font-medium text-center">Active</th>
+                    <th className="px-4 py-3 font-medium text-center">Cold</th>
+                    <th className="px-4 py-3 font-medium text-center">Dead</th>
+                    <th className="px-4 py-3 font-medium text-center">Hours Today</th>
+                    <th className="px-4 py-3 font-medium text-center">Edits Today</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allSummaries.map((row) => (
+                    <tr
+                      key={row.userId}
+                      className={`border-b border-[var(--card-border-color)] cursor-pointer hover:bg-[var(--main-bg)] ${
+                        selectedCounselorId === row.userId ? 'bg-indigo-500/5' : ''
+                      }`}
+                      onClick={() => {
+                        setSelectedCounselorId(row.userId);
+                        setSummary(row);
+                      }}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-[var(--text-strong)]">{row.name}</div>
+                        <div className="text-xs text-[var(--muted-text)]">{row.email}</div>
+                      </td>
+                      <td className="px-4 py-3 text-center">{row.totalLeads}</td>
+                      <td className="px-4 py-3 text-center">{row.activeLeads}</td>
+                      <td className="px-4 py-3 text-center">{row.coldLeads}</td>
+                      <td className="px-4 py-3 text-center">{row.deadLeads}</td>
+                      <td className="px-4 py-3 text-center">{row.todayHours}h</td>
+                      <td className="px-4 py-3 text-center">{row.todayEdits}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary cards row */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -232,7 +303,7 @@ export default function ProAnalyticsClient() {
                       className="flex justify-between items-center bg-[var(--card-bg)] p-2.5 rounded-[6px] border-[0.5px] border-[var(--card-border-color)] hover:opacity-80 transition-opacity"
                     >
                       <Link
-                        href={`/t/${tenantSlug}/admin/leads/${l.id}`}
+                        href={`/t/${tenantSlug}/pro/leads/${l.id}`}
                         className="text-xs text-indigo-500 hover:underline font-medium"
                       >
                         {l.fullName}

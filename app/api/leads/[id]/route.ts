@@ -13,10 +13,11 @@ tenantMembers,
 notifications,
 } from '@/db/schema'
 import { getLeadForMemberAction, getLeadInTenant } from '@/lib/lead-tenant'
+import { toMemberScope } from '@/lib/member-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
 import { leadPatchBodySchema } from '@/lib/validators/lead'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
-import { stripDealFields } from '@/lib/leads/deal-access'
+import { canEditPayments, stripDealFields } from '@/lib/leads/deal-access'
 
 export async function GET(
 _req: NextRequest,
@@ -30,14 +31,13 @@ return withApiErrorHandling(async () => {
   const lead = await getLeadForMemberAction(
     id,
     ctx.tenant.id,
-    ctx.role,
-    ctx.dbUserId,
+    toMemberScope(ctx),
   )
   if (!lead) {
     return errorResponse('Lead not found', 'NOT_FOUND', 404)
   }
 
-  return successResponse({ lead: stripDealFields(lead, ctx.role) })
+  return successResponse({ lead: stripDealFields(lead, ctx.role, ctx.permissions) })
 })
 }
 
@@ -53,8 +53,7 @@ return withApiErrorHandling(async () => {
   const lead = await getLeadForMemberAction(
     id,
     ctx.tenant.id,
-    ctx.role,
-    ctx.dbUserId,
+    toMemberScope(ctx),
   )
   if (!lead) {
     return errorResponse('Lead not found', 'NOT_FOUND', 404)
@@ -73,6 +72,13 @@ return withApiErrorHandling(async () => {
   }
 
   const patch = parsed.data
+
+  if (
+    (patch.dealValue !== undefined || patch.dealCurrency !== undefined) &&
+    !canEditPayments(ctx.role, ctx.permissions)
+  ) {
+    return errorResponse('You do not have permission to edit payments', 'FORBIDDEN', 403)
+  }
 
   function strOrNull(v: unknown): string | null {
     if (v == null) return null
@@ -237,7 +243,7 @@ return withApiErrorHandling(async () => {
   if (!ctx.ok) return ctx.response
 
   const { id } = await params
-  const lead = await getLeadForMemberAction(id, ctx.tenant.id, ctx.role, ctx.dbUserId)
+  const lead = await getLeadForMemberAction(id, ctx.tenant.id, toMemberScope(ctx))
   if (!lead) {
     return errorResponse('Lead not found', 'NOT_FOUND', 404)
   }

@@ -4,9 +4,11 @@ import { db } from '@/db'
 import { leads, users } from '@/db/schema'
 import KanbanBoard from '@/components/KanbanBoard'
 import { requirePermissionSession } from '@/lib/tenant-server'
+import { leadsVisibleWhere } from '@/lib/leads-scope'
+import { toMemberScope } from '@/lib/member-scope'
 
 export default async function ProKanbanPage() {
-  const { tenant, dbUserId } = await requirePermissionSession('kanban.view')
+  const ctx = await requirePermissionSession('kanban.view')
 
   const myLeads = await db
     .select({
@@ -22,9 +24,7 @@ export default async function ProKanbanPage() {
     })
     .from(leads)
     .leftJoin(users, eq(leads.assignedTo, users.id))
-    .where(
-      and(eq(leads.tenantId, tenant.id), eq(leads.assignedTo, dbUserId)),
-    )
+    .where(leadsVisibleWhere(ctx.tenant.id, toMemberScope(ctx)))
 
   return (
     <KanbanBoard

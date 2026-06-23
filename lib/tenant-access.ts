@@ -7,7 +7,12 @@ import { getSession } from '@/lib/auth'
 export async function resolveTenantAccess(
   userId: string,
   tenant: Tenant,
-): Promise<{ dbUserId: string; role: TenantAppRole; permissions: Permission[] } | null> {
+): Promise<{
+  dbUserId: string
+  role: TenantAppRole
+  permissions: Permission[]
+  customRoleId: string | null
+} | null> {
   // ── Suspended workspace guard ────────────────────────────────────────────────
   // Compute SA bypass first (cheap session read, no extra DB query yet).
   if (tenant.status === 'suspended') {
@@ -28,6 +33,7 @@ export async function resolveTenantAccess(
       dbUserId: userId,
       role: result.role,
       permissions: result.permissions,
+      customRoleId: result.customRoleId,
     }
   }
 
@@ -38,6 +44,7 @@ export async function resolveTenantAccess(
         dbUserId: userId,
         role: 'ADMIN',
         permissions: [...ALL_PERMISSIONS],
+        customRoleId: null,
       }
     }
   }

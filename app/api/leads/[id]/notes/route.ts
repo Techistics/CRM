@@ -5,6 +5,7 @@ import { db } from '@/db'
 import { leadActivities, leads } from '@/db/schema'
 import { requireLeadEditApi } from '@/lib/tenant-api'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
+import { toMemberScope } from '@/lib/member-scope'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
 const noteSchema = z.object({
@@ -34,7 +35,7 @@ export async function POST(
       return errorResponse(parsed.error.issues[0].message, 'VALIDATION_ERROR', 400)
     }
 
-    const lead = await getLeadForMemberAction(id, ctx.tenant.id, ctx.role, ctx.dbUserId)
+    const lead = await getLeadForMemberAction(id, ctx.tenant.id, toMemberScope(ctx))
     if (!lead) {
       return errorResponse('Lead not found or no access', 'NOT_FOUND', 404)
     }

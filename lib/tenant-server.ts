@@ -15,6 +15,7 @@ export type TenantSessionContext = {
   dbUserId: string
   role: TenantAppRole
   permissions: Permission[]
+  customRoleId: string | null
   user: {
     name: string
     email: string
@@ -75,6 +76,7 @@ export async function requireTenantSession(): Promise<TenantSessionContext> {
     dbUserId: actor.dbUserId, 
     role: actor.role,
     permissions: actor.permissions ?? [],
+    customRoleId: actor.customRoleId,
     user: userRow ?? { name: 'Unknown', email: 'unknown@example.com' }
   }
 }

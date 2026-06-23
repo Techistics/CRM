@@ -6,6 +6,8 @@ import { db } from '@/db'
 import { leadTagAssignments, leadTags, leads, users } from '@/db/schema'
 import { errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { leadsVisibleWhere } from '@/lib/leads-scope'
+import { toMemberScope } from '@/lib/member-scope'
+import { canViewPayments } from '@/lib/leads/deal-access'
 import { requirePermissionApi } from '@/lib/tenant-api'
 
 const bodySchema = z.object({
@@ -49,7 +51,7 @@ export async function POST(req: NextRequest) {
       .leftJoin(users, eq(users.id, leads.assignedTo))
       .where(
         and(
-          leadsVisibleWhere(ctx.tenant.id, ctx.role, ctx.dbUserId),
+          leadsVisibleWhere(ctx.tenant.id, toMemberScope(ctx)),
           inArray(leads.id, parsed.data.leadIds),
         ),
       )
@@ -69,6 +71,8 @@ export async function POST(req: NextRequest) {
       tagsByLead.set(item.leadId, list)
     })
 
+    const includePayments = canViewPayments(ctx.role, ctx.permissions)
+
     const header = [
       'Name',
       'Email',
@@ -78,8 +82,7 @@ export async function POST(req: NextRequest) {
       'Stage',
       'Source',
       'Assigned To',
-      'Deal Value',
-      'Currency',
+      ...(includePayments ? ['Deal Value', 'Currency'] : []),
       'Tags',
       'Created At',
     ]
@@ -94,8 +97,7 @@ export async function POST(req: NextRequest) {
         row.stage,
         row.source,
         row.assigneeName ?? 'Unassigned',
-        row.dealValue,
-        row.dealCurrency,
+        ...(includePayments ? [row.dealValue, row.dealCurrency] : []),
         (tagsByLead.get(row.id) ?? []).join('; '),
         row.createdAt?.toISOString() ?? '',
       ].map((value) => `"${sanitizeCsvCell(value)}"`)

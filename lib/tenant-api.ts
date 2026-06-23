@@ -16,6 +16,7 @@ export type TenantMemberContext = {
   dbUserId: string
   role: TenantAppRole
   permissions: Permission[]
+  customRoleId: string | null
 }
 
 export async function requireTenantFromApiHeaders(): Promise<
@@ -86,6 +87,7 @@ export async function requireTenantMemberApi(): Promise<
     dbUserId: actor.dbUserId,
     role: actor.role,
     permissions: actor.permissions,
+    customRoleId: actor.customRoleId,
   }
 }
 

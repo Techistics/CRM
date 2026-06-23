@@ -4,6 +4,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { leadActivities, leadUploadedDocuments, users } from '@/db/schema'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
+import { toMemberScope } from '@/lib/member-scope'
 import { requireLeadEditApi, requireLeadViewApi } from '@/lib/tenant-api'
 import { uploadFile } from '@/lib/storage'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
@@ -24,8 +25,7 @@ export async function GET(
     const lead = await getLeadForMemberAction(
       id,
       ctx.tenant.id,
-      ctx.role,
-      ctx.dbUserId,
+      toMemberScope(ctx),
     )
     if (!lead) {
       return errorResponse('Lead not found', 'NOT_FOUND', 404)
@@ -71,8 +71,7 @@ export async function POST(
     const lead = await getLeadForMemberAction(
       id,
       ctx.tenant.id,
-      ctx.role,
-      ctx.dbUserId,
+      toMemberScope(ctx),
     )
     if (!lead) {
       return errorResponse('Lead not found', 'NOT_FOUND', 404)

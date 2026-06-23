@@ -23,7 +23,9 @@ export function initFetchInterceptor() {
               ? body.error
               : null
         const msg = bodyMessage ?? `Request failed: ${res.status}`
-        throw new Error(msg)
+        const error = new Error(msg) as Error & { status?: number }
+        error.status = res.status
+        throw error
       }
       return res
     } catch (err) {

@@ -43,6 +43,13 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('File size exceeds the 2MB limit. Please choose a smaller image.')
+      e.target.value = ''
+      return
+    }
+
     const reader = new FileReader()
     reader.onload = () => {
       setImgSrc(reader.result as string)
@@ -99,8 +106,19 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
           method: 'POST',
           body: formData,
         })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Upload failed')
+        
+        let data: any = {}
+        try {
+          data = await res.json()
+        } catch {
+          // If server returns 500 HTML instead of JSON
+        }
+
+        if (!res.ok) {
+          if (res.status === 413) throw new Error('File is too large to upload (Max 2MB).')
+          throw new Error(data.error || 'Upload failed. The image might be too large or in an unsupported format.')
+        }
+
         setLogoUrl(data.url)
         await fetch('/api/admin/workspace', {
           method: 'PATCH',

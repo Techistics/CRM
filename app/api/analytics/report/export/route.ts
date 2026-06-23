@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { leads, leadActivities } from '@/db/schema'
 import { eq, and, gte, lte } from 'drizzle-orm'
-import { requireTenantSession } from '@/lib/tenant-server'
+import { requirePermissionSession } from '@/lib/tenant-server'
+import { canViewAllAnalytics, toMemberScope } from '@/lib/member-scope'
 
-function escapeCsv(val: any): string {
+function escapeCsv(val: unknown): string {
   if (val === null || val === undefined) return ''
   const str = String(val)
   if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
@@ -15,18 +16,15 @@ function escapeCsv(val: any): string {
 
 export async function GET(request: Request) {
   try {
-    const { tenant, role } = await requireTenantSession()
+    const ctx = await requirePermissionSession('analytics.view')
+    const viewAll = canViewAllAnalytics(toMemberScope(ctx))
 
-    // 1. Role Check
-    if (role === 'PRO') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    // 2. Extract query parameters
     const { searchParams } = new URL(request.url)
-    const counselorId = searchParams.get('counselorId')
+    const counselorIdParam = searchParams.get('counselorId')
     const fromParam = searchParams.get('from')
     const toParam = searchParams.get('to')
+
+    const counselorId = viewAll ? counselorIdParam : ctx.dbUserId
 
     let startDate: Date | null = null
     let endDate: Date | null = null
@@ -46,10 +44,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // 3. Build query conditions
-    const activityConditions = [
-      eq(leadActivities.tenantId, tenant.id)
-    ]
+    const activityConditions = [eq(leadActivities.tenantId, ctx.tenant.id)]
     if (counselorId) {
       activityConditions.push(eq(leadActivities.userId, counselorId))
     }
@@ -60,7 +55,6 @@ export async function GET(request: Request) {
       activityConditions.push(lte(leadActivities.createdAt, endDate))
     }
 
-    // Query leads records touched by counselor in range
     const results = await db
       .select({
         leadId: leads.id,
@@ -72,38 +66,33 @@ export async function GET(request: Request) {
       .from(leads)
       .innerJoin(
         leadActivities,
-        and(
-          eq(leads.id, leadActivities.leadId),
-          ...activityConditions
-        )
+        and(eq(leads.id, leadActivities.leadId), ...activityConditions),
       )
-      .where(eq(leads.tenantId, tenant.id))
+      .where(eq(leads.tenantId, ctx.tenant.id))
       .orderBy(leadActivities.createdAt)
 
-    // Assemble CSV
     const csvRows = ['ID,Name,Email,Stage,Date Touched']
     for (const r of results) {
-      const id = escapeCsv(r.leadId)
-      const name = escapeCsv(r.leadName)
-      const email = escapeCsv(r.leadEmail)
-      const stage = escapeCsv(r.stage)
-      const dateTouched = escapeCsv(r.dateTouched ? r.dateTouched.toISOString() : '')
-      csvRows.push(`${id},${name},${email},${stage},${dateTouched}`)
+      csvRows.push(
+        [
+          escapeCsv(r.leadId),
+          escapeCsv(r.leadName),
+          escapeCsv(r.leadEmail),
+          escapeCsv(r.stage),
+          escapeCsv(r.dateTouched ? r.dateTouched.toISOString() : ''),
+        ].join(','),
+      )
     }
 
-    const csvContent = csvRows.join('\n')
-
-    return new NextResponse(csvContent, {
+    return new NextResponse(csvRows.join('\n'), {
       status: 200,
       headers: {
         'Content-Type': 'text/csv',
         'Content-Disposition': 'attachment; filename=counselor_report.csv',
       },
     })
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'Failed to export report' },
-      { status: 500 }
-    )
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to export report'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

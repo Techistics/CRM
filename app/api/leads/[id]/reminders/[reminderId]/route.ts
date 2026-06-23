@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { db } from '@/db'
 import { leadActivities, leadReminders } from '@/db/schema'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
+import { toMemberScope } from '@/lib/member-scope'
 import { requireLeadEditApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
@@ -25,8 +26,7 @@ export async function PATCH(
     const lead = await getLeadForMemberAction(
       id,
       ctx.tenant.id,
-      ctx.role,
-      ctx.dbUserId,
+      toMemberScope(ctx),
     )
     if (!lead) {
       return errorResponse('Lead not found', 'NOT_FOUND', 404)

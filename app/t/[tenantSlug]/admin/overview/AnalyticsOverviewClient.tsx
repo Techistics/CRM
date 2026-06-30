@@ -180,7 +180,7 @@ export default function AnalyticsOverviewClient({
     wonRevenue: { value: string; positive: boolean }
     unassigned: { value: string; positive: boolean }
   }
-  dateRange: { from: Date | null; to: Date | null }
+  dateRange: { from: Date | string | null; to: Date | string | null }
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -188,6 +188,11 @@ export default function AnalyticsOverviewClient({
   const params = useParams()
   const tenantSlug = String(params?.tenantSlug ?? '')
   const isDark = useIsDark()
+
+  const safeDateRange = useMemo(() => ({
+    from: dateRange.from ? new Date(dateRange.from) : null,
+    to: dateRange.to ? new Date(dateRange.to) : null
+  }), [dateRange.from, dateRange.to])
 
   const [exportingPipeline, setExportingPipeline] = useState(false)
   const [exportingAgent, setExportingAgent] = useState(false)
@@ -205,8 +210,8 @@ export default function AnalyticsOverviewClient({
 
     try {
       const q = new URLSearchParams()
-      if (dateRange.from) q.set('from', dateRange.from.toISOString().split('T')[0])
-      if (dateRange.to) q.set('to', dateRange.to.toISOString().split('T')[0])
+      if (safeDateRange.from) q.set('from', safeDateRange.from.toISOString().split('T')[0])
+      if (safeDateRange.to) q.set('to', safeDateRange.to.toISOString().split('T')[0])
       q.set('tenantSlug', tenantSlug)
 
       const url = `/api/reports/${type}-export?${q.toString()}`
@@ -380,7 +385,7 @@ export default function AnalyticsOverviewClient({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <DateRangePicker value={dateRange} onChange={handleRangeChange} />
+          <DateRangePicker value={safeDateRange} onChange={handleRangeChange} />
         </div>
       </div>
 
@@ -683,7 +688,7 @@ export default function AnalyticsOverviewClient({
                       : <span className="text-sm text-slate-400 dark:text-slate-500">0</span>}
                   </TableCell>
                   <TableCell className="px-4 py-3 text-center text-sm text-slate-700 dark:text-slate-300">{(agent.conversion_rate ?? 0)}%</TableCell>
-                  <TableCell className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{agent.last_activity ? `${formatDistanceToNow(new Date(agent.last_activity))} ago` : 'Never'}</TableCell>
+                  <TableCell suppressHydrationWarning className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">{agent.last_activity ? `${formatDistanceToNow(new Date(agent.last_activity))} ago` : 'Never'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
+  BarController,
+  LineController,
   BarElement,
   CategoryScale,
   Chart as ChartJS,
@@ -35,6 +37,8 @@ import type { AgentStat, ChartWindow, PipelineChartSnapshot } from '@/types/anal
 import { DateRangePicker } from '@/components/analytics/DateRangePicker'
 
 ChartJS.register(
+  BarController,
+  LineController,
   CategoryScale,
   LinearScale,
   PointElement,

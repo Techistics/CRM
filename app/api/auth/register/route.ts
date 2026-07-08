@@ -101,6 +101,12 @@ export async function POST(req: NextRequest) {
     tenantPassword: hashedPassword,
   })
           await tx.update(invitations).set({ status: 'ACCEPTED' }).where(eq(invitations.id, invite.id))
+          await tx.delete(invitations)
+            .where(and(
+              eq(invitations.tenantId, invite.tenantId),
+              sql`lower(${invitations.email}) = lower(${invite.email})`,
+              eq(invitations.status, 'PENDING')
+            ))
           await tx.insert(auditLogs).values({
             actorUserId: u.id,
             targetUserEmail: email,

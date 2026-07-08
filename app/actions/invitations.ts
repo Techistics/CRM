@@ -1,6 +1,6 @@
 'use server'
 
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { invitations, tenantMembers, tenants } from '@/db/schema'
 import { getSession } from '@/lib/auth'
@@ -45,6 +45,13 @@ export async function acceptInviteAction(invitationId: string) {
     await tx.update(invitations)
       .set({ status: 'ACCEPTED' })
       .where(eq(invitations.id, invite.id))
+
+    await tx.delete(invitations)
+      .where(and(
+        eq(invitations.tenantId, invite.tenantId),
+        sql`lower(${invitations.email}) = lower(${invite.email})`,
+        eq(invitations.status, 'PENDING')
+      ))
   })
 
   // 5. Fetch tenant slug for redirect

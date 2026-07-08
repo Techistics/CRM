@@ -7,7 +7,7 @@ import { db } from '@/db'
 import { invitations } from '@/db/schema'
 import { sendInviteEmail } from '@/lib/mail'
 import { getRootOrigin } from '@/lib/public-url'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 
 type InviteRole = 'ADMIN' | 'PRO'
 
@@ -121,6 +121,12 @@ export async function acceptInvitationForUser(invitationId: string) {
     await tx.update(invitations)
       .set({ status: 'ACCEPTED' })
       .where(eq(invitations.id, invite.id))
+    await tx.delete(invitations)
+      .where(and(
+        eq(invitations.tenantId, invite.tenantId),
+        sql`lower(${invitations.email}) = lower(${invite.email})`,
+        eq(invitations.status, 'PENDING')
+      ))
   })
 
   const [tenant] = await db.select({ slug: tenants.slug }).from(tenants).where(eq(tenants.id, invite.tenantId)).limit(1)

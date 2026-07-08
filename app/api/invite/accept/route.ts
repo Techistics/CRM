@@ -193,6 +193,13 @@ async function acceptExistingUser(req: NextRequest, token: string) {
       return { ok: false as const }
     }
 
+    await tx.delete(invitations)
+      .where(and(
+        eq(invitations.tenantId, invite.tenantId),
+        sql`lower(${invitations.email}) = lower(${invite.email})`,
+        eq(invitations.status, 'PENDING')
+      ))
+
     const [existingUser] = await tx
       .select()
       .from(users)
@@ -281,6 +288,13 @@ async function acceptNewUser(
     if (!accepted) {
       return { ok: false as const }
     }
+
+    await tx.delete(invitations)
+      .where(and(
+        eq(invitations.tenantId, invite.tenantId),
+        sql`lower(${invitations.email}) = lower(${invite.email})`,
+        eq(invitations.status, 'PENDING')
+      ))
 
     const existingUsers = await tx
       .select()

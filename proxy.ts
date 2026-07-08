@@ -20,6 +20,7 @@ const PUBLIC_ROUTES = [
   '/accept-invite',
   '/platform/sign-in',
   '/platform',
+  '/api/dev',
 ]
 
 

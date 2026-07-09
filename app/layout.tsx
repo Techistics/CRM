@@ -6,6 +6,12 @@ import { SpeedInsights } from "@vercel/speed-insights/next"
 import { AuthToastWrapper } from '@/components/auth-toast-wrapper'
 import { FetchInterceptor } from '@/components/FetchInterceptor'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Consulty',
+}
+
 
 const dmSans = DM_Sans({
   subsets: ['latin'],

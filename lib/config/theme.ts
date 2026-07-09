@@ -1,6 +1,6 @@
 export const crmConfig = {
   brand: {
-    name: 'CRM Pro',
+    name: 'CRM',
     logo: '/logo.svg',
   },
   colors: {

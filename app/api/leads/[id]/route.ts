@@ -73,10 +73,14 @@ return withApiErrorHandling(async () => {
 
   const patch = parsed.data
 
-  if (
-    (patch.dealValue !== undefined || patch.dealCurrency !== undefined) &&
-    !canEditPayments(ctx.role, ctx.permissions)
-  ) {
+  const dealValueChanged =
+    patch.dealValue !== undefined &&
+    (patch.dealValue?.toString() ?? null) !== (lead.dealValue ?? null)
+  const dealCurrencyChanged =
+    patch.dealCurrency !== undefined &&
+    patch.dealCurrency !== lead.dealCurrency
+
+  if ((dealValueChanged || dealCurrencyChanged) && !canEditPayments(ctx.role, ctx.permissions)) {
     return errorResponse('You do not have permission to edit payments', 'FORBIDDEN', 403)
   }
 

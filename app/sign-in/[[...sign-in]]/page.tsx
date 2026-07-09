@@ -246,11 +246,11 @@ function SignInForm() {
             <select
               value={selected}
               onChange={(e) => setSelected(e.target.value)}
-              className="w-full h-11 px-3 border border-slate-200 rounded-lg text-sm focus:border-[#069BAF] focus:outline-none"
+              className="w-full h-11 px-3 border border-slate-200 rounded-lg text-sm bg-white text-slate-900 focus:border-[#069BAF] focus:outline-none"
             >
-              <option value="" className='text-[#069BAF]' disabled>Select workspace</option>
+              <option value="" className="text-[#069BAF] bg-white text-slate-900" disabled>Select workspace</option>
               {workspaces.map((ws) => (
-                <option key={ws.tenantId} value={ws.tenantId}>
+                <option key={ws.tenantId} value={ws.tenantId} className="bg-white text-slate-900">
                   {ws.name} ({ws.role})
                 </option>
               ))}

@@ -20,7 +20,7 @@ export const leadCreateBodySchema = z.object({
   source: z.string().trim().max(120).optional().nullable(),
   assignedTo: z.string().uuid().optional().nullable(),
   dealValue: z.coerce.number().positive().optional().nullable(),
-  dealCurrency: z.enum(['USD', 'GBP', 'EUR', 'PKR', 'AED', 'CAD', 'AUD']).default('USD'),
+  dealCurrency: z.enum(['USD', 'GBP', 'EUR', 'PKR', 'AED', 'CAD', 'AUD']).optional().nullable(),
   force: z.boolean().optional(),
   notes: z.string().optional(),
 }).strict()

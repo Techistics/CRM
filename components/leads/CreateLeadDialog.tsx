@@ -135,10 +135,15 @@ export function CreateLeadDialog({
   async function onSubmit(values: FormValues, force = false) {
     setIsSubmitting(true)
     const result = await apiCall(async () => {
+      let payload: Record<string, any> = { ...values, force }
+      if (!showPaymentFields) {
+        const { dealValue, dealCurrency, ...rest } = payload
+        payload = rest
+      }
       const res = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...values, force }),
+        body: JSON.stringify(payload),
       })
 
       if (res.status === 409) {

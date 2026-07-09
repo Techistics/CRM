@@ -293,7 +293,7 @@ export async function POST(req: NextRequest) {
             ? data.dealValue?.toString() ?? null
             : null,
           dealCurrency: canEditPayments(ctx.role, ctx.permissions)
-            ? data.dealCurrency
+            ? data.dealCurrency ?? 'USD'
             : 'USD',
           // NEW – intake & destination fields
           intakeMonth: data.intakeMonth?.trim() || null,

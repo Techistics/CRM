@@ -419,7 +419,7 @@ const [savingSubStatus, setSavingSubStatus] = useState(false)
 
         {/* ==== Documents ==== */}
         <TabsContent value="documents" className="outline-none">
-          <div className="min-h-[400px] overflow-hidden rounded-2xl bg-gray-900 p-4 shadow-2xl sm:rounded-3xl sm:p-6 lg:p-8 lg:min-h-[600px]">
+          <div className="min-h-[400px] overflow-hidden rounded-2xl bg-white dark:bg-gray-900 border border-slate-200 dark:border-slate-700 p-4 shadow-sm sm:rounded-3xl sm:p-6 lg:p-8 lg:min-h-[600px]">
             <LeadDocumentsPanel leadId={lead.id} />
           </div>
         </TabsContent>
@@ -556,16 +556,19 @@ const [savingSubStatus, setSavingSubStatus] = useState(false)
                   {editingLead ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Lead Profile'}
                 </button>
               </div>
+            </div>
 
-              {/* NEW – Assigned To UI */}
+            {/* Right Column: Save Logs + Assigned To + Mark as Dead */}
+            <div className="md:col-span-1 space-y-6">
+              {/* Assigned To */}
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Assigned To</h2>
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col gap-2">
                   <select
                     value={selectedAssignee}
                     disabled={isDeadState || savingAssignee}
                     onChange={(e) => setSelectedAssignee(e.target.value)}
-                    className="flex-1 h-9 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
                   >
                     <option value="">Unassigned</option>
                     {assignableUsers.map((u) => (
@@ -575,15 +578,16 @@ const [savingSubStatus, setSavingSubStatus] = useState(false)
                   <button
                     onClick={handleSaveAssign}
                     disabled={selectedAssignee === assignedTo || isDeadState || savingAssignee}
-                    className="h-9 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center min-w-[80px]"
+                    className="w-full h-9 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center"
                   >
                     {savingAssignee ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
                   </button>
                 </div>
               </div>
 
-              {/* NEW – Mark as Dead UI */}
+              {/* Mark as Dead */}
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Mark as Dead</h2>
                 <label className="flex items-center gap-2 text-sm text-slate-900 dark:text-slate-100">
                   <input
                     type="checkbox"
@@ -596,7 +600,7 @@ const [savingSubStatus, setSavingSubStatus] = useState(false)
                     }}
                     className="h-4 w-4 rounded border-gray-300 bg-white text-blue-600 focus:ring-blue-500"
                   />
-                  Mark Lead as Dead
+                  Mark Lead as Dead
                 </label>
                 {isDead && !isDeadState && (
                   <textarea
@@ -616,24 +620,26 @@ const [savingSubStatus, setSavingSubStatus] = useState(false)
                   <button
                     onClick={handleMarkDead}
                     disabled={savingDead || (isDead && !isDeadState && !deadReason.trim())}
-                    className="mt-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white px-4 py-2 rounded"
+                    className="mt-3 w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center justify-center"
                   >
-                    {savingDead ? <Loader2 className="h-4 w-4 animate-spin" /> : isDeadState ? 'Re‑open' : 'Save'}
+                    {savingDead ? <Loader2 className="h-4 w-4 animate-spin" /> : isDeadState ? 'Re‑open Lead' : 'Confirm Dead'}
                   </button>
                 )}
-                {canDelete && (
+              </div>
+
+              {/* Delete Lead */}
+              {canDelete && (
+                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
+                  <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Delete Lead</h2>
                   <LeadDeleteButton
                     leadId={lead.id}
                     leadName={lead.fullName}
                     redirectPath={tenantPath(tenantSlug, '/pro/leads')}
                     disabled={isDeadState}
                   />
-                )}
-              </div>
-            </div>
+                </div>
+              )}
 
-            {/* Right Column: Save Logs */}
-            <div className="md:col-span-1 space-y-6">
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
                   <span className="w-6 h-6 rounded-md bg-sky-50 dark:bg-sky-500/10 text-sky-600 flex items-center justify-center">
@@ -855,7 +861,7 @@ const [savingSubStatus, setSavingSubStatus] = useState(false)
         {/* ==== Reminders ==== */}
         <TabsContent value="reminders" className="outline-none">
           <div className={isDeadState ? 'pointer-events-none opacity-50' : ''}>
-            <LeadReminders leadId={lead.id} />
+            <LeadReminders leadId={lead.id} variant="light" />
           </div>
         </TabsContent>
 

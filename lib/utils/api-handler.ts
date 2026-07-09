@@ -17,6 +17,16 @@ export function getErrorMessage(err: unknown, fallback = 'Something went wrong')
 
   if (err instanceof Error) {
     const status = (err as { status?: number }).status
+    const message = err.message
+    const isGeneric =
+      !message ||
+      message === 'Unauthorized' ||
+      message === 'Forbidden' ||
+      message === 'Not Found' ||
+      message.startsWith('Request failed:')
+
+    if (!isGeneric) return message
+
     if (status === 401) return 'Session expired, please log in'
     if (status === 403) return "You don't have permission to do this"
     if (status === 404) return 'Resource not found'
@@ -24,13 +34,13 @@ export function getErrorMessage(err: unknown, fallback = 'Something went wrong')
 
     // Only match prefix patterns if status is undefined, to avoid matching UUIDs or query strings
     if (status === undefined) {
-      if (err.message.startsWith('Request failed: 401')) return 'Session expired, please log in'
-      if (err.message.startsWith('Request failed: 403')) return "You don't have permission to do this"
-      if (err.message.startsWith('Request failed: 404')) return 'Resource not found'
-      if (err.message.startsWith('Request failed: 500')) return 'Server error, please try again'
+      if (message.startsWith('Request failed: 401')) return 'Session expired, please log in'
+      if (message.startsWith('Request failed: 403')) return "You don't have permission to do this"
+      if (message.startsWith('Request failed: 404')) return 'Resource not found'
+      if (message.startsWith('Request failed: 500')) return 'Server error, please try again'
     }
 
-    return err.message
+    return message
   }
 
   return fallback

@@ -110,6 +110,10 @@ export default function TeamManagementClient({
   const [removeOpen, setRemoveOpen] = useState(false)
   const [removeMemberData, setRemoveMemberData] = useState<{ id: string; name: string; activeLeadCount: number } | null>(null)
 
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false)
+  const [resetPasswordData, setResetPasswordData] = useState<{ id: string; name: string } | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+
   const stats = useMemo(() => {
     const admins = members.filter((m) => m.role === 'ADMIN').length
     const pros = members.filter((m) => m.role === 'PRO').length
@@ -253,6 +257,37 @@ export default function TeamManagementClient({
     setRemoveOpen(false)
     setRemoveMemberData(null)
     router.refresh()
+  }
+
+  function startResetPassword(member: TeamMember) {
+    setResetPasswordData({ id: member.id, name: member.name })
+    setNewPassword('')
+    setResetPasswordOpen(true)
+  }
+
+  async function resetMemberPassword() {
+    if (!resetPasswordData || !newPassword || newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters')
+      return
+    }
+    setBusyId('reset-password')
+    const data = await apiCall(async () => {
+      const res = await fetch(`/api/admin/team-members/${resetPasswordData.id}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword }),
+      })
+      return res.json()
+    }, {
+      successMsg: 'Password reset successfully',
+      errorMsg: 'Reset failed',
+    })
+    setBusyId(null)
+    if (!data) return
+
+    setResetPasswordOpen(false)
+    setResetPasswordData(null)
+    setNewPassword('')
   }
 
   return (
@@ -407,6 +442,16 @@ export default function TeamManagementClient({
                               className="hover:border-[#0DA2E7] hover:text-[#0DA2E7]"
                             >
                               {busyId === m.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Edit'}
+                            </Button>
+                          )}
+                          {(!isAdmin && m.role === 'ADMIN') ? null : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={busyId === m.id}
+                              onClick={() => startResetPassword(m)}
+                            >
+                              Password
                             </Button>
                           )}
                           {(!isAdmin && m.role === 'ADMIN') ? null : (
@@ -634,6 +679,39 @@ export default function TeamManagementClient({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Set a new password for {resetPasswordData?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              type="text"
+              placeholder="Min. 8 characters"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetPasswordOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={busyId === 'reset-password'}
+              onClick={resetMemberPassword}
+              className="text-white"
+              style={{ backgroundColor: BRAND }}
+            >
+              {busyId === 'reset-password' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Password'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

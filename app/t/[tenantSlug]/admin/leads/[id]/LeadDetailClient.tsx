@@ -60,6 +60,8 @@ export default function LeadDetailClient({
   const [pipelineStages, setPipelineStages] = useState<Array<{ key: string; label: string }>>([])
   const [stagesLoading, setStagesLoading] = useState(true)
   const [assignedTo, setAssignedTo] = useState(lead.assignedTo ?? '')
+  const [selectedAssignee, setSelectedAssignee] = useState(lead.assignedTo ?? '')
+  const [savingAssignee, setSavingAssignee] = useState(false)
   const [note, setNote] = useState('')
   const [noteType, setNoteType] = useState<'note' | 'call' | 'message'>('note')
   const [saving, setSaving] = useState(false)
@@ -141,6 +143,11 @@ export default function LeadDetailClient({
     setDeadReason(lead.deadReason ?? '')
   }, [lead.isDeadManual, lead.deadReason])
 
+  useEffect(() => {
+    setAssignedTo(lead.assignedTo ?? '')
+    setSelectedAssignee(lead.assignedTo ?? '')
+  }, [lead.assignedTo])
+
   const fetchSubStatuses = async (stageKey: string) => {
     try {
       const res = await fetch(`/api/sub-statuses?stageKey=${stageKey}`)
@@ -194,17 +201,24 @@ export default function LeadDetailClient({
   }
 }
 
-  async function handleAssign(newAssignedTo: string) {
-    setAssignedTo(newAssignedTo)
+  const handleSaveAssign = async () => {
+    if (selectedAssignee === assignedTo) return
+    setSavingAssignee(true)
     const data = await apiCall(async () => {
       const res = await fetch(`/api/leads/${lead.id}/assign`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignedTo: newAssignedTo || null }),
+        body: JSON.stringify({ assignedTo: selectedAssignee || null }),
       })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Could not assign lead')
       return res.json()
-    }, { successMsg: 'Lead assigned', errorMsg: 'Assignment update failed' })
-    if (!data) return
+    }, { successMsg: 'Lead assigned', errorMsg: 'Could not assign lead' })
+    setSavingAssignee(false)
+    if (!data) {
+      setSelectedAssignee(assignedTo)
+      return
+    }
+    setAssignedTo(selectedAssignee)
     router.refresh()
   }
 
@@ -303,6 +317,7 @@ export default function LeadDetailClient({
   const heat = getHeatLevel(
     lead.lastContactedAt ? new Date(lead.lastContactedAt) : null,
     lead.createdAt ? new Date(lead.createdAt) : new Date(),
+    isDeadState
   )
 
   return (<TooltipProvider>
@@ -425,9 +440,9 @@ export default function LeadDetailClient({
 
         {/* ==== Overview ==== (kept) */}
         <TabsContent value="overview" className="outline-none">
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             {/* Left side – Journey + Contact + Edit fields */}
-            <div className="space-y-6 xl:col-span-2">
+            <div className="space-y-6 md:col-span-2">
               {/* Contact Info card */}
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
                 <h2 className="text-sm font-semibold text-slate-900 mb-4">Contact Info</h2>
@@ -526,7 +541,43 @@ export default function LeadDetailClient({
                   {editingLead ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Lead Profile'}
                 </button>
               </div>
+            </div>
+
+            {/* Right Column: Assigned To + Mark as Dead + Delete Lead + Save Logs */}
+            <div className="md:col-span-1 space-y-6">
+              {/* Assigned To */}
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Assigned To</h2>
+                <div className="flex flex-col gap-2">
+                  <select
+                    value={selectedAssignee}
+                    disabled={isDeadState || savingAssignee}
+                    onChange={(e) => setSelectedAssignee(e.target.value)}
+                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
+                  >
+                    <option value="">Unassigned</option>
+                    {proUsers.map((u) => (
+                      <option key={u.id} value={u.id}>{u.name ?? u.id} {u.role === 'ADMIN' ? '(Admin)' : ''}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleSaveAssign}
+                    disabled={selectedAssignee === assignedTo || isDeadState || savingAssignee}
+                    className="w-full h-9 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center"
+                  >
+                    {savingAssignee ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                  </button>
+                  {proUsers.length === 0 && (
+                    <p className="text-xs text-slate-400 mt-2">
+                      No team members yet. Add them in Team settings.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Mark as Dead */}
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Mark as Dead</h2>
                 <label className="flex items-center gap-2 text-sm text-slate-900 dark:text-slate-100">
                   <input
                     type="checkbox"
@@ -559,11 +610,16 @@ export default function LeadDetailClient({
                   <button
                     onClick={handleMarkDead}
                     disabled={savingDead || (isDead && !isDeadState && !deadReason.trim())}
-                    className="mt-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white px-4 py-2 rounded"
+                    className="mt-3 w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center justify-center"
                   >
-                    {savingDead ? <Loader2 className="h-4 w-4 animate-spin" /> : isDeadState ? 'Re-open' : 'Save'}
+                    {savingDead ? <Loader2 className="h-4 w-4 animate-spin" /> : isDeadState ? 'Re‑open Lead' : 'Confirm Dead'}
                   </button>
                 )}
+              </div>
+
+              {/* Delete Lead */}
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Delete Lead</h2>
                 <LeadDeleteButton
                   leadId={lead.id}
                   leadName={lead.fullName}
@@ -571,32 +627,8 @@ export default function LeadDetailClient({
                   disabled={isDeadState}
                 />
               </div>
-              {/* Assigned To card */}
-              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
-                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">Assigned To</h2>
-                <select
-                  value={assignedTo}
-                  onChange={(e) => handleAssign(e.target.value)}
-                  disabled={isDeadState}
-                  className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
-                >
-                  <option value="">Unassigned</option>
-                  {proUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name} {u.role === 'ADMIN' ? '(Admin)' : ''}
-                    </option>
-                  ))}
-                </select>
-                {proUsers.length === 0 && (
-                  <p className="text-xs text-slate-400 mt-2">
-                    No team members yet. Add them in Team settings.
-                  </p>
-                )}
-              </div>
-            </div>
 
-            {/* Right Column: Save Logs */}
-            <div className="xl:col-span-1 space-y-6">
+              {/* Save Logs */}
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
                   <span className="w-6 h-6 rounded-md bg-sky-50 dark:bg-sky-500/10 text-sky-600 flex items-center justify-center">

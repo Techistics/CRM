@@ -64,6 +64,7 @@ export type LeadRow = {
   lastContactedAt: string | null
   createdAt: string
   lastQualification: string | null
+  isDeadManual: boolean
   assignedTo: string | null
   tags: { id: string; name: string; color: string }[]
 }
@@ -166,6 +167,7 @@ export function LeadsDashboard({
           const heat = getHeatLevel(
             lead.lastContactedAt ? new Date(lead.lastContactedAt) : null,
             new Date(lead.createdAt),
+            lead.isDeadManual
           )
           return heat === heatFilter
         })
@@ -368,10 +370,9 @@ export function LeadsDashboard({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
-                <SelectItem value="dead"> Dormant</SelectItem>
-                <SelectItem value="cold"> Stale</SelectItem>
-                <SelectItem value="warm"> Fading</SelectItem>
-                <SelectItem value="hot"> Fresh</SelectItem>
+                <SelectItem value="active"> Active</SelectItem>
+                <SelectItem value="cold"> Cold</SelectItem>
+                <SelectItem value="dead"> Dead</SelectItem>
               </SelectContent>
             </Select>
             {isAdmin && agents.length > 0 && (
@@ -584,6 +585,7 @@ export function LeadsDashboard({
                   const heat = getHeatLevel(
                     lead.lastContactedAt ? new Date(lead.lastContactedAt) : null,
                     new Date(lead.createdAt),
+                    lead.isDeadManual
                   )
                   
                   return (

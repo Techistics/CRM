@@ -29,6 +29,8 @@ export async function GET(req: NextRequest) {
     const tagsParam = url.searchParams.get('tags')
     const assignedTo = url.searchParams.get('assignedTo')?.trim()
     const stage = url.searchParams.get('stage')?.trim()
+    const intake = url.searchParams.get('intake')?.trim()
+    const campaign = url.searchParams.get('campaign')?.trim()
     const idsOnly = url.searchParams.get('idsOnly') === 'true'
 
     const conditions = [leadsVisibleWhere(ctx.tenant.id, toMemberScope(ctx))]
@@ -69,6 +71,14 @@ export async function GET(req: NextRequest) {
 
     if (stage) {
       conditions.push(eq(leads.primaryStage, stage))
+    }
+
+    if (intake) {
+      conditions.push(eq(leads.intakeMonth, intake))
+    }
+
+    if (campaign) {
+      conditions.push(eq(leads.source, campaign))
     }
 
     const where = and(...conditions)

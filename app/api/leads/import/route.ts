@@ -16,6 +16,14 @@ const parseBodySchema = z.object({
   fileData: z.string().min(1),
   fileName: z.string().min(1),
   tenantSlug: z.string().min(1),
+  customMapping: z.record(z.string(), z.string()).optional(),
+})
+
+const extractHeadersSchema = z.object({
+  action: z.literal('extract_headers'),
+  fileData: z.string().min(1),
+  fileName: z.string().min(1),
+  tenantSlug: z.string().min(1),
 })
 
 const parsedLeadSchema = z.object({
@@ -42,6 +50,7 @@ const confirmBodySchema = z.object({
   totalRows: z.number().optional(),
   duplicateRows: z.number().optional(),
   errorRows: z.number().optional(),
+  globalSource: z.string().optional(),
 })
 
 const COLUMN_MAP: Record<string, keyof z.infer<typeof parsedLeadSchema>> = {
@@ -119,6 +128,12 @@ function parseRows(fileName: string, fileData: string): Record<string, unknown>[
   throw new Error('Unsupported file type')
 }
 
+function extractHeaders(fileName: string, fileData: string): string[] {
+  const rows = parseRows(fileName, fileData)
+  if (rows.length === 0) return []
+  return Object.keys(rows[0])
+}
+
 export async function POST(req: NextRequest) {
   return withApiErrorHandling(async () => {
     const ctx = await requirePermissionApi('import.leads')
@@ -157,10 +172,22 @@ export async function POST(req: NextRequest) {
       rawRows.forEach((row, idx) => {
         const rowNumber = idx + 2
         const mapped: Record<string, unknown> = {}
+        
+        // 1. Apply custom mapping first
+        const customMap = parsed.data.customMapping ?? {}
+        Object.entries(customMap).forEach(([targetField, sourceHeader]) => {
+          if (sourceHeader && row[sourceHeader] !== undefined) {
+            mapped[targetField] = row[sourceHeader]
+          }
+        })
+
+        // 2. Apply default COLUMN_MAP for unmapped fields
         Object.entries(row).forEach(([key, value]) => {
           const normalized = key.toLowerCase().trim().replace(/\s+/g, ' ')
           const target = COLUMN_MAP[normalized]
-          if (target) mapped[target] = typeof value === 'string' ? value.trim() : value
+          if (target && mapped[target] === undefined) {
+            mapped[target] = typeof value === 'string' ? value.trim() : value
+          }
         })
 
         const fullName = String(mapped.fullName ?? '').trim()
@@ -327,7 +354,7 @@ export async function POST(req: NextRequest) {
           primaryStage: stageKey,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           stage: stageKey as any,
-          source: leadRow.source ?? 'csv_import',
+          source: parsed.data.globalSource ?? leadRow.source ?? 'csv_import',
           lastQualification: leadRow.notes ?? null,
           dealValue: null,
           createdBy: ctx.dbUserId,
@@ -345,6 +372,7 @@ export async function POST(req: NextRequest) {
           tenantId: ctx.tenant.id,
           importedBy: ctx.dbUserId,
           fileName: parsed.data.fileName ?? 'manual_confirm',
+          campaignName: parsed.data.globalSource ?? null,
           totalRows: parsed.data.totalRows ?? rowsToInsert.length,
           importedRows: 0,
           skippedRows: (parsed.data.duplicateRows ?? 0) + (parsed.data.errorRows ?? 0),
@@ -434,6 +462,23 @@ export async function POST(req: NextRequest) {
           leadsAssigned: assignedCounts.get(member.userId) ?? 0,
         })),
       })
+    }
+
+    if (body.action === 'extract_headers') {
+      const parsed = extractHeadersSchema.safeParse(body)
+      if (!parsed.success) {
+        return errorResponse('Validation failed', 'VALIDATION_ERROR', 400)
+      }
+      if (parsed.data.tenantSlug !== ctx.tenant.slug) {
+        return errorResponse('Forbidden', 'FORBIDDEN', 403)
+      }
+
+      try {
+        const headers = extractHeaders(parsed.data.fileName, parsed.data.fileData)
+        return successResponse({ headers })
+      } catch {
+        return errorResponse('Only CSV and XLSX are supported', 'INVALID_FILE_TYPE', 400)
+      }
     }
 
     return errorResponse('Unsupported action', 'VALIDATION_ERROR', 400)

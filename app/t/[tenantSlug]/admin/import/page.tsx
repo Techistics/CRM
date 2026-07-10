@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { CheckCircle2, ChevronDown, FileUp, Loader2 } from 'lucide-react'
+import { CheckCircle2, ChevronDown, FileUp, Loader2, ArrowRight } from 'lucide-react'
 
 import { useToast } from '@/hooks/use-toast'
 import { tenantPath } from '@/lib/tenant-path'
@@ -17,9 +17,11 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 import { ImportBatchHistory } from '@/components/leads/ImportBatchHistory'
 
-type ImportState = 'idle' | 'parsing' | 'preview' | 'confirming' | 'done'
+type ImportState = 'idle' | 'extracting' | 'mapping' | 'parsing' | 'preview' | 'confirming' | 'done'
 
 type Agent = {
   userId: string
@@ -66,6 +68,20 @@ type ConfirmResponse = {
   agentBreakdown: Array<{ agentId: string; agentName: string; leadsAssigned: number }>
 }
 
+const MAPPABLE_FIELDS = [
+  { key: 'fullName', label: 'Full Name', required: true },
+  { key: 'contactNumber', label: 'Phone / Contact', required: false },
+  { key: 'email', label: 'Email', required: false },
+  { key: 'city', label: 'City', required: false },
+  { key: 'country', label: 'Country', required: false },
+  { key: 'stage', label: 'Pipeline Stage', required: false },
+  { key: 'source', label: 'Source / Campaign', required: false },
+  { key: 'intakeMonth', label: 'Intake Month', required: false },
+  { key: 'destinationCountry', label: 'Study Destination', required: false },
+  { key: 'programOfInterest', label: 'Program of Interest', required: false },
+  { key: 'notes', label: 'Notes', required: false },
+]
+
 export default function ImportPage({
   canDeleteBatches = true,
   leadsListPath,
@@ -79,6 +95,10 @@ export default function ImportPage({
   const { toast } = useToast()
   const [state, setState] = useState<ImportState>('idle')
   const [file, setFile] = useState<File | null>(null)
+  const [extractedHeaders, setExtractedHeaders] = useState<string[]>([])
+  const [customMapping, setCustomMapping] = useState<Record<string, string>>({})
+  const [matchedOpen, setMatchedOpen] = useState(false)
+  const [globalSource, setGlobalSource] = useState('')
   const [parseResult, setParseResult] = useState<ParseResponse | null>(null)
   const [confirmResult, setConfirmResult] = useState<ConfirmResponse | null>(null)
   const [agents, setAgents] = useState<Agent[]>([])
@@ -122,12 +142,53 @@ export default function ImportPage({
     setSelectedAgentIds(new Set(members.map((member) => member.userId)))
   }
 
-  function handleFile(f: File) {
+  async function handleFile(f: File) {
     setFile(f)
     setParseResult(null)
     setConfirmResult(null)
-    setState('idle')
+    setExtractedHeaders([])
+    setCustomMapping({})
+    setGlobalSource('')
     setError(null)
+    setState('extracting')
+    
+    try {
+      const base64 = await readAsBase64(f)
+      const payload = { action: 'extract_headers', fileData: base64, fileName: f.name, tenantSlug }
+      const res = await fetch('/api/leads/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Failed to read headers')
+      
+      const headers = data.data.headers ?? []
+      setExtractedHeaders(headers)
+      
+      // Auto-match common fields
+      const autoMap: Record<string, string> = {}
+      headers.forEach((h: string) => {
+        const norm = h.toLowerCase().trim().replace(/\s+/g, ' ')
+        const fieldMap: Record<string, string> = {
+          'name': 'fullName', 'full name': 'fullName', 'fullname': 'fullName',
+          'email': 'email', 'email address': 'email', 'mailing address': 'email',
+          'phone': 'contactNumber', 'contact': 'contactNumber', 'mobile': 'contactNumber', 'contact number': 'contactNumber',
+          'city': 'city', 'country': 'country',
+          'stage': 'stage',
+          'source': 'source', 'campaign': 'source', 'campaign name': 'source',
+          'intake': 'intakeMonth', 'intake month': 'intakeMonth',
+          'program': 'programOfInterest', 'course': 'programOfInterest', 'program of interest': 'programOfInterest',
+          'destination': 'destinationCountry', 'study destination': 'destinationCountry',
+          'notes': 'notes',
+        }
+        if (fieldMap[norm]) {
+          autoMap[fieldMap[norm]] = h
+        }
+      })
+      setCustomMapping(autoMap)
+      
+      setState('mapping')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Import failed')
+      setState('idle')
+    }
   }
 
   async function handleParse() {
@@ -144,6 +205,7 @@ export default function ImportPage({
         fileData: base64,
         fileName: file.name,
         tenantSlug,
+        customMapping,
       }
       const parseRes = await fetch('/api/leads/import', {
         method: 'POST',
@@ -185,6 +247,7 @@ export default function ImportPage({
           totalRows: parseResult.totalRows,
           duplicateRows: parseResult.duplicateRows,
           errorRows: parseResult.errorRows,
+          globalSource: globalSource.trim() || undefined,
         }),
       })
       const data = await res.json()
@@ -280,6 +343,141 @@ export default function ImportPage({
           </Collapsible>
         </>
       )}
+
+      {state === 'extracting' && (
+        <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Reading file format...</span>
+        </div>
+      )}
+
+      {state === 'mapping' && (() => {
+        const mappedFields = MAPPABLE_FIELDS.filter(f => customMapping[f.key])
+        const unmappedFields = MAPPABLE_FIELDS.filter(f => !customMapping[f.key])
+
+        return (
+          <Card className="p-6 space-y-6">
+            <div>
+              <h2 className="text-lg font-semibold">Map Columns</h2>
+              <p className="text-sm text-muted-foreground">Match your file's headers to the CRM fields. Unmapped fields will be auto-matched if possible.</p>
+            </div>
+            
+            <div className="space-y-4">
+              {mappedFields.length > 0 && (
+                <Collapsible open={matchedOpen} onOpenChange={setMatchedOpen} className="rounded-md border bg-slate-50/50 dark:bg-slate-900/50">
+                  <CollapsibleTrigger className="flex w-full items-center justify-between p-3 text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <span className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      {mappedFields.length} Auto-Matched Columns
+                    </span>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${matchedOpen ? 'rotate-180' : ''}`} />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="border-t overflow-x-auto">
+                      <table className="w-full min-w-[500px] text-sm">
+                        <thead className="bg-muted/40 border-b">
+                          <tr>
+                            <th className="p-3 text-left font-medium">CRM Field</th>
+                            <th className="p-3 text-left font-medium w-8"></th>
+                            <th className="p-3 text-left font-medium">Your CSV Header</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {mappedFields.map(field => (
+                            <tr key={field.key} className="border-b last:border-b-0 opacity-70 hover:opacity-100 transition-opacity">
+                              <td className="p-3">
+                                <span className="font-medium">{field.label}</span>
+                                {field.required && <span className="text-red-500 ml-1">*</span>}
+                              </td>
+                              <td className="p-3 text-muted-foreground"><ArrowRight className="h-4 w-4" /></td>
+                              <td className="p-3">
+                                <div className="relative w-[200px] sm:w-[280px]">
+                                  <select
+                                    value={customMapping[field.key] ?? 'unmapped'}
+                                    onChange={(e) => {
+                                      const val = e.target.value
+                                      setCustomMapping(prev => {
+                                        const next = { ...prev }
+                                        if (val === 'unmapped') delete next[field.key]
+                                        else next[field.key] = val
+                                        return next
+                                      })
+                                    }}
+                                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 appearance-none pr-8 cursor-pointer"
+                                  >
+                                    <option value="unmapped">-- Do not map --</option>
+                                    {extractedHeaders.map(h => (
+                                      <option key={h} value={h}>{h}</option>
+                                    ))}
+                                  </select>
+                                  <ChevronDown className="absolute right-3 top-3 h-4 w-4 opacity-50 pointer-events-none" />
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+
+              {unmappedFields.length > 0 && (
+                <div className="rounded-md border overflow-x-auto">
+                  <table className="w-full min-w-[500px] text-sm">
+                    <thead className="bg-muted/40 border-b">
+                      <tr>
+                        <th className="p-3 text-left font-medium">CRM Field <span className="ml-2 text-xs font-normal text-amber-600 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded">Unmapped</span></th>
+                        <th className="p-3 text-left font-medium w-8"></th>
+                        <th className="p-3 text-left font-medium">Your CSV Header</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {unmappedFields.map(field => (
+                        <tr key={field.key} className="border-b last:border-b-0">
+                          <td className="p-3">
+                            <span className="font-medium">{field.label}</span>
+                            {field.required && <span className="text-red-500 ml-1">*</span>}
+                          </td>
+                          <td className="p-3 text-muted-foreground"><ArrowRight className="h-4 w-4" /></td>
+                          <td className="p-3">
+                            <div className="relative w-[200px] sm:w-[280px]">
+                              <select
+                                value={customMapping[field.key] ?? 'unmapped'}
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  setCustomMapping(prev => {
+                                    const next = { ...prev }
+                                    if (val === 'unmapped') delete next[field.key]
+                                    else next[field.key] = val
+                                    return next
+                                  })
+                                }}
+                                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 appearance-none pr-8 cursor-pointer"
+                              >
+                                <option value="unmapped">-- Do not map --</option>
+                                {extractedHeaders.map(h => (
+                                  <option key={h} value={h}>{h}</option>
+                                ))}
+                              </select>
+                              <ChevronDown className="absolute right-3 top-3 h-4 w-4 opacity-50 pointer-events-none" />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setState('idle'); setFile(null) }}>Cancel</Button>
+              <Button onClick={handleParse}>Preview Import</Button>
+            </div>
+          </Card>
+        );
+      })()}
 
       {state === 'parsing' && (
         <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
@@ -378,6 +576,17 @@ export default function ImportPage({
               ))}
             </Card>
           )}
+
+          <Card className="p-4 space-y-3">
+            <p className="font-medium">Campaign Source (Optional)</p>
+            <p className="text-sm text-muted-foreground">Apply a single marketing campaign or source to all imported leads. This overrides any source mapped from the file.</p>
+            <Input 
+              placeholder="e.g. UK Fair July 2026" 
+              value={globalSource} 
+              onChange={e => setGlobalSource(e.target.value)} 
+              className="max-w-md"
+            />
+          </Card>
 
           <div className="flex items-center justify-end gap-2">
             <Button variant="outline" onClick={() => { setState('idle'); setFile(null); setParseResult(null) }}>

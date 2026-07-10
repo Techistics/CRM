@@ -384,6 +384,12 @@ export default function LeadDetailClient({
                 Dead
               </span>
             )}
+            
+            {lead.source && !['csv_import', 'manual', 'system', 'referral', 'walk_in', 'website', 'social_media'].includes(lead.source.toLowerCase().trim()) && (
+              <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+                Campaign: {lead.source}
+              </span>
+            )}
 
             <Tooltip>
               <TooltipTrigger asChild>

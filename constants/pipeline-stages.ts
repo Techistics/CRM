@@ -16,26 +16,26 @@ export const PIPELINE_STAGES = [
   { 
     value: 'unresponsive', 
     label: 'Unresponsive', 
-    chartColor: '#6b7280', 
-    kanbanBorder: 'border-t-gray-500',
-    badgeClasses: 'bg-gray-50 text-gray-700 border-gray-200 shadow-sm',
-    mutedClasses: 'bg-gray-500/10 text-gray-400 border-gray-500/20'
+    chartColor: '#64748b', 
+    kanbanBorder: 'border-t-slate-500',
+    badgeClasses: 'bg-slate-50 text-slate-700 border-slate-200 shadow-sm',
+    mutedClasses: 'bg-slate-500/10 text-slate-400 border-slate-500/20'
   },
   { 
     value: 'follow_up', 
     label: 'Follow Up', 
-    chartColor: '#eab308', 
-    kanbanBorder: 'border-t-yellow-500',
-    badgeClasses: 'bg-yellow-50 text-yellow-700 border-yellow-200 shadow-sm',
-    mutedClasses: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+    chartColor: '#f59e0b', 
+    kanbanBorder: 'border-t-amber-500',
+    badgeClasses: 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm',
+    mutedClasses: 'bg-amber-500/10 text-amber-400 border-amber-500/20'
   },
   { 
     value: 'docs_received', 
     label: 'Docs Received', 
-    chartColor: '#a855f7', 
-    kanbanBorder: 'border-t-purple-500',
-    badgeClasses: 'bg-purple-50 text-purple-700 border-purple-200 shadow-sm',
-    mutedClasses: 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+    chartColor: '#d946ef', 
+    kanbanBorder: 'border-t-fuchsia-500',
+    badgeClasses: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 shadow-sm',
+    mutedClasses: 'bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20'
   },
   { 
     value: 'options_sent', 
@@ -64,10 +64,10 @@ export const PIPELINE_STAGES = [
   { 
     value: 'walkin_conducted', 
     label: 'Walk-in Done', 
-    chartColor: '#06b6d4', 
-    kanbanBorder: 'border-t-cyan-500',
-    badgeClasses: 'bg-cyan-50 text-cyan-700 border-cyan-200 shadow-sm',
-    mutedClasses: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
+    chartColor: '#84cc16', 
+    kanbanBorder: 'border-t-lime-500',
+    badgeClasses: 'bg-lime-50 text-lime-700 border-lime-200 shadow-sm',
+    mutedClasses: 'bg-lime-500/10 text-lime-400 border-lime-500/20'
   },
   { 
     value: 'cancelled', 
@@ -80,18 +80,18 @@ export const PIPELINE_STAGES = [
   { 
     value: 'visa_applied', 
     label: 'Visa Applied', 
-    chartColor: '#0ea5e9', 
-    kanbanBorder: 'border-t-sky-500',
-    badgeClasses: 'bg-sky-50 text-sky-700 border-sky-200 shadow-sm',
-    mutedClasses: 'bg-sky-500/10 text-sky-400 border-sky-500/20'
+    chartColor: '#06b6d4', 
+    kanbanBorder: 'border-t-cyan-500',
+    badgeClasses: 'bg-cyan-50 text-cyan-700 border-cyan-200 shadow-sm',
+    mutedClasses: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20'
   },
   { 
     value: 'visa_granted', 
     label: 'Visa Granted', 
-    chartColor: '#22c55e', 
-    kanbanBorder: 'border-t-green-500',
-    badgeClasses: 'bg-green-50 text-green-700 border-green-200 shadow-sm',
-    mutedClasses: 'bg-green-500/10 text-green-400 border-green-500/20'
+    chartColor: '#8b5cf6', 
+    kanbanBorder: 'border-t-violet-500',
+    badgeClasses: 'bg-violet-50 text-violet-700 border-violet-200 shadow-sm',
+    mutedClasses: 'bg-violet-500/10 text-violet-400 border-violet-500/20'
   },
   { 
     value: 'paid', 

@@ -416,6 +416,7 @@ export const csvImports = pgTable('csv_imports', {
     .notNull(),
   importedBy: uuid('imported_by').references(() => users.id),
   fileName: text('file_name'),
+  campaignName: text('campaign_name'), // optional campaign label set at import time
   totalRows: integer('total_rows'),
   importedRows: integer('imported_rows'),
   skippedRows: integer('skipped_rows'),

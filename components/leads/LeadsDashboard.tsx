@@ -98,6 +98,9 @@ export function LeadsDashboard({
 
   const [leads, setLeads] = useState<LeadRow[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
+  const [sources, setSources] = useState<string[]>([])
+  const [intakeMonths, setIntakeMonths] = useState<string[]>([])
+  const [pipelineStages, setPipelineStages] = useState<Array<{ key: string; label: string }>>([])
   const [totalLeads, setTotalLeads] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -113,6 +116,8 @@ export function LeadsDashboard({
   const pageSizeParam = searchParams.get('pageSize') ?? '10'
   const tagsParam = searchParams.get('tags') ?? undefined
   const stageFilter = searchParams.get('stage') ?? undefined
+  const intakeFilter = searchParams.get('intake') ?? undefined
+  const campaignFilter = searchParams.get('campaign') ?? undefined
   const currentPage = Math.max(1, Number(page) || 1)
   const pageSize = Number(pageSizeParam) || 10
   const totalPages = Math.max(1, Math.ceil(totalLeads / pageSize))
@@ -128,15 +133,23 @@ export function LeadsDashboard({
       if (assignedTo) params.set('assignedTo', assignedTo)
       if (tagsParam) params.set('tags', tagsParam)
       if (stageFilter) params.set('stage', stageFilter)
+      if (intakeFilter) params.set('intake', intakeFilter)
+      if (campaignFilter) params.set('campaign', campaignFilter)
 
       params.set('_t', Date.now().toString())
 
-      const [leadsRes, agentsRes] = await Promise.all([
+      const [leadsRes, agentsRes, sourcesRes, intakeRes, stagesRes] = await Promise.all([
         fetch(`/api/leads?${params.toString()}`, { cache: 'no-store' }),
         fetch('/api/admin/team-members', { cache: 'no-store' }),
+        fetch('/api/leads/sources', { cache: 'no-store' }),
+        fetch('/api/leads/intake-months', { cache: 'no-store' }),
+        fetch('/api/pipeline-stages', { cache: 'no-store' }),
       ])
       const leadsData = await leadsRes.json()
       const agentsData = await agentsRes.json()
+      const sourcesData = await sourcesRes.json()
+      const intakeData = await intakeRes.json()
+      const stagesData = await stagesRes.json()
 
       if (!leadsRes.ok) {
         throw new Error(leadsData.error ?? 'Failed to load leads')
@@ -148,13 +161,16 @@ export function LeadsDashboard({
       setLeads(leadsData.data?.leads ?? [])
       setTotalLeads(Number(leadsData.data?.total ?? 0))
       setAgents(agentsData.data?.members ?? [])
+      setSources(sourcesData.data?.sources ?? [])
+      setIntakeMonths(intakeData.data?.intakeMonths ?? [])
+      setPipelineStages(stagesData.data?.stages ?? stagesData.stages ?? [])
       setSelectedIds(new Set())
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load data')
     } finally {
       setLoading(false)
     }
-  }, [assignedTo, currentPage, pageSize, q, stageFilter, tagsParam])
+  }, [assignedTo, currentPage, pageSize, q, stageFilter, tagsParam, intakeFilter, campaignFilter])
 
   useEffect(() => {
     void fetchData()
@@ -297,6 +313,7 @@ export function LeadsDashboard({
       if (stageFilter) params.set('stage', stageFilter)
       if (assignedTo) params.set('assignedTo', assignedTo)
       if (tagsParam) params.set('tags', tagsParam)
+      if (intakeFilter) params.set('intake', intakeFilter)
 
       const idsRes = await fetch(`/api/leads?${params.toString()}`)
       if (!idsRes.ok) {
@@ -362,10 +379,10 @@ export function LeadsDashboard({
           <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
             <TagFilter />
             <Select value={heatFilter} onValueChange={setHeatFilter}>
-              <SelectTrigger className="h-8 w-32 border-none bg-transparent shadow-none focus:ring-0">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-3.5 w-3.5 text-gray-500" />
-                  <SelectValue placeholder="Heat" />
+              <SelectTrigger className="h-8 w-auto min-w-[100px] border-none bg-transparent shadow-none focus:ring-0">
+                <div className="flex items-center gap-1.5 overflow-hidden">
+                  <Filter className="h-3.5 w-3.5 text-gray-500 shrink-0" />
+                  <span className="truncate"><SelectValue placeholder="Heat" /></span>
                 </div>
               </SelectTrigger>
               <SelectContent>
@@ -375,6 +392,44 @@ export function LeadsDashboard({
                 <SelectItem value="dead"> Dead</SelectItem>
               </SelectContent>
             </Select>
+            {intakeMonths.length > 0 && (
+              <Select
+                value={intakeFilter ?? 'all'}
+                onValueChange={(val) => {
+                  const sp = new URLSearchParams(searchParams.toString())
+                  if (val === 'all') sp.delete('intake')
+                  else sp.set('intake', val)
+                  sp.delete('page')
+                  router.push(`?${sp.toString()}`)
+                }}
+              >
+              </Select>
+            )}
+            {sources.length > 0 && (
+              <Select
+                value={campaignFilter ?? 'all'}
+                onValueChange={(val) => {
+                  const sp = new URLSearchParams(searchParams.toString())
+                  if (val === 'all') sp.delete('campaign')
+                  else sp.set('campaign', val)
+                  sp.delete('page')
+                  router.push(`?${sp.toString()}`)
+                }}
+              >
+                <SelectTrigger className="h-8 w-auto min-w-[130px] max-w-[180px] border-none bg-transparent shadow-none focus:ring-0">
+                  <div className="flex items-center gap-1.5 overflow-hidden">
+                    <Filter className="h-3.5 w-3.5 text-gray-500 shrink-0" />
+                    <span className="truncate"><SelectValue placeholder="Campaign" /></span>
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Campaigns</SelectItem>
+                  {sources.map((src) => (
+                    <SelectItem key={src} value={src}>{src}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             {isAdmin && agents.length > 0 && (
               <Select
                 value={assignedTo ?? 'all'}
@@ -386,10 +441,10 @@ export function LeadsDashboard({
                   router.push(`?${sp.toString()}`)
                 }}
               >
-                <SelectTrigger className="h-8 w-40 border-none bg-transparent shadow-none focus:ring-0">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-3.5 w-3.5 text-gray-500" />
-                    <SelectValue placeholder="Filter by PRO" />
+                <SelectTrigger className="h-8 w-auto min-w-[130px] max-w-[180px] border-none bg-transparent shadow-none focus:ring-0">
+                  <div className="flex items-center gap-1.5 overflow-hidden">
+                    <Filter className="h-3.5 w-3.5 text-gray-500 shrink-0" />
+                    <span className="truncate"><SelectValue placeholder="Filter by PRO" /></span>
                   </div>
                 </SelectTrigger>
                 <SelectContent>
@@ -582,6 +637,9 @@ export function LeadsDashboard({
               <tbody className="divide-y divide-gray-100">
                 {filteredLeads.map((lead) => {
                   const stageInfo = getStageInfo(lead.stage)
+                  const customStage = pipelineStages.find(s => s.key === lead.stage)
+                  const stageLabel = customStage?.label ?? stageInfo.label
+                  
                   const heat = getHeatLevel(
                     lead.lastContactedAt ? new Date(lead.lastContactedAt) : null,
                     new Date(lead.createdAt),
@@ -653,7 +711,7 @@ export function LeadsDashboard({
                       </td>
                       <td className="px-4 py-3">
                         <span className={`text-xs px-2.5 py-1 rounded-full border ${stageInfo.badgeClasses} font-medium tracking-wide`}>
-                          {stageInfo.label}
+                          {stageLabel}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -704,6 +762,7 @@ export function LeadsDashboard({
                   if (q) sp.set('q', q)
                   if (tagsParam) sp.set('tags', tagsParam)
                   if (stageFilter) sp.set('stage', stageFilter)
+                  if (intakeFilter) sp.set('intake', intakeFilter)
                   if (pageSize !== 10) sp.set('pageSize', String(pageSize))
                   sp.set('page', String(p))
                   return `${tenantPath(tenantSlug, `/${role.toLowerCase()}/leads`)}?${sp.toString()}`

@@ -365,9 +365,15 @@ const [savingSubStatus, setSavingSubStatus] = useState(false)
             Back to My Leads
           </Link>
           <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mt-3">{lead.fullName}</h1>
-          <div className="flex items-center gap-3 mt-3">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{currentStageLabel}</span>{isDeadState && (
-              <span className="ml-2 rounded-md bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-1 text-xs">
+          <div className="flex flex-wrap items-center gap-3 mt-3">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{currentStageLabel}</span>
+            {lead.source && lead.source !== 'csv_import' && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20">
+                Campaign: {lead.source}
+              </span>
+            )}
+            {isDeadState && (
+              <span className="rounded-md bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-1 text-xs">
                 Dead
               </span>
             )}
@@ -585,47 +591,7 @@ const [savingSubStatus, setSavingSubStatus] = useState(false)
                 </div>
               </div>
 
-              {/* Mark as Dead */}
-              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
-                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Mark as Dead</h2>
-                <label className="flex items-center gap-2 text-sm text-slate-900 dark:text-slate-100">
-                  <input
-                    type="checkbox"
-                    checked={isDead}
-                    disabled={isDeadState}
-                    onChange={(e) => {
-                      const checked = e.target.checked
-                      setIsDead(checked)
-                      if (!checked) setDeadReason('')
-                    }}
-                    className="h-4 w-4 rounded border-gray-300 bg-white text-blue-600 focus:ring-blue-500"
-                  />
-                  Mark Lead as Dead
-                </label>
-                {isDead && !isDeadState && (
-                  <textarea
-                    value={deadReason}
-                    onChange={(e) => setDeadReason(e.target.value)}
-                    placeholder="Reason for marking dead…"
-                    className="mt-2 w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
-                    rows={3}
-                  />
-                )}
-                {isDeadState && (
-                  <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                    <span className="font-medium text-gray-700 dark:text-slate-300">Reason:</span> {deadReason || 'No reason provided'}
-                  </div>
-                )}
-                {(isDead || isDeadState) && (
-                  <button
-                    onClick={handleMarkDead}
-                    disabled={savingDead || (isDead && !isDeadState && !deadReason.trim())}
-                    className="mt-3 w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center justify-center"
-                  >
-                    {savingDead ? <Loader2 className="h-4 w-4 animate-spin" /> : isDeadState ? 'Re‑open Lead' : 'Confirm Dead'}
-                  </button>
-                )}
-              </div>
+              {/* Mark as Dead removed for PRO per requirements */}
 
               {/* Delete Lead */}
               {canDelete && (

@@ -11,6 +11,7 @@ leadUploadedDocuments,
 leads,
 tenantMembers,
 notifications,
+pipelineSubStatuses,
 } from '@/db/schema'
 import { getLeadForMemberAction, getLeadInTenant } from '@/lib/lead-tenant'
 import { toMemberScope } from '@/lib/member-scope'
@@ -18,6 +19,11 @@ import { requirePermissionApi } from '@/lib/tenant-api'
 import { leadPatchBodySchema } from '@/lib/validators/lead'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { canEditPayments, stripDealFields } from '@/lib/leads/deal-access'
+import {
+  normalizeCustomFields,
+  normalizeFieldValues,
+  validateFieldValues,
+} from '@/lib/pipeline/sub-status-fields'
 
 export async function GET(
 _req: NextRequest,
@@ -106,6 +112,50 @@ return withApiErrorHandling(async () => {
     }
   }
 
+  const nextSubStatusId =
+    patch.subStatusId !== undefined ? patch.subStatusId : lead.subStatusId
+
+  if (
+    patch.subStatusFieldValues !== undefined ||
+    (patch.subStatusId !== undefined && patch.subStatusId !== lead.subStatusId)
+  ) {
+    if (!nextSubStatusId) {
+      return errorResponse('Select a sub-status before saving custom fields', 'VALIDATION_ERROR', 400)
+    }
+
+    const [subStatus] = await db
+      .select({
+        customFieldsEnabled: pipelineSubStatuses.customFieldsEnabled,
+        customFields: pipelineSubStatuses.customFields,
+      })
+      .from(pipelineSubStatuses)
+      .where(and(
+        eq(pipelineSubStatuses.id, nextSubStatusId),
+        eq(pipelineSubStatuses.tenantId, ctx.tenant.id),
+      ))
+      .limit(1)
+
+    if (!subStatus) {
+      return errorResponse('Sub-status not found', 'VALIDATION_ERROR', 400)
+    }
+
+    const fields = subStatus.customFieldsEnabled
+      ? normalizeCustomFields(subStatus.customFields)
+      : []
+
+    if (fields.length > 0) {
+      const values = normalizeFieldValues(
+        patch.subStatusFieldValues !== undefined
+          ? patch.subStatusFieldValues
+          : lead.subStatusFieldValues,
+      )
+      const fieldError = validateFieldValues(fields, values)
+      if (fieldError) {
+        return errorResponse(fieldError, 'VALIDATION_ERROR', 400)
+      }
+    }
+  }
+
   const updates = {
     fullName:
       patch.fullName !== undefined
@@ -159,7 +209,13 @@ return withApiErrorHandling(async () => {
           : lead.deadReason,
     updatedAt: new Date(),
     subStatusId: patch.subStatusId !== undefined ? patch.subStatusId : lead.subStatusId,
-closedAction: patch.closedAction !== undefined ? strOrNull(patch.closedAction) : lead.closedAction,
+    closedAction: patch.closedAction !== undefined ? strOrNull(patch.closedAction) : lead.closedAction,
+    subStatusFieldValues:
+      patch.subStatusFieldValues !== undefined
+        ? normalizeFieldValues(patch.subStatusFieldValues)
+        : patch.subStatusId !== undefined && patch.subStatusId !== lead.subStatusId
+          ? {}
+          : lead.subStatusFieldValues,
   }
 
   if (
@@ -222,7 +278,8 @@ closedAction: patch.closedAction !== undefined ? strOrNull(patch.closedAction) :
   if (patch.dealCurrency !== undefined) changed.push('currency')
   if (patch.isDeadManual !== undefined) changed.push('dead status')
     if (patch.subStatusId !== undefined) changed.push('sub status')
-      if (patch.closedAction !== undefined) changed.push('closed action')
+    if (patch.closedAction !== undefined) changed.push('closed action')
+    if (patch.subStatusFieldValues !== undefined) changed.push('sub status fields')
 
   if (changed.length > 0) {
     await db.insert(leadActivities).values({

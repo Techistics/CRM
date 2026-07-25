@@ -3,6 +3,41 @@ import { eq, and, asc } from 'drizzle-orm'
 import { db } from '@/db'
 import { pipelineSubStatuses } from '@/db/schema'
 import { requireTenantSession } from '@/lib/tenant-server'
+import {
+  buildCustomFieldsFromDraft,
+  normalizeCustomFields,
+} from '@/lib/pipeline/sub-status-fields'
+
+function parseCustomFieldsBody(body: Record<string, unknown>) {
+  const customFieldsEnabled = Boolean(body.customFieldsEnabled)
+  const customFields = customFieldsEnabled
+    ? buildCustomFieldsFromDraft(
+        Array.isArray(body.customFieldsDraft)
+          ? body.customFieldsDraft.map((row: Record<string, unknown>) => ({
+              label: String(row.label ?? ''),
+              type: row.type === 'text' ? 'text' as const : 'select' as const,
+              optionsText: String(row.optionsText ?? ''),
+            }))
+          : normalizeCustomFields(body.customFields).map((f) => ({
+              label: f.label,
+              type: f.type,
+              optionsText: (f.options ?? []).join(', '),
+            })),
+      )
+    : []
+
+  if (customFieldsEnabled && customFields.length === 0) {
+    return { error: 'Add at least one custom field or disable custom fields' }
+  }
+
+  for (const field of customFields) {
+    if (field.type === 'select' && (!field.options || field.options.length === 0)) {
+      return { error: `Dropdown "${field.label}" needs at least one option` }
+    }
+  }
+
+  return { customFieldsEnabled, customFields }
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,6 +55,8 @@ export async function GET(req: NextRequest) {
         label: pipelineSubStatuses.label,
         type: pipelineSubStatuses.type,
         closedActions: pipelineSubStatuses.closedActions,
+        customFieldsEnabled: pipelineSubStatuses.customFieldsEnabled,
+        customFields: pipelineSubStatuses.customFields,
         sortOrder: pipelineSubStatuses.sortOrder,
       })
       .from(pipelineSubStatuses)
@@ -44,12 +81,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'stageKey, label, type required' }, { status: 400 })
     }
 
+    const parsedFields = parseCustomFieldsBody(body)
+    if ('error' in parsedFields) {
+      return NextResponse.json({ error: parsedFields.error }, { status: 400 })
+    }
+
     const [row] = await db.insert(pipelineSubStatuses).values({
       tenantId: tenant.id,
       stageKey,
       label,
       type,
       closedActions: closedActions ?? [],
+      customFieldsEnabled: parsedFields.customFieldsEnabled,
+      customFields: parsedFields.customFields,
       sortOrder: sortOrder ?? 0,
     }).returning()
 
@@ -69,14 +113,25 @@ export async function PATCH(req: NextRequest) {
 
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
+    const updates: Record<string, unknown> = {
+      ...(label !== undefined && { label }),
+      ...(type !== undefined && { type }),
+      ...(closedActions !== undefined && { closedActions }),
+      ...(sortOrder !== undefined && { sortOrder }),
+    }
+
+    if (body.customFieldsEnabled !== undefined || body.customFieldsDraft !== undefined || body.customFields !== undefined) {
+      const parsedFields = parseCustomFieldsBody(body)
+      if ('error' in parsedFields) {
+        return NextResponse.json({ error: parsedFields.error }, { status: 400 })
+      }
+      updates.customFieldsEnabled = parsedFields.customFieldsEnabled
+      updates.customFields = parsedFields.customFields
+    }
+
     const [updated] = await db
       .update(pipelineSubStatuses)
-      .set({
-        ...(label !== undefined && { label }),
-        ...(type !== undefined && { type }),
-        ...(closedActions !== undefined && { closedActions }),
-        ...(sortOrder !== undefined && { sortOrder }),
-      })
+      .set(updates)
       .where(and(
         eq(pipelineSubStatuses.id, id),
         eq(pipelineSubStatuses.tenantId, tenant.id)

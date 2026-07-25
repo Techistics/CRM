@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   UserCheck,
   ArrowRightLeft,
@@ -15,12 +16,13 @@ import {
   MoreHorizontal,
   Upload,
   AlertTriangle,
+  Layers,
 } from 'lucide-react'
 
 import Pagination from '@/components/Pagination'
 import SearchInput from '@/components/SearchInput'
 import PageSizeDropdown from '@/components/PageSizeDropdown'
-import { getStageInfo } from '@/constants/pipeline-stages'
+import { getStageInfo, PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { tenantPath } from '@/lib/tenant-path'
 import { TagFilter } from '@/components/leads/TagFilter'
 import { CreateLeadDialog } from '@/components/leads/CreateLeadDialog'
@@ -106,6 +108,9 @@ export function LeadsDashboard({
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
   const [heatFilter, setHeatFilter] = useState<string>('all')
+  const [subStatuses, setSubStatuses] = useState<{ id: string; label: string }[]>([])
+  const [closedActions, setClosedActions] = useState<string[]>([])
+  const [tenantStages, setTenantStages] = useState<{ key: string; label: string }[]>([])
 
   const assignedTo = searchParams.get('assignedTo') ?? undefined
   const q = searchParams.get('q') ?? undefined
@@ -113,9 +118,50 @@ export function LeadsDashboard({
   const pageSizeParam = searchParams.get('pageSize') ?? '10'
   const tagsParam = searchParams.get('tags') ?? undefined
   const stageFilter = searchParams.get('stage') ?? undefined
+  const subStatusIdFilter = searchParams.get('subStatusId') ?? undefined
+  const closedActionFilter = searchParams.get('closedAction') ?? undefined
   const currentPage = Math.max(1, Number(page) || 1)
   const pageSize = Number(pageSizeParam) || 10
   const totalPages = Math.max(1, Math.ceil(totalLeads / pageSize))
+
+  // Fetch tenant-specific pipeline stages on mount
+  useEffect(() => {
+    fetch('/api/pipeline-stages')
+      .then((r) => r.json())
+      .then((data) => {
+        const rows = data?.data?.stages ?? []
+        setTenantStages(rows.map((s: { key: string; label: string }) => ({ key: s.key, label: s.label })))
+      })
+      .catch(() => {})
+  }, [])
+
+  // Fetch sub-statuses (and their closedActions) when stage filter changes
+  useEffect(() => {
+    if (!stageFilter) {
+      setSubStatuses([])
+      setClosedActions([])
+      return
+    }
+    fetch(`/api/sub-statuses?stageKey=${encodeURIComponent(stageFilter)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const rows = Array.isArray(data) ? data : (data?.data ?? [])
+        setSubStatuses(rows.map((r: { id: string; label: string }) => ({ id: r.id, label: r.label })))
+        // Collect all closedActions from all sub-statuses for this stage
+        const actions: string[] = []
+        for (const row of rows) {
+          if (Array.isArray(row.closedActions)) {
+            for (const a of row.closedActions) {
+              if (typeof a === 'string' && a.trim() && !actions.includes(a.trim())) {
+                actions.push(a.trim())
+              }
+            }
+          }
+        }
+        setClosedActions(actions)
+      })
+      .catch(() => { setSubStatuses([]); setClosedActions([]) })
+  }, [stageFilter])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -128,6 +174,8 @@ export function LeadsDashboard({
       if (assignedTo) params.set('assignedTo', assignedTo)
       if (tagsParam) params.set('tags', tagsParam)
       if (stageFilter) params.set('stage', stageFilter)
+      if (subStatusIdFilter) params.set('subStatusId', subStatusIdFilter)
+      if (closedActionFilter) params.set('closedAction', closedActionFilter)
 
       params.set('_t', Date.now().toString())
 
@@ -154,7 +202,7 @@ export function LeadsDashboard({
     } finally {
       setLoading(false)
     }
-  }, [assignedTo, currentPage, pageSize, q, stageFilter, tagsParam])
+  }, [assignedTo, currentPage, pageSize, q, stageFilter, subStatusIdFilter, closedActionFilter, tagsParam])
 
   useEffect(() => {
     void fetchData()
@@ -177,11 +225,50 @@ export function LeadsDashboard({
     filteredLeads.length > 0 && filteredLeads.every((l) => selectedIds.has(l.id))
   const selectedSome = filteredLeads.some((l) => selectedIds.has(l.id))
 
+  // Build a fast lookup: stageKey -> { label, badgeClasses }
+  // Prefer tenant-configured labels; fall back to PIPELINE_STAGES for badge styles
+  const stageInfoMap = useMemo(() => {
+    const map = new Map<string, { label: string; badgeClasses: string }>()
+    for (const s of PIPELINE_STAGES) {
+      map.set(s.value, { label: s.label, badgeClasses: s.badgeClasses })
+    }
+    for (const s of tenantStages) {
+      const existing = map.get(s.key)
+      map.set(s.key, {
+        label: s.label,
+        badgeClasses: existing?.badgeClasses ?? 'bg-slate-100 text-slate-700 border-slate-200 shadow-sm',
+      })
+    }
+    return map
+  }, [tenantStages])
+
   const assigneeNameById = useMemo(() => {
     const map = new Map<string, string>()
     agents.forEach((agent) => map.set(agent.userId, agent.name))
     return map
   }, [agents])
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0
+    if (stageFilter) count++
+    if (closedActionFilter) count++
+    if (heatFilter !== 'all') count++
+    if (assignedTo) count++
+    if (tagsParam) count++
+    return count
+  }, [stageFilter, closedActionFilter, heatFilter, assignedTo, tagsParam])
+
+  const clearAllFilters = useCallback(() => {
+    const sp = new URLSearchParams(searchParams.toString())
+    sp.delete('stage')
+    sp.delete('subStatusId')
+    sp.delete('closedAction')
+    sp.delete('assignedTo')
+    sp.delete('tags')
+    sp.delete('page')
+    setHeatFilter('all')
+    router.push(`?${sp.toString()}`)
+  }, [router, searchParams])
 
   const handleBulkAssign = async (newAssignedTo: string) => {
     setBulkActionLoading(true)
@@ -359,14 +446,63 @@ export function LeadsDashboard({
             />
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
+          <div className="flex items-center gap-1 bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-full pl-3 pr-1.5 py-1 shadow-sm">
+            <Filter className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+
+            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1.5" />
+
             <TagFilter />
+
+            {/* Stage Filter */}
+            <Select
+              value={stageFilter ?? 'all'}
+              onValueChange={(val) => {
+                const sp = new URLSearchParams(searchParams.toString())
+                if (val === 'all') sp.delete('stage')
+                else sp.set('stage', val)
+                sp.delete('subStatusId')
+                sp.delete('page')
+                router.push(`?${sp.toString()}`)
+              }}
+            >
+              <SelectTrigger className="h-7 w-auto min-w-[90px] border-none bg-transparent shadow-none focus:ring-0 rounded-full px-2.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 data-[state=open]:bg-slate-100 dark:data-[state=open]:bg-slate-700/50">
+                <SelectValue placeholder="Stages" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Stages</SelectItem>
+                {tenantStages.map((s) => (
+                  <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Sub-status Filter — only shown when a stage is selected and it has closedActions */}
+            {stageFilter && closedActions.length > 0 && (
+              <Select
+                value={closedActionFilter ?? 'all'}
+                onValueChange={(val) => {
+                  const sp = new URLSearchParams(searchParams.toString())
+                  if (val === 'all') sp.delete('closedAction')
+                  else sp.set('closedAction', val)
+                  sp.delete('page')
+                  router.push(`?${sp.toString()}`)
+                }}
+              >
+                <SelectTrigger className="h-7 w-auto min-w-[100px] border-none bg-transparent shadow-none focus:ring-0 rounded-full px-2.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 data-[state=open]:bg-slate-100 dark:data-[state=open]:bg-slate-700/50">
+                  <SelectValue placeholder="All Sub-stages" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Sub-Stages</SelectItem>
+                  {closedActions.map((action) => (
+                    <SelectItem key={action} value={action}>{action}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
             <Select value={heatFilter} onValueChange={setHeatFilter}>
-              <SelectTrigger className="h-8 w-32 border-none bg-transparent shadow-none focus:ring-0">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-3.5 w-3.5 text-gray-500" />
-                  <SelectValue placeholder="Heat" />
-                </div>
+              <SelectTrigger className="h-7 w-auto min-w-[80px] border-none bg-transparent shadow-none focus:ring-0 rounded-full px-2.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 data-[state=open]:bg-slate-100 dark:data-[state=open]:bg-slate-700/50">
+                <SelectValue placeholder="Heat" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
@@ -375,6 +511,7 @@ export function LeadsDashboard({
                 <SelectItem value="dead"> Dead</SelectItem>
               </SelectContent>
             </Select>
+
             {isAdmin && agents.length > 0 && (
               <Select
                 value={assignedTo ?? 'all'}
@@ -386,14 +523,11 @@ export function LeadsDashboard({
                   router.push(`?${sp.toString()}`)
                 }}
               >
-                <SelectTrigger className="h-8 w-40 border-none bg-transparent shadow-none focus:ring-0">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-3.5 w-3.5 text-gray-500" />
-                    <SelectValue placeholder="Filter by PRO" />
-                  </div>
+                <SelectTrigger className="h-7 w-auto min-w-[100px] border-none bg-transparent shadow-none focus:ring-0 rounded-full px-2.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 data-[state=open]:bg-slate-100 dark:data-[state=open]:bg-slate-700/50">
+                  <SelectValue placeholder="Filter by PRO" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All PROs</SelectItem>
+                  <SelectItem value="all">PROs</SelectItem>
                   <SelectItem value="unassigned">
                     <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-medium">
                       <AlertTriangle className="h-3.5 w-3.5" />
@@ -581,7 +715,7 @@ export function LeadsDashboard({
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredLeads.map((lead) => {
-                  const stageInfo = getStageInfo(lead.stage)
+                  const stageInfo = stageInfoMap.get(lead.stage ?? '') ?? getStageInfo(lead.stage)
                   const heat = getHeatLevel(
                     lead.lastContactedAt ? new Date(lead.lastContactedAt) : null,
                     new Date(lead.createdAt),
@@ -704,6 +838,8 @@ export function LeadsDashboard({
                   if (q) sp.set('q', q)
                   if (tagsParam) sp.set('tags', tagsParam)
                   if (stageFilter) sp.set('stage', stageFilter)
+                  if (subStatusIdFilter) sp.set('subStatusId', subStatusIdFilter)
+                  if (closedActionFilter) sp.set('closedAction', closedActionFilter)
                   if (pageSize !== 10) sp.set('pageSize', String(pageSize))
                   sp.set('page', String(p))
                   return `${tenantPath(tenantSlug, `/${role.toLowerCase()}/leads`)}?${sp.toString()}`

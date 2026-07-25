@@ -49,6 +49,8 @@ export function getPermissionsForMember(
   customRolePermissions?: Permission[] | null,
 ): Permission[] {
   if (role === 'ADMIN') return [...ALL_PERMISSIONS]
-  if (customRolePermissions && customRolePermissions.length > 0) return customRolePermissions
+  if (customRolePermissions && customRolePermissions.length > 0) {
+    return Array.from(new Set([...DEFAULT_PRO_PERMISSIONS, ...customRolePermissions]))
+  }
   return DEFAULT_PRO_PERMISSIONS
 }

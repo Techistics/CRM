@@ -10,6 +10,7 @@ import {
   Sparkles,
   Settings as SettingsIcon,
   Layers,
+  BookOpen,
 } from 'lucide-react'
 
 import { ADMIN_ROUTES } from '@/lib/admin-nav'
@@ -73,6 +74,12 @@ export const adminMainNav: PermissionNavLink[] = [
     icon: LineChart,
     matchPrefix: true,
     permission: 'analytics.view',
+  },
+  {
+    name: 'Counselor Diaries',
+    href: ADMIN_ROUTES.diary,
+    icon: BookOpen,
+    matchPrefix: true,
   },
 ]
 

@@ -60,7 +60,6 @@ export default async function AdminOverviewPage({
   const startOfToday = new Date()
   startOfToday.setHours(0, 0, 0, 0)
 
-  // Run all DB queries in parallel
   const [
     overdueRemindersRow,
     byStage,
@@ -73,7 +72,8 @@ export default async function AdminOverviewPage({
     sparklineRaw,
     prevPeriodStats,
     currPeriodStats,
-    chartByWindow
+    chartByWindow,
+    activeAgentStageRaw
   ] = await Promise.all([
     db
       .select({ c: count(leadReminders.id) })
@@ -165,7 +165,16 @@ export default async function AdminOverviewPage({
       })
       .from(leads)
       .where(and(eq(leads.tenantId, tenant.id), gte(leads.createdAt, (() => { const d = new Date(); d.setDate(d.getDate() - 30); d.setHours(0,0,0,0); return d })()))),
-    loadChartSnapshotsByWindow(tenant.id)
+    loadChartSnapshotsByWindow(tenant.id),
+    db
+      .select({
+        assignedTo: leads.assignedTo,
+        stage: leads.primaryStage,
+        count: count(leads.id)
+      })
+      .from(leads)
+      .where(and(tScope, sql`${leads.primaryStage} NOT IN ('paid', 'cancelled')`))
+      .groupBy(leads.assignedTo, leads.primaryStage)
   ])
 
   const overdueRemindersCount = Number(overdueRemindersRow[0]?.c ?? 0)
@@ -222,6 +231,56 @@ export default async function AdminOverviewPage({
     unassigned: buildSpark('unassigned'),
   }
 
+  const stageLookup = new Map(chartByWindow.week.stageData.map(s => [s.value, s.label]))
+  
+  const agentBreakdownMap = new Map<string, { agentId: string, agentName: string, totalLeads: number, stages: Record<string, number> }>()
+
+  for (const agent of proUsers) {
+    agentBreakdownMap.set(agent.id, {
+      agentId: agent.id,
+      agentName: agent.name || 'Unknown',
+      totalLeads: 0,
+      stages: {}
+    })
+  }
+
+  const unassignedStages: Record<string, number> = {}
+
+  for (const row of activeAgentStageRaw) {
+    const c = Number(row.count)
+    if (c === 0) continue
+
+    if (!row.assignedTo) {
+      unassignedStages[row.stage] = (unassignedStages[row.stage] || 0) + c
+      continue
+    }
+
+    const mapItem = agentBreakdownMap.get(row.assignedTo)
+    if (mapItem) {
+      mapItem.totalLeads += c
+      mapItem.stages[row.stage] = (mapItem.stages[row.stage] || 0) + c
+    }
+  }
+
+  const unassignedBreakdown = Object.entries(unassignedStages).map(([key, c]) => ({
+    key,
+    label: stageLookup.get(key) || key,
+    count: c
+  })).sort((a, b) => b.count - a.count)
+
+  const agentStageBreakdown = Array.from(agentBreakdownMap.values())
+    .filter(item => item.totalLeads > 0)
+    .map(item => ({
+      agentId: item.agentId,
+      agentName: item.agentName,
+      totalLeads: item.totalLeads,
+      stages: Object.entries(item.stages).map(([key, c]) => ({
+        key,
+        label: stageLookup.get(key) || key,
+        count: c
+      })).sort((a, b) => b.count - a.count)
+    }))
+
   return (
     <AnalyticsOverviewClient
       chartByWindow={chartByWindow}
@@ -240,6 +299,8 @@ export default async function AdminOverviewPage({
       sparklines={sparklines}
       trends={trends}
       dateRange={{ from: startDate, to: endDate }}
+      agentStageBreakdown={agentStageBreakdown}
+      unassignedBreakdown={unassignedBreakdown}
     />
   )
 }

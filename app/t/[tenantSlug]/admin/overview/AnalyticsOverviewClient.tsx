@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   BarController,
   LineController,
-  BarElement,
   CategoryScale,
   Chart as ChartJS,
   Filler,
@@ -12,6 +11,7 @@ import {
   LineElement,
   LinearScale,
   PointElement,
+  BarElement,
   Tooltip,
 } from 'chart.js'
 import { Chart, Line } from 'react-chartjs-2'
@@ -35,6 +35,7 @@ import {
 
 import type { AgentStat, ChartWindow, PipelineChartSnapshot } from '@/types/analytics'
 import { DateRangePicker } from '@/components/analytics/DateRangePicker'
+import { LeadDistributionDonut } from '@/components/LeadDistributionDonut'
 
 ChartJS.register(
   BarController,
@@ -148,6 +149,8 @@ export default function AnalyticsOverviewClient({
   sparklines,
   trends,
   dateRange,
+  agentStageBreakdown,
+  unassignedBreakdown = [],
 }: {
   chartByWindow: Record<ChartWindow, PipelineChartSnapshot>
   overdueRemindersCount: number
@@ -185,6 +188,13 @@ export default function AnalyticsOverviewClient({
     unassigned: { value: string; positive: boolean }
   }
   dateRange: { from: Date | string | null; to: Date | string | null }
+  agentStageBreakdown?: Array<{
+    agentId: string | null
+    agentName: string
+    totalLeads: number
+    stages: Array<{ key: string; label: string; count: number }>
+  }>
+  unassignedBreakdown?: Array<{ key: string; label: string; count: number }>
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -201,7 +211,7 @@ export default function AnalyticsOverviewClient({
   const [exportingPipeline, setExportingPipeline] = useState(false)
   const [exportingAgent, setExportingAgent] = useState(false)
 
-  // ── "Calculating" loading phase: shows skeleton for 5s before real charts render ──
+  // ── "Calculating" loading phase: shows skeleton for 3s before real charts render ──
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 3000)
@@ -249,12 +259,9 @@ export default function AnalyticsOverviewClient({
     router.push(`${pathname}?${params.toString()}`, { scroll: false })
   }
 
-  const windowSnapshot = chartByWindow.week
-  const stageList = windowSnapshot.stageData
-  const chartLabels = windowSnapshot.funnelSteps.map((step) => step.label)
-  const chartCounts = windowSnapshot.funnelSteps.map((step) => step.count)
+  const breakdown = agentStageBreakdown || []
+  const donutTotalForBadge = unassignedCount + breakdown.reduce((sum, a) => sum + a.totalLeads, 0)
 
-  // ── Theme-aware chart palette ──
   const palette = useMemo(
     () => ({
       tick: isDark ? '#64748b' : '#94a3b8',
@@ -335,8 +342,6 @@ export default function AnalyticsOverviewClient({
     { color: '#f59e0b', title: `${activeCount} in pipeline`, detail: 'currently active', time: 'Live' },
     { color: '#ef4444', title: `${overdueRemindersCount} overdue reminders`, detail: 'need follow-up', time: 'Now' },
   ]
-
-  const fillColors = ['#0ea5e9', '#0ea5e9', '#10b981', '#10b981', '#f59e0b', '#f59e0b']
 
   if (loading) {
     return (
@@ -440,113 +445,33 @@ export default function AnalyticsOverviewClient({
         })}
       </div>
 
-      {/* ── TWO COLUMN LAYOUT: Main Chart + Side Charts ── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-
-        {/* Left: Pipeline Overview Chart — takes 2/3 width */}
-        <div className="xl:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-crm-sm overflow-hidden">
+        <div className="xl:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-crm-sm overflow-hidden flex flex-col">
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
             <div>
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Pipeline Overview</h2>
-                <Info className="h-3.5 w-3.5 text-slate-300 dark:text-slate-600" />
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Lead Distribution</h2>
+                <div className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
+                  {donutTotalForBadge} Total Leads
+                </div>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Lead flow across all stages</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Active leads by counselor</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 flex items-center gap-1">
-                Last 7 days <ChevronDown className="h-3 w-3 opacity-60" />
-              </span>
               <button className="h-7 w-7 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">
                 <MoreHorizontal className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
-          <div className="p-6">
-            <div className="flex items-center gap-4 mb-3">
-              <span className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                <span className="h-2 w-2 rounded-full bg-sky-500" /> Leads This Period
-              </span>
-              <span className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                <span className="h-2 w-2 rounded-full bg-sky-300" /> Trend
-              </span>
-            </div>
-            <div className="h-[260px]">
-              <Chart
-                type="bar"
-                data={{
-                  labels: chartLabels,
-                  datasets: [
-                    {
-                      type: 'bar' as const,
-                      label: 'Leads',
-                      data: chartCounts,
-                      backgroundColor: palette.barFill,
-                      borderRadius: 6,
-                      borderSkipped: false,
-                      barThickness: 18,
-                      order: 2,
-                    },
-                    {
-                      type: 'line' as const,
-                      label: 'Trend',
-                      data: chartCounts,
-                      borderColor: '#0ea5e9',
-                      backgroundColor: 'transparent',
-                      borderWidth: 2.5,
-                      tension: 0.4,
-                      pointRadius: 4,
-                      pointBackgroundColor: '#0ea5e9',
-                      pointBorderColor: palette.pointBorder,
-                      pointBorderWidth: 2,
-                      fill: false,
-                      order: 1,
-                    },
-                  ],
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                      enabled: true,
-                      backgroundColor: palette.tooltipBg,
-                      titleColor: palette.tooltipTitle,
-                      bodyColor: palette.tooltipBody,
-                      padding: 10,
-                      cornerRadius: 8,
-                    },
-                  },
-                  scales: {
-                    x: { ticks: { color: palette.tick, font: { size: 11 } }, grid: { color: palette.grid }, border: { display: false } },
-                    y: { ticks: { color: palette.tick, font: { size: 11 } }, grid: { color: palette.grid }, border: { display: false } },
-                  },
-                }}
-              />
-            </div>
-          </div>
-          {/* Pipeline Stages below chart */}
-          <div className="px-6 pb-6">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-3">Stage Breakdown</p>
-            <div className="space-y-2.5">
-              {stageList.slice(0, 6).map((stage, index) => {
-                const pct = windowSnapshot.totalLeads > 0 ? Math.round((stage.count / windowSnapshot.totalLeads) * 100) : 0
-                return (
-                  <div key={stage.value} className="flex items-center gap-3">
-                    <span className="text-xs text-slate-600 dark:text-slate-300 w-28 truncate flex-shrink-0">{stage.label}</span>
-                    <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: fillColors[index] ?? '#0ea5e9' }} />
-                    </div>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 w-6 text-right flex-shrink-0">{stage.count}</span>
-                  </div>
-                )
-              })}
-            </div>
+          <div className="p-6 flex-1 flex flex-col">
+            <LeadDistributionDonut
+              unassignedCount={unassignedCount}
+              breakdown={breakdown}
+              unassignedBreakdown={unassignedBreakdown}
+              onUnassignedClick={() => router.push(`/t/${tenantSlug}/admin/leads?assignedTo=unassigned`)}
+            />
           </div>
         </div>
-
-        {/* Right: Stacked side cards — takes 1/3 width */}
         <div className="flex flex-col gap-4">
 
           {/* Deals by Source */}
@@ -699,7 +624,7 @@ export default function AnalyticsOverviewClient({
           </Table>
         </div>
       </div>
-      
+
 
       {/* ── TEAM SNAPSHOT ── */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-crm-sm overflow-hidden">

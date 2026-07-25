@@ -192,6 +192,8 @@ export const leads = pgTable('leads', {
   csvImportId: uuid('csv_import_id').references(() => csvImports.id, { onDelete: 'set null' }),
   subStatusId: uuid('sub_status_id').references(() => pipelineSubStatuses.id, { onDelete: 'set null' }),
   closedAction: text('closed_action'),
+  /** Values for the selected sub-status custom fields (keyed by field key). */
+  subStatusFieldValues: jsonb('sub_status_field_values').notNull().default({}),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
   deletedAt: timestamp('deleted_at'),
@@ -464,6 +466,7 @@ export const leadTagAssignments = pgTable(
 // ─── Relations (cont.) ────────────────────────────────────────
 export const leadRelations = relations(leads, ({ many }) => ({
   tagAssignments: many(leadTagAssignments),
+  revenues: many(leadRevenues),
 }))
 
 export const leadTagRelations = relations(leadTags, ({ many }) => ({
@@ -478,6 +481,42 @@ export const leadTagAssignmentRelations = relations(leadTagAssignments, ({ one }
   tag: one(leadTags, {
     fields: [leadTagAssignments.tagId],
     references: [leadTags.id],
+  }),
+}))
+
+// ─── Lead Revenues ────────────────────────────────────────────
+export const leadRevenues = pgTable(
+  'lead_revenues',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .references(() => tenants.id, { onDelete: 'cascade' })
+      .notNull(),
+    leadId: uuid('lead_id')
+      .references(() => leads.id, { onDelete: 'cascade' })
+      .notNull(),
+    intake: text('intake'),
+    university: text('university'),
+    country: text('country'),
+    counselorFee: decimal('counselor_fee', { precision: 12, scale: 2 }),
+    universityFee: decimal('university_fee', { precision: 12, scale: 2 }),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    idx_lead: index('idx_lead_revenues_lead').on(t.leadId),
+    idx_tenant: index('idx_lead_revenues_tenant').on(t.tenantId),
+  })
+)
+
+export const leadRevenueRelations = relations(leadRevenues, ({ one }) => ({
+  lead: one(leads, {
+    fields: [leadRevenues.leadId],
+    references: [leads.id],
+  }),
+  tenant: one(tenants, {
+    fields: [leadRevenues.tenantId],
+    references: [tenants.id],
   }),
 }))
 
@@ -564,6 +603,8 @@ export const pipelineSubStatuses = pgTable(
       .notNull()
       .default('in_progress'),
     closedActions: jsonb('closed_actions').notNull().default([]),
+    customFieldsEnabled: boolean('custom_fields_enabled').notNull().default(false),
+    customFields: jsonb('custom_fields').notNull().default([]),
     sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow(),
   },
@@ -572,3 +613,24 @@ export const pipelineSubStatuses = pgTable(
     idx_stage: index('idx_pipeline_sub_statuses_stage').on(t.tenantId, t.stageKey),
   })
 )
+
+// ─── Counselor Diaries ─────────────────────────────────────────────────────────
+export const counselorDiaries = pgTable('counselor_diaries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id')
+    .references(() => tenants.id, { onDelete: 'cascade' })
+    .notNull(),
+  userId: uuid('user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .notNull(),
+  diaryDate: date('diary_date').notNull(),
+  startTime: varchar('start_time', { length: 5 }).notNull(), // e.g. "09:00"
+  endTime: varchar('end_time', { length: 5 }).notNull(), // e.g. "17:00"
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (t) => ({
+  idx_tenant: index('idx_counselor_diaries_tenant').on(t.tenantId),
+  idx_user: index('idx_counselor_diaries_user').on(t.userId),
+  idx_date: index('idx_counselor_diaries_date').on(t.diaryDate),
+}))

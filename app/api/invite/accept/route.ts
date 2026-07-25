@@ -115,12 +115,13 @@ export async function GET(req: NextRequest) {
     }
 
     const [existingUser] = await db
-      .select({ id: users.id })
+      .select({ id: users.id, password: users.password })
       .from(users)
       .where(eq(users.email, row.email))
       .limit(1)
 
-    if (!existingUser) {
+    // Treat as "new" user if they don't exist OR they exist but haven't set a password yet
+    if (!existingUser || !existingUser.password) {
       return successResponse({
         existingUser: false,
         ...baseFields,

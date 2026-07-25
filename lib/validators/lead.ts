@@ -42,6 +42,7 @@ export const leadPatchBodySchema = z
     // NEW – dead status fields
     subStatusId: z.string().uuid().optional().nullable(),
     closedAction: z.string().trim().max(500).optional().nullable(),
+    subStatusFieldValues: z.record(z.string(), z.string()).optional().nullable(),
     isDeadManual: z.boolean().optional(),
     deadReason: z.string().trim().max(500).optional().nullable(),
   })

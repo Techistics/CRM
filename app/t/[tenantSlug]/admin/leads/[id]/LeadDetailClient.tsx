@@ -24,6 +24,13 @@ import { LeadDocumentsPanel } from '@/components/leads/LeadDocumentsPanel'
 import { apiCall } from '@/lib/utils/api-handler'
 import { WhatsappLogger } from '@/components/leads/WhatsappLogger'
 import { LeadDeleteButton } from '@/components/leads/LeadDeleteButton'
+import { LeadRevenueCard } from '@/components/leads/LeadRevenueCard'
+import SubStatusCustomFieldsForm from '@/components/leads/SubStatusCustomFieldsForm'
+import {
+  areCustomFieldsComplete,
+  normalizeCustomFields,
+  normalizeFieldValues,
+} from '@/lib/pipeline/sub-status-fields'
 
 export default function LeadDetailClient({
   lead,
@@ -70,6 +77,9 @@ export default function LeadDetailClient({
   const [subStatuses, setSubStatuses] = useState<any[]>([])
   const [selectedSubStatusId, setSelectedSubStatusId] = useState<string | null>(lead.subStatusId ?? null)
   const [selectedClosedAction, setSelectedClosedAction] = useState<string | null>(lead.closedAction ?? null)
+  const [subStatusFieldValues, setSubStatusFieldValues] = useState<Record<string, string>>(
+    () => normalizeFieldValues(lead.subStatusFieldValues),
+  )
   const [savingSubStatus, setSavingSubStatus] = useState(false)
   // NEW – dead‑status UI state
   const [isDeadState, setIsDeadState] = useState<boolean>(lead.isDeadManual ?? false)
@@ -158,13 +168,36 @@ export default function LeadDetailClient({
 
   useEffect(() => { fetchSubStatuses(primaryStage) }, [primaryStage])
 
+  const selectedSubStatus = subStatuses.find((ss) => ss.id === selectedSubStatusId)
+  const activeCustomFields =
+    selectedSubStatus?.customFieldsEnabled
+      ? normalizeCustomFields(selectedSubStatus.customFields)
+      : []
+  const closedActions = (selectedSubStatus?.closedActions as string[]) ?? []
+  const needsClosedAction = closedActions.length > 0
+  const needsCustomFields = activeCustomFields.length > 0
+  const customFieldsComplete = !needsCustomFields || areCustomFieldsComplete(activeCustomFields, subStatusFieldValues)
+  const canSaveSubStatus =
+    Boolean(selectedSubStatusId) &&
+    (!needsClosedAction || Boolean(selectedClosedAction)) &&
+    customFieldsComplete
+
+  const handleSubStatusFieldChange = (key: string, value: string) => {
+    setSubStatusFieldValues((prev) => ({ ...prev, [key]: value }))
+  }
+
   const handleSubStatusSave = async () => {
+    if (!canSaveSubStatus) return
     setSavingSubStatus(true)
     const data = await apiCall(async () => {
       const res = await fetch(`/api/leads/${lead.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subStatusId: selectedSubStatusId, closedAction: selectedClosedAction }),
+        body: JSON.stringify({
+          subStatusId: selectedSubStatusId,
+          closedAction: selectedClosedAction,
+          subStatusFieldValues: needsCustomFields ? subStatusFieldValues : {},
+        }),
       })
       return res.json()
     }, { successMsg: 'Status updated', errorMsg: 'Failed to update status' })
@@ -541,6 +574,11 @@ export default function LeadDetailClient({
                   {editingLead ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Lead Profile'}
                 </button>
               </div>
+              
+              {/* Lead Revenue */}
+              <div className={isDeadState ? 'pointer-events-none opacity-50' : ''}>
+                <LeadRevenueCard leadId={lead.id} />
+              </div>
             </div>
 
             {/* Right Column: Assigned To + Mark as Dead + Delete Lead + Save Logs */}
@@ -732,32 +770,30 @@ export default function LeadDetailClient({
               ))}
             </div>
 
-            {/* Sub Status & Action (Horizontal) */}
-            <div className="flex flex-col sm:flex-row items-end gap-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/50 rounded-xl p-4 mt-6">
-              <div className="flex-1 w-full">
-                <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 mb-1.5 block">
-                  Sub Status <span className="text-red-400">*</span>
-                </label>
-                <select
-                  value={selectedSubStatusId ?? ''}
-                  onChange={(e) => {
-                    setSelectedSubStatusId(e.target.value || null)
-                    setSelectedClosedAction(null)
-                  }}
-                  className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 transition-shadow"
-                >
-                  <option value="">— Select sub status —</option>
-                  {subStatuses.map((ss) => (
-                    <option key={ss.id} value={ss.id}>{ss.label}</option>
-                  ))}
-                </select>
-              </div>
+            {/* Sub Status & Action */}
+            <div className="flex flex-col gap-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/50 rounded-xl p-4 mt-6">
+              <div className="flex flex-col sm:flex-row items-end gap-4">
+                <div className="flex-1 w-full">
+                  <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 mb-1.5 block">
+                    Sub Status <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    value={selectedSubStatusId ?? ''}
+                    onChange={(e) => {
+                      setSelectedSubStatusId(e.target.value || null)
+                      setSelectedClosedAction(null)
+                      setSubStatusFieldValues({})
+                    }}
+                    className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 transition-shadow"
+                  >
+                    <option value="">— Select sub status —</option>
+                    {subStatuses.map((ss) => (
+                      <option key={ss.id} value={ss.id}>{ss.label}</option>
+                    ))}
+                  </select>
+                </div>
 
-              {selectedSubStatusId && (() => {
-                const selected = subStatuses.find(ss => ss.id === selectedSubStatusId)
-                const actions = (selected?.closedActions as string[]) ?? []
-                if (actions.length === 0) return null
-                return (
+                {selectedSubStatusId && needsClosedAction && (
                   <div className="flex-1 w-full">
                     <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 mb-1.5 block">
                       Closed Action <span className="text-red-400">*</span>
@@ -768,21 +804,31 @@ export default function LeadDetailClient({
                       className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 transition-shadow"
                     >
                       <option value="">— Select action —</option>
-                      {actions.map((a) => (
+                      {closedActions.map((a) => (
                         <option key={a} value={a}>{a}</option>
                       ))}
                     </select>
                   </div>
-                )
-              })()}
+                )}
+              </div>
 
-              <button
-                onClick={handleSubStatusSave}
-                disabled={savingSubStatus || !selectedSubStatusId}
-                className="h-10 px-6 bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg shadow-sm transition-all w-full sm:w-auto flex items-center justify-center gap-1.5"
-              >
-                {savingSubStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Save</>}
-              </button>
+              {selectedSubStatusId && needsCustomFields && (
+                <SubStatusCustomFieldsForm
+                  fields={activeCustomFields}
+                  values={subStatusFieldValues}
+                  onChange={handleSubStatusFieldChange}
+                />
+              )}
+
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSubStatusSave}
+                  disabled={savingSubStatus || !canSaveSubStatus}
+                  className="h-10 px-6 bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg shadow-sm transition-all w-full sm:w-auto flex items-center justify-center gap-1.5"
+                >
+                  {savingSubStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Save</>}
+                </button>
+              </div>
             </div>
             </>
             )}

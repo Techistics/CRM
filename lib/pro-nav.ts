@@ -12,5 +12,6 @@ export const PRO_ROUTES = {
   import: '/pro/import',
   templates: '/pro/templates',
   team: '/pro/team',
+  diary: '/pro/diary',
 } as const
 

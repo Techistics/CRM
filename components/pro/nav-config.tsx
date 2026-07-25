@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, BarChart3, Settings, ArrowLeftRight, Import, Sparkles } from 'lucide-react'
+import { LayoutDashboard, Users, BarChart3, Settings, ArrowLeftRight, Import, Sparkles, BookOpen } from 'lucide-react'
 
 import { PRO_ROUTES } from '@/lib/pro-nav'
 import type { Permission } from '@/lib/authz'
@@ -60,6 +60,12 @@ export const proMainNav: PermissionNavLink[] = [
     icon: Users,
     matchPrefix: true,
     permission: 'teams.manage',
+  },
+  {
+    name: 'My Notes',
+    href: PRO_ROUTES.diary,
+    icon: BookOpen,
+    matchPrefix: true,
   },
 ]
 

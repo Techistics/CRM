@@ -86,11 +86,11 @@ export function TagFilter() {
             variant="outline"
             size="sm"
             className={cn(
-              "h-9 border bg-white px-3 text-xs font-medium text-black",
+              "h-9 border px-3 text-xs font-medium text-black",
               selectedTagsCount > 0 && "border-blue-200 bg-blue-50"
             )}
           >
-            <Filter className="mr-2 h-3.5 w-3.5" />
+            {/* <Filter className="mr-2 h-3.5 w-3.5" /> */}
             Tags
             {selectedTagsCount > 0 && (
               <Badge

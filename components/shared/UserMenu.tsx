@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 
 export function UserMenu({ user, role, tenantSlug }: { user: { name: string, email: string } | null, role?: string, tenantSlug?: string }) {
   const router = useRouter()
@@ -35,20 +36,33 @@ export function UserMenu({ user, role, tenantSlug }: { user: { name: string, ema
     : user.email[0].toUpperCase()
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative flex items-center gap-2 px-1 py-1.5 h-auto hover:bg-muted/50 rounded-full transition-colors group">
-          <Avatar className="h-8 w-8 ring-1 ring-slate-300 dark:ring-slate-600 transition-all">
-            <AvatarImage src="" alt={user.name} />
-            <AvatarFallback className="bg-slate-700 dark:bg-brand text-white text-[11px] font-bold">
-  {initials}
-</AvatarFallback>
-          </Avatar>
-          <span className="text-sm font-medium text-muted-foreground group-hover:text-[var(--text-strong)] hidden md:inline-block transition-colors pr-2">
-            {user.name}
-          </span>
-        </Button>
-      </DropdownMenuTrigger>
+    <div className="flex items-center gap-2">
+      {role && (
+        <Badge 
+          variant="outline" 
+          className={`cursor-pointer font-bold tracking-wider text-[10px] px-2 py-0.5 ${
+            role.toUpperCase() === 'ADMIN'
+              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.3)] hover:shadow-[0_0_15px_rgba(16,185,129,0.5)]'
+              : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/50 shadow-[0_0_10px_rgba(99,102,241,0.3)] hover:shadow-[0_0_15px_rgba(99,102,241,0.5)]'
+          } transition-all duration-300`}
+        >
+          {role.toUpperCase()}
+        </Badge>
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="relative flex items-center gap-2 px-1 py-1.5 h-auto hover:bg-muted/50 rounded-full transition-colors group">
+            <Avatar className="h-8 w-8 ring-1 ring-slate-300 dark:ring-slate-600 transition-all">
+              <AvatarImage src="" alt={user.name} />
+              <AvatarFallback className="bg-slate-700 dark:bg-brand text-white text-[11px] font-bold">
+    {initials}
+  </AvatarFallback>
+            </Avatar>
+            <span className="text-sm font-medium text-muted-foreground group-hover:text-[var(--text-strong)] hidden md:inline-block transition-colors pr-2">
+              {user.name && user.name.includes('@') ? user.name.split('@')[0] : user.name}
+            </span>
+          </Button>
+        </DropdownMenuTrigger>
       <DropdownMenuContent 
         className="w-64 mt-2 p-1.5 rounded-[12px] border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] shadow-xl animate-in fade-in zoom-in-95" 
         align="end" 
@@ -56,7 +70,9 @@ export function UserMenu({ user, role, tenantSlug }: { user: { name: string, ema
       >
         <DropdownMenuLabel className="px-4 py-3">
           <div className="flex flex-col space-y-1">
-            <p className="text-[13px] font-bold text-[var(--text-strong)]">My Account</p>
+            <p className="text-[13px] font-bold text-[var(--text-strong)]">
+              {user.name && user.name.includes('@') ? user.name.split('@')[0] : user.name}
+            </p>
             <p className="text-[11px] font-medium text-[var(--muted-text)] truncate">
               {user.email}
             </p>
@@ -87,5 +103,6 @@ export function UserMenu({ user, role, tenantSlug }: { user: { name: string, ema
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
+    </div>
   )
 }

@@ -6,7 +6,8 @@ import { eq, desc, and } from 'drizzle-orm'
 import { requireTenantSession } from '@/lib/tenant-server'
 
 export async function saveLeadRevenue(leadId: string, data: {
-  intake: string
+  intakeMonth: number | null
+  intakeYear: number | null
   university: string
   country: string
   counselorFee: number
@@ -32,7 +33,8 @@ export async function saveLeadRevenue(leadId: string, data: {
     .values({
       tenantId: tenant.id,
       leadId,
-      intake: data.intake,
+      intakeMonth: data.intakeMonth,
+      intakeYear: data.intakeYear,
       university: data.university,
       country: data.country,
       counselorFee: data.counselorFee.toString(),
@@ -43,6 +45,7 @@ export async function saveLeadRevenue(leadId: string, data: {
 
   return inserted
 }
+
 
 export async function getLeadRevenues(leadId: string) {
   const ctx = await requireTenantSession()

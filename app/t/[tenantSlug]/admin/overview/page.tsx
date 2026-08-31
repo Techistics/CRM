@@ -173,7 +173,7 @@ export default async function AdminOverviewPage({
         count: count(leads.id)
       })
       .from(leads)
-      .where(and(tScope, sql`${leads.primaryStage} NOT IN ('paid', 'cancelled')`))
+      .where(eq(leads.tenantId, tenant.id))
       .groupBy(leads.assignedTo, leads.primaryStage)
   ])
 

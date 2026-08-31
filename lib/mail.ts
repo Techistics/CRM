@@ -212,7 +212,7 @@ export async function sendLeadAssignedEmail({
       html: buildBaseEmailTemplate({
         workspaceName,
         heading: 'New Allocation Assigned',
-        intro: `Hello ${agentName}, a new customer asset profile has been routed and assigned to your queue within the network system.`,
+        intro: `Hello ${agentName}, a new customer asset profile has been assigned to you.`,
         detailsHtml: `
           <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 14px; line-height: 22px;">
             <tr><td style="padding-bottom: 6px; color: #64748b; width: 90px; font-weight: 500;">Lead Name:</td><td style="padding-bottom: 6px; color: #0f172a; font-weight: 600;">${leadName}</td></tr>
@@ -270,7 +270,7 @@ export async function sendReminderEmail({
       html: buildBaseEmailTemplate({
         workspaceName,
         heading: 'Scheduled Task Reminder',
-        intro: `Hello ${agentName}, this is a system event trigger notice for a target action window on your assigned pipelines.`,
+        intro: `Hello ${agentName}, this is a system event trigger notice on your assigned pipelines.`,
         detailsHtml: `
           <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 14px; line-height: 22px;">
             <tr><td style="padding-bottom: 6px; color: #64748b; width: 90px; font-weight: 500;">Action Object:</td><td style="padding-bottom: 6px; color: #0f172a; font-weight: 600;">${reminderTitle}</td></tr>
@@ -393,5 +393,48 @@ export async function sendAccessApprovedEmail({
   } catch (err) {
     console.error('Email send fatal error:', err)
     return { success: false, error: err }
+  }
+}
+
+/**
+ * Sends an email when an Admin resets a user's password manually.
+ */
+export async function sendAdminPasswordResetEmail({
+  email,
+  newPassword,
+  workspaceName,
+  loginUrl,
+}: {
+  email: string
+  newPassword: string
+  workspaceName: string
+  loginUrl: string
+}) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: fromEmail,
+      to: email,
+      subject: `Your password for ${workspaceName} has been reset`,
+      html: buildBaseEmailTemplate({
+        workspaceName,
+        heading: 'Password Reset by Admin',
+        intro: `An administrator for ${workspaceName} has reset your password. You can now log in using the temporary password provided below. Please remember to change it immediately after logging in (if permitted).`,
+        detailsHtml: `
+          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="font-size: 14px; line-height: 22px;">
+            <tr><td style="padding-bottom: 6px; color: #64748b; width: 100px; font-weight: 500;">Email:</td><td style="padding-bottom: 6px; color: #0f172a; font-weight: 600;">${email}</td></tr>
+            <tr><td style="padding-bottom: 6px; color: #64748b; width: 100px; font-weight: 500;">New Password:</td><td style="padding-bottom: 6px; color: #0f172a; font-weight: 600; font-family: monospace; font-size: 16px;">${newPassword}</td></tr>
+          </table>
+        `,
+        ctaLabel: 'Log In Now',
+        ctaUrl: loginUrl,
+        footerText: 'If you believe this is an error, please contact your administrator immediately.',
+      }),
+    })
+
+    if (error) throw error
+    return { success: true, data }
+  } catch (error) {
+    console.error('sendAdminPasswordResetEmail error:', error)
+    return { success: false, error }
   }
 }

@@ -4,18 +4,17 @@ import { useState } from 'react'
 import { PieChart, Pie, Cell, Sector, Tooltip, ResponsiveContainer } from 'recharts'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useChartPalette } from '@/components/consulty-dashboard/lib/chart-palette'
 
-export const DONUT_COLORS = [
-  '#94a3b8',
-  '#0ea5e9',
-  '#10b981',
-  '#f59e0b',
-  '#8b5cf6',
-  '#ec4899',
-  '#f43f5e',
-  '#14b8a6',
-  '#6366f1',
-]
+const DONUT_COLOR_CLASSES = [
+  'bg-consulty-text-muted',
+  'bg-consulty-chart-1',
+  'bg-consulty-chart-2',
+  'bg-consulty-chart-3',
+  'bg-consulty-chart-4',
+  'bg-consulty-chart-5',
+  'bg-consulty-chart-6',
+] as const
 
 export type StageBreakdown = { key: string; label: string; count: number }
 
@@ -30,7 +29,6 @@ function ActiveSector(props: any) {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props
   return (
     <g>
-      {/* slightly larger + a subtle ring so the active slice reads as "lifted" */}
       <Sector
         cx={cx}
         cy={cy}
@@ -64,16 +62,16 @@ function CustomTooltip({
     : breakdown[index - 1]?.stages ?? []
 
   return (
-    <div className="bg-slate-900 dark:bg-slate-800 text-white rounded-lg px-3 py-2.5 shadow-xl text-xs min-w-[150px] border border-white/5">
-      <p className="font-semibold text-slate-100">
+    <div className="min-w-36 rounded-consulty-md border border-consulty-border bg-consulty-surface-raised px-3 py-2.5 text-crm-xs shadow-consulty-md dark:border-consulty-border dark:bg-consulty-surface-raised">
+      <p className="font-semibold text-consulty-text-primary">
         {name}: {val} ({pct}%)
       </p>
       {stages.length > 0 && (
-        <div className="pt-1.5 mt-1.5 border-t border-white/10 space-y-1">
+        <div className="mt-1.5 space-y-1 border-t border-consulty-border-subtle pt-1.5 dark:border-consulty-border">
           {stages.map((s) => (
-            <div key={s.key} className="flex justify-between gap-4 text-slate-300">
+            <div key={s.key} className="flex justify-between gap-4 text-consulty-text-secondary">
               <span className="truncate">{s.label}</span>
-              <span className="font-medium text-slate-100">{s.count}</span>
+              <span className="font-medium text-consulty-text-primary">{s.count}</span>
             </div>
           ))}
         </div>
@@ -87,12 +85,15 @@ export function LeadDistributionDonut({
   breakdown,
   unassignedBreakdown,
   onUnassignedClick,
+  centerValue,
 }: {
   unassignedCount: number
   breakdown: AgentBreakdown[]
   unassignedBreakdown: StageBreakdown[]
   onUnassignedClick: () => void
+  centerValue?: string
 }) {
+  const { series: colors } = useChartPalette()
   const donutLabels = ['Unassigned', ...breakdown.map((a) => a.agentName)]
   const donutData = [unassignedCount, ...breakdown.map((a) => a.totalLeads)]
   const donutTotal = donutData.reduce((a, b) => a + b, 0)
@@ -106,9 +107,8 @@ export function LeadDistributionDonut({
   const [expandedCounselor, setExpandedCounselor] = useState<string | null>(null)
 
   return (
-    <div className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-8 lg:gap-12">
-      {/* ── Chart ── */}
-      <div className="relative h-[240px] w-[240px] flex-shrink-0">
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 sm:flex-row lg:gap-8">
+      <div className="relative h-52 w-52 flex-shrink-0 sm:h-56 sm:w-56">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -117,8 +117,8 @@ export function LeadDistributionDonut({
               nameKey="name"
               cx="50%"
               cy="50%"
-              innerRadius={72}
-              outerRadius={100}
+              innerRadius="58%"
+              outerRadius="80%"
               paddingAngle={3}
               cornerRadius={4}
               stroke="none"
@@ -131,7 +131,10 @@ export function LeadDistributionDonut({
               onMouseLeave={() => setActiveIndex(null)}
             >
               {chartData.map((entry, index) => (
-                <Cell key={entry.name} fill={DONUT_COLORS[index % DONUT_COLORS.length]} />
+                <Cell
+                  key={entry.name}
+                  fill={colors[(index + 1) % colors.length] ?? colors[0]}
+                />
               ))}
             </Pie>
             <Tooltip
@@ -147,23 +150,23 @@ export function LeadDistributionDonut({
           </PieChart>
         </ResponsiveContainer>
 
-        {/* center label — hidden while the tooltip is showing so the two overlays never print on top of each other */}
         <div
           className={cn(
             'pointer-events-none absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-150',
             activeIndex !== null ? 'opacity-0' : 'opacity-100',
           )}
         >
-          <span className="text-3xl font-bold text-slate-900 dark:text-slate-100">{donutTotal}</span>
-          <span className="text-[10px] font-semibold tracking-wider text-slate-400 dark:text-slate-500 uppercase mt-1">
+          <span className="text-crm-2xl font-bold tabular-nums text-consulty-text-primary">
+            {centerValue ?? donutTotal.toLocaleString()}
+          </span>
+          <span className="mt-1 text-crm-xs font-semibold uppercase tracking-wider text-consulty-text-muted">
             Total Leads
           </span>
         </div>
       </div>
 
-      {/* ── Legend / Breakdown list ── */}
-      <div className="w-full sm:w-auto flex-1 max-w-md space-y-2.5">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3 text-center sm:text-left">
+      <div className="w-full max-w-md flex-1 space-y-2 sm:w-auto">
+        <p className="mb-2 text-center text-crm-xs font-semibold uppercase tracking-wider text-consulty-text-muted sm:text-left">
           Counselor Breakdown
         </p>
         {donutLabels.map((label, i) => {
@@ -174,15 +177,18 @@ export function LeadDistributionDonut({
           const isExpanded = expandedCounselor === label
           const stages = isUnassigned ? unassignedBreakdown : agent?.stages ?? []
           const stageBase = isUnassigned ? unassignedCount : agent?.totalLeads ?? 0
+          const colorClass = DONUT_COLOR_CLASSES[i % DONUT_COLOR_CLASSES.length]
+          const fillColor = colors[(i + 1) % colors.length] ?? colors[0]
 
           return (
             <div
               key={label}
-              className="flex flex-col border border-slate-100 dark:border-slate-800/60 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm transition-all"
+              className="flex flex-col overflow-hidden rounded-consulty-md border border-consulty-border-subtle bg-consulty-surface transition-all dark:border-consulty-border dark:bg-consulty-surface"
               onMouseEnter={() => setActiveIndex(i)}
               onMouseLeave={() => setActiveIndex(null)}
             >
               <button
+                type="button"
                 onClick={() => {
                   if (isUnassigned) {
                     onUnassignedClick()
@@ -191,54 +197,60 @@ export function LeadDistributionDonut({
                   }
                 }}
                 className={cn(
-                  'flex items-center justify-between w-full p-3.5 text-left transition-colors',
+                  'flex w-full items-center justify-between p-2.5 text-left transition-colors sm:p-3',
                   isUnassigned || agent?.stages.length
-                    ? 'hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer'
+                    ? 'cursor-pointer hover:bg-consulty-surface-subtle dark:hover:bg-consulty-surface-raised/50'
                     : 'cursor-default',
                 )}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <span
-                    className="h-3.5 w-3.5 rounded-full flex-shrink-0 shadow-sm border border-black/5 dark:border-white/5"
-                    style={{ background: DONUT_COLORS[i % DONUT_COLORS.length] }}
+                    className={cn(
+                      'h-3 w-3 flex-shrink-0 rounded-full border border-consulty-border-subtle dark:border-consulty-border',
+                      colorClass,
+                    )}
                   />
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{label}</span>
+                  <span className="truncate text-crm-xs font-semibold text-consulty-text-secondary">
+                    {label}
+                  </span>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{val}</span>
-                  <span className="text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 py-1 px-2 rounded-md w-12 text-center">
+                <div className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
+                  <span className="text-crm-xs font-bold tabular-nums text-consulty-text-primary">
+                    {val}
+                  </span>
+                  <span className="w-10 rounded-consulty-sm bg-consulty-surface-subtle py-0.5 text-center text-crm-xs font-semibold tabular-nums text-consulty-text-muted dark:bg-consulty-surface-subtle/50">
                     {pct}%
                   </span>
                   {!isUnassigned && agent?.stages?.length ? (
                     <ChevronDown
                       className={cn(
-                        'h-4 w-4 text-slate-400 transition-transform duration-200',
+                        'h-3.5 w-3.5 text-consulty-text-muted transition-transform duration-200',
                         isExpanded && 'rotate-180',
                       )}
                     />
                   ) : (
-                    <div className="w-4" />
+                    <div className="w-3.5" />
                   )}
                 </div>
               </button>
 
               {isExpanded && stages.length > 0 && (
-                <div className="bg-slate-50 dark:bg-slate-800/20 px-4 py-3 border-t border-slate-100 dark:border-slate-800/60">
-                  <div className="space-y-2.5">
+                <div className="border-t border-consulty-border-subtle bg-consulty-surface-subtle px-3 py-2.5 dark:border-consulty-border dark:bg-consulty-surface-subtle/40">
+                  <div className="space-y-2">
                     {stages.map((stage) => {
                       const stagePct = stageBase > 0 ? Math.round((stage.count / stageBase) * 100) : 0
                       return (
-                        <div key={stage.key} className="flex items-center gap-3">
-                          <span className="text-[13px] text-slate-600 dark:text-slate-400 w-32 truncate">
+                        <div key={stage.key} className="flex items-center gap-2">
+                          <span className="w-24 truncate text-crm-xs text-consulty-text-secondary">
                             {stage.label}
                           </span>
-                          <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700/50 rounded-full overflow-hidden">
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-consulty-border-subtle dark:bg-consulty-border">
                             <div
-                              className="h-1.5 rounded-full"
-                              style={{ width: `${stagePct}%`, background: DONUT_COLORS[i % DONUT_COLORS.length] }}
+                              className="h-full rounded-full"
+                              style={{ width: `${stagePct}%`, backgroundColor: fillColor }}
                             />
                           </div>
-                          <span className="text-[13px] font-medium text-slate-700 dark:text-slate-300 w-8 text-right">
+                          <span className="w-6 text-right text-crm-xs font-medium tabular-nums text-consulty-text-primary">
                             {stage.count}
                           </span>
                         </div>

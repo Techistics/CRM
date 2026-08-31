@@ -82,6 +82,8 @@ export async function POST(
     const { title, dueAt: dueAtStr, note } = parsed.data
     const dueAt = new Date(dueAtStr)
 
+    const isPastDue = dueAt.getTime() <= Date.now()
+
     const [created] = await db
       .insert(leadReminders)
       .values({
@@ -92,7 +94,8 @@ export async function POST(
         dueAt,
         assignedTo: lead.assignedTo ?? ctx.dbUserId,
         createdBy: ctx.dbUserId,
-        status: dueAt.getTime() < Date.now() ? 'overdue' : 'pending',
+        status: isPastDue ? 'overdue' : 'pending',
+        emailSentAt: isPastDue ? new Date() : null,
         updatedAt: new Date(),
       })
       .returning()
@@ -110,8 +113,8 @@ export async function POST(
       .set({ lastContactedAt: new Date(), updatedAt: new Date() })
       .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenant.id)))
 
-    // Email logic: Always fire if there's an assigned agent
-    if (lead.assignedTo) {
+    // Email logic: ONLY send immediately at creation IF the reminder was scheduled for right now or past
+    if (lead.assignedTo && isPastDue) {
       const [agent] = await db
         .select({
           email: users.email,

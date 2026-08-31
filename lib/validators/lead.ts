@@ -13,8 +13,9 @@ export const leadCreateBodySchema = z.object({
   country: z.string().trim().max(120).optional().nullable(),
   lastQualification: z.string().trim().max(500).optional().nullable(),
   grades: z.string().trim().max(200).optional().nullable(),
-  /* NEW – intake & destination fields */
-  intakeMonth: z.string().trim().max(100).optional().nullable(),
+  /* NEW – intake as structured month (1–12) + year integers */
+  intakeMonth: z.number().int().min(1).max(12).optional().nullable(),
+  intakeYear: z.number().int().min(2000).max(2100).optional().nullable(),
   destinationCountry: z.string().trim().max(120).optional().nullable(),
   programOfInterest: z.string().trim().max(500).optional().nullable(),
   source: z.string().trim().max(120).optional().nullable(),
@@ -34,7 +35,8 @@ export const leadPatchBodySchema = z
     country: z.string().trim().max(120).optional().nullable(),
     lastQualification: z.string().trim().max(500).optional().nullable(),
     grades: z.string().trim().max(200).optional().nullable(),
-    intakeMonth: z.string().trim().max(100).optional().nullable(),
+    intakeMonth: z.number().int().min(1).max(12).optional().nullable(),
+    intakeYear: z.number().int().min(2000).max(2100).optional().nullable(),
     destinationCountry: z.string().trim().max(120).optional().nullable(),
     programOfInterest: z.string().trim().max(500).optional().nullable(),
     dealValue: z.coerce.number().positive().optional().nullable(),
@@ -50,3 +52,4 @@ export const leadPatchBodySchema = z
     message: 'At least one field is required',
   })
   .strict()
+

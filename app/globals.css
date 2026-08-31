@@ -112,6 +112,36 @@
     --card-padding: 1rem;
     --content-max-width: 1280px;
 
+    /* Consulty dashboard — light semantic tokens */
+    --consulty-canvas: 250 250 250;
+    --consulty-surface: 255 255 255;
+    --consulty-surface-raised: 255 255 255;
+    --consulty-surface-subtle: 248 250 252;
+    --consulty-border: 229 231 235;
+    --consulty-border-subtle: 238 240 243;
+    --consulty-text-primary: 23 32 51;
+    --consulty-text-secondary: 102 112 133;
+    --consulty-text-muted: 152 162 179;
+    --consulty-text-disabled: 197 203 211;
+    --consulty-primary: 59 130 246;
+    --consulty-primary-soft: 219 234 254;
+    --consulty-secondary: 139 92 246;
+    --consulty-secondary-soft: 237 233 254;
+    --consulty-success: 34 197 94;
+    --consulty-success-soft: 220 252 231;
+    --consulty-warning: 245 158 11;
+    --consulty-warning-soft: 254 243 199;
+    --consulty-danger: 239 68 68;
+    --consulty-danger-soft: 254 226 226;
+    --consulty-chart-1: 59 130 246;
+    --consulty-chart-2: 34 197 94;
+    --consulty-chart-3: 139 92 246;
+    --consulty-chart-4: 249 115 22;
+    --consulty-chart-5: 20 184 166;
+    --consulty-chart-6: 236 72 153;
+    --consulty-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+    --consulty-shadow-md: 0 4px 6px rgba(15, 23, 42, 0.05), 0 2px 4px rgba(15, 23, 42, 0.04);
+
     --sidebar-bg: var(--color-sidebar-bg);
     --main-bg: var(--color-bg-subtle);
     --card-bg: #ffffff;
@@ -219,6 +249,36 @@
     --text-main: #e2e8f0;
     --muted-text: #94a3b8;
     --overlay: rgba(0, 0, 0, 0.6);
+
+    /* Consulty dashboard — dark semantic tokens */
+    --consulty-canvas: 15 25 37;
+    --consulty-surface: 18 31 44;
+    --consulty-surface-raised: 22 37 51;
+    --consulty-surface-subtle: 24 42 57;
+    --consulty-border: 38 55 70;
+    --consulty-border-subtle: 32 49 64;
+    --consulty-text-primary: 245 247 250;
+    --consulty-text-secondary: 170 182 195;
+    --consulty-text-muted: 113 128 145;
+    --consulty-text-disabled: 83 97 112;
+    --consulty-primary: 96 165 250;
+    --consulty-primary-soft: 30 58 95;
+    --consulty-secondary: 167 139 250;
+    --consulty-secondary-soft: 46 32 88;
+    --consulty-success: 74 222 128;
+    --consulty-success-soft: 18 51 35;
+    --consulty-warning: 251 191 36;
+    --consulty-warning-soft: 58 42 12;
+    --consulty-danger: 248 113 113;
+    --consulty-danger-soft: 59 23 25;
+    --consulty-chart-1: 96 165 250;
+    --consulty-chart-2: 74 222 128;
+    --consulty-chart-3: 167 139 250;
+    --consulty-chart-4: 251 146 60;
+    --consulty-chart-5: 45 212 191;
+    --consulty-chart-6: 244 114 182;
+    --consulty-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.22);
+    --consulty-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.28);
 
     /* Custom Design Tokens - Dark */
     --sidebar-bg: #0b0f19;
@@ -366,15 +426,6 @@ textarea {
 }
 
 /* ── Dark mode page content fixes ── */
-.dark .page-title,
-.dark h1,
-.dark h2,
-.dark h3 {
-  color: #069BAF;
-}
-
-.dark p,
-.dark span:not([class*="text-"]),
-.dark label {
-  color: #069BAF;
+.dark .page-title {
+  color: rgb(var(--consulty-text-primary));
 }

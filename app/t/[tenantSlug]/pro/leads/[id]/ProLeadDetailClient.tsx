@@ -19,11 +19,24 @@ import { LeadRevenueCard } from '@/components/leads/LeadRevenueCard'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { ActivityRow } from '@/types/leads'
 import SubStatusCustomFieldsForm from '@/components/leads/SubStatusCustomFieldsForm'
+import { ApplicationTab } from '@/components/leads/ApplicationTab'
 import {
   areCustomFieldsComplete,
   normalizeCustomFields,
   normalizeFieldValues,
 } from '@/lib/pipeline/sub-status-fields'
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+function getIntakeYears(): number[] {
+  const cur = new Date().getFullYear()
+  const years: number[] = []
+  for (let y = cur - 1; y <= cur + 10; y++) years.push(y)
+  return years
+}
 
 export default function ProLeadDetailClient({
   lead,
@@ -92,6 +105,8 @@ export default function ProLeadDetailClient({
   const [logs, setLogs] = useState<any[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
 
+  const intakeYears = getIntakeYears()
+
   const [profileForm, setProfileForm] = useState<any>({
     fullName: lead.fullName ?? '',
     email: lead.email ?? '',
@@ -100,7 +115,8 @@ export default function ProLeadDetailClient({
     country: lead.country ?? '',
     lastQualification: lead.lastQualification ?? '',
     grades: lead.grades ?? '',
-    intakeMonth: lead.intakeMonth ?? '',
+    intakeMonth: lead.intakeMonth ? String(lead.intakeMonth) : '',
+    intakeYear: lead.intakeYear ? String(lead.intakeYear) : '',
     destinationCountry: lead.destinationCountry ?? '',
     programOfInterest: lead.programOfInterest ?? '',
     dealValue: lead.dealValue ?? '',
@@ -128,8 +144,6 @@ export default function ProLeadDetailClient({
   }, [lead.isDeadManual, lead.deadReason]);
   
 
-
-
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     setProfileForm({
@@ -140,7 +154,8 @@ export default function ProLeadDetailClient({
       country: lead.country ?? '',
       lastQualification: lead.lastQualification ?? '',
       grades: lead.grades ?? '',
-      intakeMonth: lead.intakeMonth ?? '',
+      intakeMonth: lead.intakeMonth ? String(lead.intakeMonth) : '',
+      intakeYear: lead.intakeYear ? String(lead.intakeYear) : '',
       destinationCountry: lead.destinationCountry ?? '',
       programOfInterest: lead.programOfInterest ?? '',
       dealValue: lead.dealValue ?? '',
@@ -328,7 +343,8 @@ export default function ProLeadDetailClient({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...profileForm,
-            intakeMonth: profileForm.intakeMonth?.trim() || null,
+            intakeMonth: profileForm.intakeMonth ? parseInt(profileForm.intakeMonth, 10) : null,
+            intakeYear: profileForm.intakeYear ? parseInt(profileForm.intakeYear, 10) : null,
             destinationCountry: profileForm.destinationCountry?.trim() || null,
             programOfInterest: profileForm.programOfInterest?.trim() || null,
             dealValue: profileForm.dealValue === '' ? null : Number(profileForm.dealValue),
@@ -448,6 +464,7 @@ export default function ProLeadDetailClient({
           <TabsTrigger value="activity" onClick={() => setActiveTab('activity')}>Activity</TabsTrigger>
           <TabsTrigger value="reminders" onClick={() => setActiveTab('reminders')}>Reminders</TabsTrigger>
           <TabsTrigger value="whatsapp" onClick={() => setActiveTab('whatsapp')}>WhatsApp</TabsTrigger>
+          <TabsTrigger value="application" onClick={() => setActiveTab('application')}>Application</TabsTrigger>
         </TabsList>
 
         {/* ==== Documents ==== */}
@@ -478,7 +495,12 @@ export default function ProLeadDetailClient({
                     { label: 'Qualification', value: lead.lastQualification },
                     { label: 'Grades', value: lead.grades },
                     { label: 'Source', value: lead.source },
-                    { label: 'Intake', value: lead.intakeMonth ?? '—' },
+                    { 
+                      label: 'Intake', 
+                      value: (lead.intakeMonth && lead.intakeYear) 
+                        ? `${MONTH_NAMES[lead.intakeMonth - 1]} ${lead.intakeYear}` 
+                        : (lead.intakeMonth ? MONTH_NAMES[lead.intakeMonth - 1] : (lead.intakeYear ? String(lead.intakeYear) : '—')) 
+                    },
                     { label: 'Study Destination', value: lead.destinationCountry ?? '—' },
                     { label: 'Program of Interest', value: lead.programOfInterest ?? '—' },
                   ].map(({ label, value }) => (
@@ -507,7 +529,6 @@ export default function ProLeadDetailClient({
                       ['country', 'Country'],
                       ['lastQualification', 'Qualification'],
                       ['grades', 'Grades'],
-                      ['intakeMonth', 'Intake'],
                       ['destinationCountry', 'Study Destination'],
                       ['programOfInterest', 'Program of Interest'],
                     ] as const
@@ -524,6 +545,35 @@ export default function ProLeadDetailClient({
                       />
                     </label>
                   ))}
+                  
+                  {/* Intake Fields */}
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Intake Month</span>
+                    <select
+                      value={profileForm.intakeMonth}
+                      onChange={(e) => setProfileForm((prev: any) => ({ ...prev, intakeMonth: e.target.value }))}
+                      className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
+                    >
+                      <option value="">Select Month...</option>
+                      {MONTH_NAMES.map((m, i) => (
+                        <option key={m} value={String(i + 1)}>{m}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Intake Year</span>
+                    <select
+                      value={profileForm.intakeYear}
+                      onChange={(e) => setProfileForm((prev: any) => ({ ...prev, intakeYear: e.target.value }))}
+                      className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
+                    >
+                      <option value="">Select Year...</option>
+                      {intakeYears.map((y) => (
+                        <option key={y} value={String(y)}>{y}</option>
+                      ))}
+                    </select>
+                  </label>
+                  
                   {canViewPayments && (
                   <div className="col-span-2 grid grid-cols-3 gap-3">
                     <label className="col-span-1 flex flex-col gap-1">
@@ -572,7 +622,8 @@ export default function ProLeadDetailClient({
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                           ...profileForm,
-                          intakeMonth: profileForm.intakeMonth?.trim() || null,
+                          intakeMonth: profileForm.intakeMonth ? parseInt(profileForm.intakeMonth, 10) : null,
+                          intakeYear: profileForm.intakeYear ? parseInt(profileForm.intakeYear, 10) : null,
                           destinationCountry: profileForm.destinationCountry?.trim() || null,
                           programOfInterest: profileForm.programOfInterest?.trim() || null,
                           dealValue: profileForm.dealValue === '' ? null : Number(profileForm.dealValue),
@@ -923,6 +974,13 @@ export default function ProLeadDetailClient({
               currentStage={stage as any}
               leadPhone={lead.contactNumber}
             />
+          </div>
+        </TabsContent>
+
+        {/* ==== Application ==== */}
+        <TabsContent value="application" className="outline-none">
+          <div className={isDeadState ? 'pointer-events-none opacity-50' : ''}>
+            <ApplicationTab leadId={lead.id} />
           </div>
         </TabsContent>
       </Tabs>

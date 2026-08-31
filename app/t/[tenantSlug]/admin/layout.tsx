@@ -48,7 +48,7 @@ export default async function AdminLayout({
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen bg-page dark:bg-[#020617]">
+      <div className="min-h-screen bg-consulty-canvas dark:bg-consulty-canvas">
         <RoleSidebar role={role} tenant={tenant} permissions={permissions} badges={{ team: teamBadge }} />
         <div className="flex min-h-screen min-w-0 flex-col lg:pl-[var(--sidebar-width)]">
           <AdminHeader user={user} tenantSlug={tenant.slug} />

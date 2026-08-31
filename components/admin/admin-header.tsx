@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
-import { Bell, Menu, Search } from 'lucide-react'
+import { Menu, LayoutDashboard } from 'lucide-react'
 import NotificationBell from '@/app/components/NotificationBell'
 import { useSidebar } from '@/components/sidebar-provider'
 import { Button } from '@/components/ui/button'
@@ -32,13 +32,13 @@ export function AdminHeader({
   }, [pathname])
 
   return (
-    <header className="sticky top-0 z-40 h-[60px] bg-white dark:bg-[#0b0f19] border-b border-slate-200 dark:border-slate-800">
-      <div className="flex h-full items-center justify-between gap-4 px-6">
-        <div className="flex items-center gap-3 min-w-0">
+    <header className="sticky top-0 z-40 h-14 border-b border-consulty-border-subtle bg-consulty-surface dark:border-consulty-border dark:bg-consulty-surface">
+      <div className="flex h-full items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors lg:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-consulty-md text-consulty-text-muted transition-colors hover:bg-consulty-surface-subtle dark:hover:bg-consulty-surface-raised lg:hidden"
             onClick={toggle}
             type="button"
           >
@@ -47,16 +47,16 @@ export function AdminHeader({
           </Button>
 
           <div className="flex items-center gap-2">
-            <h1 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-              {pageTitle}
-            </h1>
+            <div className="flex h-6 w-6 items-center justify-center rounded-consulty-sm bg-consulty-primary">
+              <LayoutDashboard className="h-3.5 w-3.5 text-white" />
+            </div>
+            <h1 className="text-crm-md font-bold text-consulty-text-primary">{pageTitle}</h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-shrink-0">
-
+        <div className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
-            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
+            <div className="hidden h-4 w-px bg-consulty-border-subtle dark:bg-consulty-border sm:block" />
             <ThemeToggle />
             <NotificationBell tenantSlug={tenantSlug} portalBase="admin" />
             <UserMenu user={user} role="ADMIN" tenantSlug={tenantSlug} />

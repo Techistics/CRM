@@ -74,10 +74,11 @@ export async function POST(req: NextRequest) {
     }
 
     const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000)
-    const credentialVersion = await getCredentialVersionForSession({ userId: user.id })
+
 
     if (memberships.length === 1) {
       const { tenantId, role, tenantSlug } = memberships[0]
+      const credentialVersion = await getCredentialVersionForSession({ userId: user.id, tenantId })
       const sessionToken = await encrypt({
         userId: user.id,
         globalRole: null,
@@ -98,6 +99,7 @@ export async function POST(req: NextRequest) {
     }
 
     // multiple memberships – return workspace list without setting tenant in session
+    const credentialVersion = await getCredentialVersionForSession({ userId: user.id })
     const sessionToken = await encrypt({
       userId: user.id,
       globalRole: null,

@@ -181,8 +181,12 @@ return withApiErrorHandling(async () => {
     /* NEW – intake & destination fields */
     intakeMonth:
       patch.intakeMonth !== undefined
-        ? strOrNull(patch.intakeMonth)
+        ? (typeof patch.intakeMonth === 'number' ? patch.intakeMonth : null)
         : lead.intakeMonth,
+    intakeYear:
+      patch.intakeYear !== undefined
+        ? (typeof patch.intakeYear === 'number' ? patch.intakeYear : null)
+        : lead.intakeYear,
     destinationCountry:
       patch.destinationCountry !== undefined
         ? strOrNull(patch.destinationCountry)

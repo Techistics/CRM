@@ -50,10 +50,23 @@ const createLeadSchema = z.object({
   dealValue: z.number().nullable().optional(),
   dealCurrency: z.string().min(3).max(3),
   notes: z.string().trim().max(500).optional().nullable(),
-  intakeMonth: z.string().trim().optional().nullable(),
+  intakeMonth: z.number().int().min(1).max(12).optional().nullable(),
+  intakeYear: z.number().int().min(2000).max(2100).optional().nullable(),
   destinationCountry: z.string().trim().optional().nullable(),
   programOfInterest: z.string().trim().optional().nullable(),
 })
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+function getIntakeYears(): number[] {
+  const cur = new Date().getFullYear()
+  const years: number[] = []
+  for (let y = cur - 1; y <= cur + 10; y++) years.push(y)
+  return years
+}
 
 type FormValues = z.infer<typeof createLeadSchema>
 
@@ -94,8 +107,12 @@ export function CreateLeadDialog({
       dealValue: null,
       dealCurrency: 'PKR',
       notes: '',
+      intakeMonth: null,
+      intakeYear: null,
     },
   })
+
+  const intakeYears = getIntakeYears()
 
   const fetchAgents = useCallback(async () => {
     setLoadingAgents(true)
@@ -310,7 +327,7 @@ export function CreateLeadDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {SOURCES.map(s => (
+                    {SOURCES.map(s => (
                         <SelectItem key={s} value={s}>{s}</SelectItem>
                       ))}
                     </SelectContent>
@@ -454,19 +471,62 @@ export function CreateLeadDialog({
             />
 
             {/* Intake */}
-            <FormField
-              control={form.control}
-              name="intakeMonth"
-              render={({ field }) => (
-                <FormItem className="col-span-1">
-                  <FormLabel>Intake</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. Sep 2026" {...field} value={field.value || ''} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="col-span-1 grid grid-cols-2 gap-2">
+              <FormField
+                control={form.control}
+                name="intakeMonth"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Intake Month</FormLabel>
+                    <Select
+                      onValueChange={(val) => field.onChange(val ? parseInt(val, 10) : null)}
+                      defaultValue={field.value ? String(field.value) : undefined}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Month" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {MONTH_NAMES.map((name, idx) => (
+                          <SelectItem key={name} value={String(idx + 1)}>
+                            {name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="intakeYear"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Year</FormLabel>
+                    <Select
+                      onValueChange={(val) => field.onChange(val ? parseInt(val, 10) : null)}
+                      defaultValue={field.value ? String(field.value) : undefined}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Year" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {intakeYears.map((y) => (
+                          <SelectItem key={y} value={String(y)}>
+                            {y}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             {/* Destination Country */}
             <FormField

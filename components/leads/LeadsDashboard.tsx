@@ -3,33 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import {
-  UserCheck,
-  ArrowRightLeft,
-  Download,
-  Trash2,
-  ChevronDown,
-  X,
-  Loader2,
-  Filter,
-  MoreHorizontal,
-  Upload,
-  AlertTriangle,
-  Layers,
-} from 'lucide-react'
+import { Download, Loader2, MoreHorizontal, Upload } from 'lucide-react'
 
 import Pagination from '@/components/Pagination'
 import SearchInput from '@/components/SearchInput'
 import PageSizeDropdown from '@/components/PageSizeDropdown'
-import { getStageInfo, PIPELINE_STAGES } from '@/constants/pipeline-stages'
+import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { tenantPath } from '@/lib/tenant-path'
-import { TagFilter } from '@/components/leads/TagFilter'
 import { CreateLeadDialog } from '@/components/leads/CreateLeadDialog'
-import { getHeatLevel, heatConfig } from '@/lib/leads/heat'
-import { cn } from '@/lib/utils'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Separator } from '@/components/ui/separator'
+import { getHeatLevel } from '@/lib/leads/heat'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -47,37 +29,11 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { apiCall } from '@/lib/utils/api-handler'
-
-export type LeadRow = {
-  id: string
-  fullName: string
-  email: string | null
-  contactNumber: string | null
-  city: string | null
-  stage: string | null
-  lastContactedAt: string | null
-  createdAt: string
-  lastQualification: string | null
-  isDeadManual: boolean
-  assignedTo: string | null
-  tags: { id: string; name: string; color: string }[]
-}
-
-export type Agent = {
-  userId: string
-  name: string
-  email: string
-  role: string
-  activeLeadCount: number
-}
+import { FilterSheet } from '@/components/leads/filtersheet'
+import { BulkActionsBar } from '@/components/leads/Bulkactionsbar'
+import { LeadsTable } from '@/components/leads/leadstable'
+import { Agent, LeadRow } from '@/types/LeadsDashboard'
 
 interface LeadsDashboardProps {
   role: 'ADMIN' | 'PRO'
@@ -85,6 +41,8 @@ interface LeadsDashboardProps {
   canDelete?: boolean
   canEditPayments?: boolean
 }
+
+const FETCH_DEBOUNCE_MS = 250
 
 export function LeadsDashboard({
   role,
@@ -108,8 +66,6 @@ export function LeadsDashboard({
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
   const [heatFilter, setHeatFilter] = useState<string>('all')
-  const [subStatuses, setSubStatuses] = useState<{ id: string; label: string }[]>([])
-  const [closedActions, setClosedActions] = useState<string[]>([])
   const [tenantStages, setTenantStages] = useState<{ key: string; label: string }[]>([])
 
   const assignedTo = searchParams.get('assignedTo') ?? undefined
@@ -118,13 +74,24 @@ export function LeadsDashboard({
   const pageSizeParam = searchParams.get('pageSize') ?? '10'
   const tagsParam = searchParams.get('tags') ?? undefined
   const stageFilter = searchParams.get('stage') ?? undefined
+  const subStatusTypeFilter = searchParams.get('subStatusType') ?? undefined
   const subStatusIdFilter = searchParams.get('subStatusId') ?? undefined
   const closedActionFilter = searchParams.get('closedAction') ?? undefined
+  const appUniversityNameFilter = searchParams.get('appUniversityName') ?? undefined
+  const appCourseNameFilter = searchParams.get('appCourseName') ?? undefined
+  const appSourceFilter = searchParams.get('appSource') ?? undefined
+  const appStatusFilter = searchParams.get('appStatus') ?? undefined
+  const appIntakeMonthFilter = searchParams.get('appIntakeMonth') ?? undefined
+  const appIntakeYearFilter = searchParams.get('appIntakeYear') ?? undefined
+  const leadIntakeMonthFilter = searchParams.get('leadIntakeMonth') ?? undefined
+  const leadIntakeYearFilter = searchParams.get('leadIntakeYear') ?? undefined
+  const revIntakeMonthFilter = searchParams.get('revIntakeMonth') ?? undefined
+  const revIntakeYearFilter = searchParams.get('revIntakeYear') ?? undefined
+
   const currentPage = Math.max(1, Number(page) || 1)
   const pageSize = Number(pageSizeParam) || 10
   const totalPages = Math.max(1, Math.ceil(totalLeads / pageSize))
 
-  // Fetch tenant-specific pipeline stages on mount
   useEffect(() => {
     fetch('/api/pipeline-stages')
       .then((r) => r.json())
@@ -134,34 +101,6 @@ export function LeadsDashboard({
       })
       .catch(() => {})
   }, [])
-
-  // Fetch sub-statuses (and their closedActions) when stage filter changes
-  useEffect(() => {
-    if (!stageFilter) {
-      setSubStatuses([])
-      setClosedActions([])
-      return
-    }
-    fetch(`/api/sub-statuses?stageKey=${encodeURIComponent(stageFilter)}`)
-      .then((r) => r.json())
-      .then((data) => {
-        const rows = Array.isArray(data) ? data : (data?.data ?? [])
-        setSubStatuses(rows.map((r: { id: string; label: string }) => ({ id: r.id, label: r.label })))
-        // Collect all closedActions from all sub-statuses for this stage
-        const actions: string[] = []
-        for (const row of rows) {
-          if (Array.isArray(row.closedActions)) {
-            for (const a of row.closedActions) {
-              if (typeof a === 'string' && a.trim() && !actions.includes(a.trim())) {
-                actions.push(a.trim())
-              }
-            }
-          }
-        }
-        setClosedActions(actions)
-      })
-      .catch(() => { setSubStatuses([]); setClosedActions([]) })
-  }, [stageFilter])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -176,7 +115,16 @@ export function LeadsDashboard({
       if (stageFilter) params.set('stage', stageFilter)
       if (subStatusIdFilter) params.set('subStatusId', subStatusIdFilter)
       if (closedActionFilter) params.set('closedAction', closedActionFilter)
-
+      if (appUniversityNameFilter) params.set('appUniversityName', appUniversityNameFilter)
+      if (appCourseNameFilter) params.set('appCourseName', appCourseNameFilter)
+      if (appSourceFilter) params.set('appSource', appSourceFilter)
+      if (appStatusFilter) params.set('appStatus', appStatusFilter)
+      if (appIntakeMonthFilter) params.set('appIntakeMonth', appIntakeMonthFilter)
+      if (appIntakeYearFilter) params.set('appIntakeYear', appIntakeYearFilter)
+      if (leadIntakeMonthFilter) params.set('leadIntakeMonth', leadIntakeMonthFilter)
+      if (leadIntakeYearFilter) params.set('leadIntakeYear', leadIntakeYearFilter)
+      if (revIntakeMonthFilter) params.set('revIntakeMonth', revIntakeMonthFilter)
+      if (revIntakeYearFilter) params.set('revIntakeYear', revIntakeYearFilter)
       params.set('_t', Date.now().toString())
 
       const [leadsRes, agentsRes] = await Promise.all([
@@ -186,12 +134,8 @@ export function LeadsDashboard({
       const leadsData = await leadsRes.json()
       const agentsData = await agentsRes.json()
 
-      if (!leadsRes.ok) {
-        throw new Error(leadsData.error ?? 'Failed to load leads')
-      }
-      if (!agentsRes.ok) {
-        throw new Error(agentsData.error ?? 'Failed to load agents')
-      }
+      if (!leadsRes.ok) throw new Error(leadsData.error ?? 'Failed to load leads')
+      if (!agentsRes.ok) throw new Error(agentsData.error ?? 'Failed to load agents')
 
       setLeads(leadsData.data?.leads ?? [])
       setTotalLeads(Number(leadsData.data?.total ?? 0))
@@ -202,31 +146,29 @@ export function LeadsDashboard({
     } finally {
       setLoading(false)
     }
-  }, [assignedTo, currentPage, pageSize, q, stageFilter, subStatusIdFilter, closedActionFilter, tagsParam])
+  }, [
+    assignedTo, currentPage, pageSize, q, stageFilter, subStatusIdFilter, closedActionFilter, tagsParam,
+    appUniversityNameFilter, appCourseNameFilter, appSourceFilter, appStatusFilter, appIntakeMonthFilter, appIntakeYearFilter,
+    leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter,
+  ])
 
   useEffect(() => {
-    void fetchData()
+    const timer = setTimeout(() => { void fetchData() }, FETCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
   }, [fetchData])
 
-  const filteredLeads =
+  const filteredLeads = useMemo(() => (
     heatFilter === 'all'
       ? leads
-      : leads.filter((lead) => {
-          const heat = getHeatLevel(
-            lead.lastContactedAt ? new Date(lead.lastContactedAt) : null,
-            new Date(lead.createdAt),
-            lead.isDeadManual
-          )
-          return heat === heatFilter
-        })
+      : leads.filter((lead) => getHeatLevel(
+          lead.lastContactedAt ? new Date(lead.lastContactedAt) : null,
+          new Date(lead.createdAt),
+          lead.isDeadManual,
+        ) === heatFilter)
+  ), [leads, heatFilter])
 
   const selectedCount = selectedIds.size
-  const selectedAll =
-    filteredLeads.length > 0 && filteredLeads.every((l) => selectedIds.has(l.id))
-  const selectedSome = filteredLeads.some((l) => selectedIds.has(l.id))
 
-  // Build a fast lookup: stageKey -> { label, badgeClasses }
-  // Prefer tenant-configured labels; fall back to PIPELINE_STAGES for badge styles
   const stageInfoMap = useMemo(() => {
     const map = new Map<string, { label: string; badgeClasses: string }>()
     for (const s of PIPELINE_STAGES) {
@@ -251,24 +193,33 @@ export function LeadsDashboard({
   const activeFilterCount = useMemo(() => {
     let count = 0
     if (stageFilter) count++
+    if (subStatusIdFilter) count++
     if (closedActionFilter) count++
     if (heatFilter !== 'all') count++
     if (assignedTo) count++
     if (tagsParam) count++
+    if (appUniversityNameFilter || appCourseNameFilter || appSourceFilter || appStatusFilter) count++
+    if (leadIntakeMonthFilter || leadIntakeYearFilter) count++
+    if (revIntakeMonthFilter || revIntakeYearFilter) count++
     return count
-  }, [stageFilter, closedActionFilter, heatFilter, assignedTo, tagsParam])
+  }, [
+    stageFilter, subStatusIdFilter, closedActionFilter, heatFilter, assignedTo, tagsParam,
+    appUniversityNameFilter, appCourseNameFilter, appSourceFilter, appStatusFilter,
+    leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter,
+  ])
 
-  const clearAllFilters = useCallback(() => {
-    const sp = new URLSearchParams(searchParams.toString())
-    sp.delete('stage')
-    sp.delete('subStatusId')
-    sp.delete('closedAction')
-    sp.delete('assignedTo')
-    sp.delete('tags')
-    sp.delete('page')
-    setHeatFilter('all')
-    router.push(`?${sp.toString()}`)
-  }, [router, searchParams])
+  const handleToggleSelect = useCallback((id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(id)
+      else next.delete(id)
+      return next
+    })
+  }, [])
+
+  const handleToggleSelectAll = useCallback((checked: boolean) => {
+    setSelectedIds(checked ? new Set(filteredLeads.map((l) => l.id)) : new Set())
+  }, [filteredLeads])
 
   const handleBulkAssign = async (newAssignedTo: string) => {
     setBulkActionLoading(true)
@@ -277,17 +228,10 @@ export function LeadsDashboard({
       const res = await fetch('/api/leads/bulk-assign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          leadIds: Array.from(selectedIds),
-          assignedTo: newAssignedTo,
-          tenantSlug,
-        }),
+        body: JSON.stringify({ leadIds: Array.from(selectedIds), assignedTo: newAssignedTo, tenantSlug }),
       })
       return res.json()
-    }, {
-      successMsg: `Assigned ${count} leads`,
-      errorMsg: 'Failed to assign leads',
-    })
+    }, { successMsg: `Assigned ${count} leads`, errorMsg: 'Failed to assign leads' })
     if (data) {
       setSelectedIds(new Set())
       await fetchData()
@@ -303,17 +247,10 @@ export function LeadsDashboard({
       const res = await fetch('/api/leads/bulk-stage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          leadIds: Array.from(selectedIds),
-          stage,
-          tenantSlug,
-        }),
+        body: JSON.stringify({ leadIds: Array.from(selectedIds), stage, tenantSlug }),
       })
       return res.json()
-    }, {
-      successMsg: `Moved ${count} leads to ${stage}`,
-      errorMsg: 'Failed to update stage',
-    })
+    }, { successMsg: `Moved ${count} leads to ${stage}`, errorMsg: 'Failed to update stage' })
     if (data) {
       setSelectedIds(new Set())
       await fetchData()
@@ -322,31 +259,30 @@ export function LeadsDashboard({
     setBulkActionLoading(false)
   }
 
+  const downloadCsv = (blob: Blob) => {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `leads-export-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   const handleBulkExport = async () => {
     setBulkActionLoading(true)
-    const data = await apiCall(async () => {
+    await apiCall(async () => {
       const res = await fetch('/api/leads/bulk-export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          leadIds: Array.from(selectedIds),
-          tenantSlug,
-        }),
+        body: JSON.stringify({ leadIds: Array.from(selectedIds), tenantSlug }),
       })
       if (!res.ok) throw new Error('Export failed')
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `leads-export-${new Date().toISOString().split('T')[0]}.csv`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      downloadCsv(await res.blob())
       return true
     }, { successMsg: 'Export downloaded', errorMsg: 'Failed to export leads' })
     setBulkActionLoading(false)
-    if (!data) return
   }
 
   const handleBulkDelete = async () => {
@@ -356,16 +292,10 @@ export function LeadsDashboard({
       const res = await fetch('/api/leads/bulk-delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          leadIds: Array.from(selectedIds),
-          tenantSlug,
-        }),
+        body: JSON.stringify({ leadIds: Array.from(selectedIds), tenantSlug }),
       })
       return res.json()
-    }, {
-      successMsg: `Deleted ${count} leads`,
-      errorMsg: 'Failed to delete leads',
-    })
+    }, { successMsg: `Deleted ${count} leads`, errorMsg: 'Failed to delete leads' })
     if (data) {
       setSelectedIds(new Set())
       setShowBulkDeleteDialog(false)
@@ -390,13 +320,9 @@ export function LeadsDashboard({
         const errorData = await idsRes.json()
         throw new Error(errorData.error || 'Failed to fetch lead IDs')
       }
-      
       const idsData = await idsRes.json()
       const leadIds = idsData.data?.leadIds as string[] | undefined
-
-      if (!leadIds || leadIds.length === 0) {
-        throw new Error('No leads matching the current filters were found.')
-      }
+      if (!leadIds || leadIds.length === 0) throw new Error('No leads matching the current filters were found.')
 
       const res = await fetch('/api/leads/bulk-export', {
         method: 'POST',
@@ -404,27 +330,13 @@ export function LeadsDashboard({
         body: JSON.stringify({ leadIds, tenantSlug }),
       })
       if (!res.ok) throw new Error('Export generation failed')
-      
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `leads-export-${new Date().toISOString().split('T')[0]}.csv`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      downloadCsv(await res.blob())
       return true
-    }, { 
-      successMsg: 'Export started', 
-      errorMsg: 'Failed to export leads' 
-    })
+    }, { successMsg: 'Export started', errorMsg: 'Failed to export leads' })
     setBulkActionLoading(false)
   }
 
-  const leadDetailPath = (id: string) => {
-    return tenantPath(tenantSlug, `/${role.toLowerCase()}/leads/${id}`)
-  }
+  const leadDetailPath = (id: string) => tenantPath(tenantSlug, `/${role.toLowerCase()}/leads/${id}`)
 
   return (
     <div className="p-0">
@@ -433,9 +345,7 @@ export function LeadsDashboard({
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
             {isAdmin ? 'Leads' : 'My Leads'}
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            {totalLeads} total records
-          </p>
+          <p className="text-sm text-slate-500 mt-0.5">{totalLeads} total records</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -446,103 +356,14 @@ export function LeadsDashboard({
             />
           </div>
 
-          <div className="flex items-center gap-1 bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-full pl-3 pr-1.5 py-1 shadow-sm">
-            <Filter className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-
-            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1.5" />
-
-            <TagFilter />
-
-            {/* Stage Filter */}
-            <Select
-              value={stageFilter ?? 'all'}
-              onValueChange={(val) => {
-                const sp = new URLSearchParams(searchParams.toString())
-                if (val === 'all') sp.delete('stage')
-                else sp.set('stage', val)
-                sp.delete('subStatusId')
-                sp.delete('page')
-                router.push(`?${sp.toString()}`)
-              }}
-            >
-              <SelectTrigger className="h-7 w-auto min-w-[90px] border-none bg-transparent shadow-none focus:ring-0 rounded-full px-2.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 data-[state=open]:bg-slate-100 dark:data-[state=open]:bg-slate-700/50">
-                <SelectValue placeholder="Stages" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Stages</SelectItem>
-                {tenantStages.map((s) => (
-                  <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Sub-status Filter — only shown when a stage is selected and it has closedActions */}
-            {stageFilter && closedActions.length > 0 && (
-              <Select
-                value={closedActionFilter ?? 'all'}
-                onValueChange={(val) => {
-                  const sp = new URLSearchParams(searchParams.toString())
-                  if (val === 'all') sp.delete('closedAction')
-                  else sp.set('closedAction', val)
-                  sp.delete('page')
-                  router.push(`?${sp.toString()}`)
-                }}
-              >
-                <SelectTrigger className="h-7 w-auto min-w-[100px] border-none bg-transparent shadow-none focus:ring-0 rounded-full px-2.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 data-[state=open]:bg-slate-100 dark:data-[state=open]:bg-slate-700/50">
-                  <SelectValue placeholder="All Sub-stages" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Sub-Stages</SelectItem>
-                  {closedActions.map((action) => (
-                    <SelectItem key={action} value={action}>{action}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            <Select value={heatFilter} onValueChange={setHeatFilter}>
-              <SelectTrigger className="h-7 w-auto min-w-[80px] border-none bg-transparent shadow-none focus:ring-0 rounded-full px-2.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 data-[state=open]:bg-slate-100 dark:data-[state=open]:bg-slate-700/50">
-                <SelectValue placeholder="Heat" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="active"> Active</SelectItem>
-                <SelectItem value="cold"> Cold</SelectItem>
-                <SelectItem value="dead"> Dead</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {isAdmin && agents.length > 0 && (
-              <Select
-                value={assignedTo ?? 'all'}
-                onValueChange={(val) => {
-                  const sp = new URLSearchParams(searchParams.toString())
-                  if (val === 'all') sp.delete('assignedTo')
-                  else sp.set('assignedTo', val)
-                  sp.delete('page')
-                  router.push(`?${sp.toString()}`)
-                }}
-              >
-                <SelectTrigger className="h-7 w-auto min-w-[100px] border-none bg-transparent shadow-none focus:ring-0 rounded-full px-2.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 data-[state=open]:bg-slate-100 dark:data-[state=open]:bg-slate-700/50">
-                  <SelectValue placeholder="Filter by PRO" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">PROs</SelectItem>
-                  <SelectItem value="unassigned">
-                    <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-medium">
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                      <span>Unassigned</span>
-                    </div>
-                  </SelectItem>
-                  {agents.map((agent) => (
-                    <SelectItem key={agent.userId} value={agent.userId}>
-                      {agent.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+          <FilterSheet
+            tenantStages={tenantStages}
+            agents={agents}
+            isAdmin={isAdmin}
+            heatFilter={heatFilter}
+            onHeatFilterChange={setHeatFilter}
+            activeFilterCount={activeFilterCount}
+          />
 
           <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden md:block" />
 
@@ -555,8 +376,8 @@ export function LeadsDashboard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 p-1 rounded-lg shadow-crm-md border-slate-200 dark:border-slate-700">
-                <DropdownMenuItem 
-                  onClick={handleExportAll} 
+                <DropdownMenuItem
+                  onClick={handleExportAll}
                   disabled={bulkActionLoading}
                   className="flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer text-sm"
                 >
@@ -578,251 +399,38 @@ export function LeadsDashboard({
       </div>
 
       {selectedCount > 0 && (
-        <div
-          className={cn(
-            'mb-4 flex flex-wrap items-center gap-2 rounded-lg px-4 py-2.5',
-            'bg-brand-light border border-brand/20',
-            'animate-in slide-in-from-top-2 duration-200',
-          )}
-        >
-          <span className="text-sm font-medium text-brand">
-            {selectedCount} lead{selectedCount > 1 ? 's' : ''} selected
-          </span>
-
-          <Separator orientation="vertical" className="h-4 mx-1" />
-
-          {isAdmin && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5" disabled={bulkActionLoading}>
-                  <UserCheck className="h-3.5 w-3.5" />
-                  Assign to
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {agents.map((agent) => (
-                  <DropdownMenuItem key={agent.userId} onSelect={() => void handleBulkAssign(agent.userId)}>
-                    <div className="flex items-center gap-2">
-                      <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
-                        {agent.name[0]?.toUpperCase()}
-                      </div>
-                      <span>{agent.name}</span>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 gap-1.5" disabled={bulkActionLoading}>
-                <ArrowRightLeft className="h-3.5 w-3.5" />
-                Move to stage
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {[
-                'new_lead',
-                'unresponsive',
-                'follow_up',
-                'walkin_booked',
-                'docs_received',
-                'options_sent',
-                'paid',
-                'cancelled',
-              ].map((stage) => (
-                <DropdownMenuItem key={stage} onSelect={() => void handleBulkStage(stage)}>
-                  {stage.replace(/_/g, ' ')}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {isAdmin && (
-            <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => void handleBulkExport()} disabled={bulkActionLoading}>
-              <Download className="h-3.5 w-3.5" />
-              Export CSV
-            </Button>
-          )}
-
-          {(isAdmin || canDelete) && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 text-destructive hover:text-destructive border-destructive/30 hover:border-destructive"
-              onClick={() => setShowBulkDeleteDialog(true)}
-              disabled={bulkActionLoading}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete
-            </Button>
-          )}
-
-          {bulkActionLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground ml-1" />}
-
-          <Button variant="ghost" size="sm" className="h-8 ml-auto" onClick={() => setSelectedIds(new Set())}>
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+        <BulkActionsBar
+          selectedCount={selectedCount}
+          isAdmin={isAdmin}
+          canDelete={canDelete}
+          agents={agents}
+          bulkActionLoading={bulkActionLoading}
+          onAssign={handleBulkAssign}
+          onMoveStage={handleBulkStage}
+          onExport={handleBulkExport}
+          onDeleteClick={() => setShowBulkDeleteDialog(true)}
+          onClearSelection={() => setSelectedIds(new Set())}
+        />
       )}
 
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : error ? (
-        <div className="text-center py-24 text-destructive">{error}</div>
-      ) : leads.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-500">
-          {totalLeads === 0
-            ? isAdmin ? 'No leads yet. Import a CSV to get started.' : 'No leads assigned to you yet.'
-            : 'No leads found for this search/page.'}
-        </div>
-      ) : filteredLeads.length === 0 ? (
+      {!loading && !error && filteredLeads.length === 0 && leads.length > 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-500">
           No leads match this active filter.
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f172a] shadow-crm-sm">
-          <div className="crm-table-scroll">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-                <tr>
-                  <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 w-8">
-                    <Checkbox
-                      checked={selectedAll ? true : selectedSome ? 'indeterminate' : false}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedIds(new Set(filteredLeads.map((l) => l.id)))
-                        } else {
-                          setSelectedIds(new Set())
-                        }
-                      }}
-                      aria-label="Select all"
-                    />
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</th>
-                  <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 md:table-cell">City</th>
-                  <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 lg:table-cell">Qualification</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Stage</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Active</th>
-                  <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:table-cell">Assigned To</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredLeads.map((lead) => {
-                  const stageInfo = stageInfoMap.get(lead.stage ?? '') ?? getStageInfo(lead.stage)
-                  const heat = getHeatLevel(
-                    lead.lastContactedAt ? new Date(lead.lastContactedAt) : null,
-                    new Date(lead.createdAt),
-                    lead.isDeadManual
-                  )
-                  
-                  return (
-                    <tr
-                      key={lead.id}
-                      onClick={() => router.push(leadDetailPath(lead.id))}
-                      className={cn(
-                        'group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b border-slate-100 dark:border-slate-800',
-                        selectedIds.has(lead.id) && 'bg-brand-light/50 border-l-2 border-l-brand',
-                      )}
-                    >
-                      <td className="px-3 py-3">
-                        <Checkbox
-                          checked={selectedIds.has(lead.id)}
-                          onCheckedChange={(checked) => {
-                            const next = new Set(selectedIds)
-                            if (checked) next.add(lead.id)
-                            else next.delete(lead.id)
-                            setSelectedIds(next)
-                          }}
-                          aria-label={`Select ${lead.fullName}`}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{lead.fullName}</p>
-                        {lead.email && (
-                          <p className="text-xs text-slate-400 mt-0.5">{lead.email}</p>
-                        )}
-                        {lead.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            {lead.tags.slice(0, 2).map((tag) => (
-                              <span
-                                key={tag.id}
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium"
-                                style={{
-                                  backgroundColor: `${tag.color}20`,
-                                  color: tag.color,
-                                  border: `1px solid ${tag.color}40`,
-                                }}
-                              >
-                                <span
-                                  className="h-1.5 w-1.5 rounded-full flex-shrink-0"
-                                  style={{ backgroundColor: tag.color }}
-                                />
-                                {tag.name}
-                              </span>
-                            ))}
-                            {lead.tags.length > 2 && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs text-muted-foreground bg-muted">
-                                +{lead.tags.length - 2}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
-                        {lead.contactNumber ?? '—'}
-                      </td>
-                      <td className="hidden px-4 py-3 text-sm text-slate-600 dark:text-slate-400 md:table-cell">
-                        {lead.city ?? '—'}
-                      </td>
-                      <td className="hidden px-4 py-3 text-sm text-slate-600 dark:text-slate-400 lg:table-cell">
-                        {lead.lastQualification ?? '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs px-2.5 py-1 rounded-full border ${stageInfo.badgeClasses} font-medium tracking-wide`}>
-                          {stageInfo.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={cn(
-                              'h-2 w-2 rounded-full',
-                              heat === 'dead' && 'animate-pulse',
-                              heatConfig[heat].dot,
-                            )}
-                          />
-                          <span className={cn('text-xs font-medium', heatConfig[heat].color)}>
-                            {heatConfig[heat].label}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="hidden px-4 py-3 sm:table-cell">
-                        {lead.assignedTo ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-brand-light text-brand flex items-center justify-center font-semibold text-xs">
-                              {(assigneeNameById.get(lead.assignedTo) ?? 'U').charAt(0).toUpperCase()}
-                            </div>
-                            <span className="text-sm text-slate-700 dark:text-slate-300">{assigneeNameById.get(lead.assignedTo) ?? 'Unknown'}</span>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-slate-400 italic">Unassigned</span>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <LeadsTable
+          leads={filteredLeads}
+          loading={loading}
+          error={error}
+          totalLeads={totalLeads}
+          isAdmin={isAdmin}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+          onToggleSelectAll={handleToggleSelectAll}
+          stageInfoMap={stageInfoMap}
+          assigneeNameById={assigneeNameById}
+          onRowClick={(id) => router.push(leadDetailPath(id))}
+        />
       )}
 
       {leads.length > 0 && (
@@ -838,6 +446,7 @@ export function LeadsDashboard({
                   if (q) sp.set('q', q)
                   if (tagsParam) sp.set('tags', tagsParam)
                   if (stageFilter) sp.set('stage', stageFilter)
+                  if (subStatusTypeFilter) sp.set('subStatusType', subStatusTypeFilter)
                   if (subStatusIdFilter) sp.set('subStatusId', subStatusIdFilter)
                   if (closedActionFilter) sp.set('closedAction', closedActionFilter)
                   if (pageSize !== 10) sp.set('pageSize', String(pageSize))
@@ -867,11 +476,7 @@ export function LeadsDashboard({
           <AlertDialogFooter>
             <AlertDialogCancel disabled={bulkDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => void handleBulkDelete()} disabled={bulkDeleting} className="bg-destructive hover:bg-destructive/90">
-              {bulkDeleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                `Delete ${selectedIds.size} leads`
-              )}
+              {bulkDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : `Delete ${selectedIds.size} leads`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

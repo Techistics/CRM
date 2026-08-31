@@ -5,11 +5,12 @@ import { and, eq, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { db } from '@/db'
-import { csvImports, leads, tenantMembers, users, leadStageAssignments } from '@/db/schema'
+import { csvImports, leads, tenantMembers, users, leadStageAssignments, pipelineSubStatuses } from '@/db/schema'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { sendLeadAssignedEmail } from '@/lib/mail'
 import { requirePermissionApi } from '@/lib/tenant-api'
 import { getTenantPipeline } from '@/lib/pipeline/config'
+import { DEFAULT_SUB_STATUSES } from '@/constants/sub-status-defaults'
 
 const parseBodySchema = z.object({
   action: z.literal('parse'),
@@ -28,15 +29,18 @@ const parsedLeadSchema = z.object({
   source: z.string().optional().nullable(),
   dealValue: z.number().optional().nullable(),
   notes: z.string().optional().nullable(),
-  intakeMonth: z.string().optional().nullable(),
   destinationCountry: z.string().optional().nullable(),
   programOfInterest: z.string().optional().nullable(),
+  intakeMonth: z.string().optional().nullable(),
 })
 
 const confirmBodySchema = z.object({
   action: z.literal('confirm'),
   parsedData: z.array(parsedLeadSchema),
-  assignToAgentIds: z.array(z.string().uuid()),
+  agentAssignments: z.array(z.object({
+    agentId: z.string().uuid(),
+    count: z.number().int().min(0),
+  })),
   tenantSlug: z.string().min(1),
   fileName: z.string().optional(),
   totalRows: z.number().optional(),
@@ -58,12 +62,10 @@ const COLUMN_MAP: Record<string, keyof z.infer<typeof parsedLeadSchema>> = {
   stage: 'stage',
   source: 'source',
   notes: 'notes',
-  // Intake
   intake: 'intakeMonth',
   'intake month': 'intakeMonth',
   intake_month: 'intakeMonth',
   intakemonth: 'intakeMonth',
-  // Destination Country
   destination: 'destinationCountry',
   'destination country': 'destinationCountry',
   destination_country: 'destinationCountry',
@@ -119,6 +121,12 @@ function parseRows(fileName: string, fileData: string): Record<string, unknown>[
   throw new Error('Unsupported file type')
 }
 
+function parseIntakeMonth(raw: string): number | null {
+  const num = parseInt(raw, 10)
+  if (!isNaN(num) && num >= 1 && num <= 12) return num
+  return null
+}
+
 export async function POST(req: NextRequest) {
   return withApiErrorHandling(async () => {
     const ctx = await requirePermissionApi('import.leads')
@@ -129,6 +137,54 @@ export async function POST(req: NextRequest) {
       return errorResponse('Pipeline not configured', 'PIPELINE_NOT_CONFIGURED', 409)
     }
     const defaultStageKey = pipeline.stages[0]?.key ?? 'new_lead'
+
+    let [firstSubStatus] = await db
+      .select({ id: pipelineSubStatuses.id, closedActions: pipelineSubStatuses.closedActions })
+      .from(pipelineSubStatuses)
+      .where(
+        and(
+          eq(pipelineSubStatuses.tenantId, ctx.tenant.id),
+          eq(pipelineSubStatuses.stageKey, defaultStageKey),
+          eq(pipelineSubStatuses.type, 'in_progress'),
+        ),
+      )
+      .orderBy(pipelineSubStatuses.sortOrder)
+      .limit(1)
+
+    if (!firstSubStatus) {
+      const rows: (typeof pipelineSubStatuses.$inferInsert)[] = []
+      for (const [sKey, subStatuses] of Object.entries(DEFAULT_SUB_STATUSES)) {
+        subStatuses.forEach((ss, index) => {
+          rows.push({
+            tenantId: ctx.tenant.id,
+            stageKey: sKey,
+            label: ss.label,
+            type: ss.type,
+            closedActions: ss.closedActions,
+            sortOrder: index,
+          })
+        })
+      }
+      if (rows.length > 0) {
+        await db.insert(pipelineSubStatuses).values(rows).onConflictDoNothing()
+        const [seededFirst] = await db
+          .select({ id: pipelineSubStatuses.id, closedActions: pipelineSubStatuses.closedActions })
+          .from(pipelineSubStatuses)
+          .where(
+            and(
+              eq(pipelineSubStatuses.tenantId, ctx.tenant.id),
+              eq(pipelineSubStatuses.stageKey, defaultStageKey),
+              eq(pipelineSubStatuses.type, 'in_progress'),
+            ),
+          )
+          .orderBy(pipelineSubStatuses.sortOrder)
+          .limit(1)
+        firstSubStatus = seededFirst
+      }
+    }
+
+    const defaultSubStatusId = firstSubStatus?.id ?? null
+    const defaultClosedAction = (firstSubStatus?.closedActions as string[])?.[0] ?? null
 
     const body = await req.json().catch(() => null)
     if (!body) {
@@ -195,9 +251,9 @@ export async function POST(req: NextRequest) {
           source: String(mapped.source ?? '').trim() || null,
           dealValue: null,
           notes: String(mapped.notes ?? '').trim() || null,
-          intakeMonth: String(mapped.intakeMonth ?? '').trim() || null,
           destinationCountry: String(mapped.destinationCountry ?? '').trim() || null,
           programOfInterest: String(mapped.programOfInterest ?? '').trim() || null,
+          intakeMonth: String(mapped.intakeMonth ?? '').trim() || null,
         })
       })
 
@@ -232,20 +288,20 @@ export async function POST(req: NextRequest) {
 
       const existing = emails.length > 0 || phones.length > 0
         ? await db
-            .select({
-              email: leads.email,
-              contactNumber: leads.contactNumber,
-            })
-            .from(leads)
-            .where(
-              and(
-                eq(leads.tenantId, ctx.tenant.id),
-                or(
-                  emails.length > 0 ? inArray(leads.email, emails) : undefined,
-                  phones.length > 0 ? inArray(leads.contactNumber, phones) : undefined,
-                ),
+          .select({
+            email: leads.email,
+            contactNumber: leads.contactNumber,
+          })
+          .from(leads)
+          .where(
+            and(
+              eq(leads.tenantId, ctx.tenant.id),
+              or(
+                emails.length > 0 ? inArray(leads.email, emails) : undefined,
+                phones.length > 0 ? inArray(leads.contactNumber, phones) : undefined,
               ),
-            )
+            ),
+          )
         : []
 
       const existingEmailSet = new Set(existing.map((item) => item.email).filter((v): v is string => Boolean(v)))
@@ -290,30 +346,88 @@ export async function POST(req: NextRequest) {
         return errorResponse('Forbidden', 'FORBIDDEN', 403)
       }
 
-      const assignableMembers = parsed.data.assignToAgentIds.length > 0
-        ? await db
-            .select({
-              userId: tenantMembers.userId,
-              name: users.name,
-              email: users.email,
-              role: tenantMembers.role,
+      const totalRequested = parsed.data.agentAssignments.reduce((sum, a) => sum + a.count, 0)
+      if (totalRequested !== parsed.data.parsedData.length) {
+        return errorResponse('Assigned count must exactly equal the number of leads being imported', 'INVALID_DISTRIBUTION', 400)
+      }
+
+      let [firstSubStatus] = await db
+        .select({ id: pipelineSubStatuses.id, closedActions: pipelineSubStatuses.closedActions })
+        .from(pipelineSubStatuses)
+        .where(
+          and(
+            eq(pipelineSubStatuses.tenantId, ctx.tenant.id),
+            eq(pipelineSubStatuses.stageKey, defaultStageKey),
+            eq(pipelineSubStatuses.type, 'in_progress'),
+          ),
+        )
+        .orderBy(pipelineSubStatuses.sortOrder)
+        .limit(1)
+
+      if (!firstSubStatus) {
+        const rows: (typeof pipelineSubStatuses.$inferInsert)[] = []
+        for (const [sKey, subStatuses] of Object.entries(DEFAULT_SUB_STATUSES)) {
+          subStatuses.forEach((ss, index) => {
+            rows.push({
+              tenantId: ctx.tenant.id,
+              stageKey: sKey,
+              label: ss.label,
+              type: ss.type,
+              closedActions: ss.closedActions,
+              sortOrder: index,
             })
-            .from(tenantMembers)
-            .innerJoin(users, eq(users.id, tenantMembers.userId))
+          })
+        }
+        if (rows.length > 0) {
+          await db.insert(pipelineSubStatuses).values(rows).onConflictDoNothing()
+          const [seededFirst] = await db
+            .select({ id: pipelineSubStatuses.id, closedActions: pipelineSubStatuses.closedActions })
+            .from(pipelineSubStatuses)
             .where(
               and(
-                eq(tenantMembers.tenantId, ctx.tenant.id),
-                inArray(tenantMembers.userId, parsed.data.assignToAgentIds),
-                ...(ctx.role !== 'ADMIN' ? [eq(tenantMembers.role, 'PRO')] : []),
+                eq(pipelineSubStatuses.tenantId, ctx.tenant.id),
+                eq(pipelineSubStatuses.stageKey, defaultStageKey),
+                eq(pipelineSubStatuses.type, 'in_progress'),
               ),
             )
+            .orderBy(pipelineSubStatuses.sortOrder)
+            .limit(1)
+          firstSubStatus = seededFirst
+        }
+      }
+
+      const defaultSubStatusId = firstSubStatus?.id ?? null
+      const defaultClosedAction = (firstSubStatus?.closedActions as string[])?.[0] ?? null
+
+      const assignableMembers = parsed.data.agentAssignments.length > 0
+        ? await db
+          .select({
+            userId: tenantMembers.userId,
+            name: users.name,
+            email: users.email,
+            role: tenantMembers.role,
+          })
+          .from(tenantMembers)
+          .innerJoin(users, eq(users.id, tenantMembers.userId))
+          .where(
+            and(
+              eq(tenantMembers.tenantId, ctx.tenant.id),
+              inArray(tenantMembers.userId, parsed.data.agentAssignments.map((a) => a.agentId)),
+              ...(ctx.role !== 'ADMIN' ? [eq(tenantMembers.role, 'PRO')] : []),
+            ),
+          )
         : []
-      const validAgentIds = assignableMembers.map((member) => member.userId)
+      const validAgentIdSet = new Set(assignableMembers.map((member) => member.userId))
+
+      // Build a flat assignment queue respecting the admin's requested per-agent counts
+      const assignmentQueue: (string | null)[] = []
+      for (const { agentId, count } of parsed.data.agentAssignments) {
+        if (!validAgentIdSet.has(agentId)) continue
+        for (let i = 0; i < count; i++) assignmentQueue.push(agentId)
+      }
 
       const rowsToInsert: (typeof leads.$inferInsert)[] = parsed.data.parsedData.map((leadRow, index) => {
-        // Round-robin distribution
-        const assignedTo =
-          validAgentIds.length > 0 ? validAgentIds[index % validAgentIds.length] : null
+        const assignedTo = assignmentQueue[index] ?? null
 
         const stageKey = pipeline.stageKeys.has(leadRow.stage) ? leadRow.stage : defaultStageKey
 
@@ -325,7 +439,6 @@ export async function POST(req: NextRequest) {
           city: leadRow.city ?? null,
           country: leadRow.country ?? 'Pakistan',
           primaryStage: stageKey,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           stage: stageKey as any,
           source: leadRow.source ?? 'csv_import',
           lastQualification: leadRow.notes ?? null,
@@ -333,9 +446,12 @@ export async function POST(req: NextRequest) {
           createdBy: ctx.dbUserId,
           assignedTo,
           updatedAt: new Date(),
-          intakeMonth: leadRow.intakeMonth,
+          intakeMonth: leadRow.intakeMonth ? parseIntakeMonth(leadRow.intakeMonth) : null,
+          intakeYear: null,
           destinationCountry: leadRow.destinationCountry,
           programOfInterest: leadRow.programOfInterest,
+          subStatusId: stageKey === defaultStageKey ? defaultSubStatusId : null,
+          closedAction: stageKey === defaultStageKey ? defaultClosedAction : null,
         }
       })
 
@@ -405,7 +521,7 @@ export async function POST(req: NextRequest) {
       for (const member of assignableMembers) {
         const count = assignedCounts.get(member.userId) ?? 0
         if (count <= 0 || !member.email) continue
-        
+
         try {
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
           await sendLeadAssignedEmail({
@@ -439,4 +555,3 @@ export async function POST(req: NextRequest) {
     return errorResponse('Unsupported action', 'VALIDATION_ERROR', 400)
   })
 }
-

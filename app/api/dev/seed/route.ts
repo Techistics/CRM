@@ -51,7 +51,8 @@ const PROGRAMS = [
   'BSc Nursing', 'MSc Finance', 'BEng Civil Engineering',
 ]
 
-const INTAKE_MONTHS = ['Sep 2025', 'Jan 2026', 'Sep 2026', 'Jan 2027', 'May 2026']
+const INTAKE_MONTHS_NUM = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+const INTAKE_YEARS_POOL = [2025, 2026, 2027]
 
 const SOURCES = ['website', 'referral', 'social_media', 'walk_in', 'csv_import']
 
@@ -226,7 +227,8 @@ export async function GET() {
           createdBy: assignedUserId,
           dealValue: String(randInt(50000, 500000)),
           dealCurrency: 'PKR',
-          intakeMonth: rand(INTAKE_MONTHS),
+          intakeMonth: rand(INTAKE_MONTHS_NUM),
+          intakeYear: rand(INTAKE_YEARS_POOL),
           destinationCountry: rand(DESTINATIONS),
           programOfInterest: rand(PROGRAMS),
           lastContactedAt: daysAgo(randInt(0, 10)),

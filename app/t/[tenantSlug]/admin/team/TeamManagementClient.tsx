@@ -102,6 +102,7 @@ export default function TeamManagementClient({
   const [editId, setEditId] = useState<string | null>(null)
   const [editRole, setEditRole] = useState<TeamRole>('PRO')
   const [editCustomRoleId, setEditCustomRoleId] = useState('none')
+  const [newPassword, setNewPassword] = useState('')
 
   const [resendOpen, setResendOpen] = useState(false)
   const [resendEmail, setResendEmail] = useState('')
@@ -169,6 +170,7 @@ export default function TeamManagementClient({
     setEditEmail(member.email)
     setEditRole(member.role)
     setEditCustomRoleId(member.customRoleId ?? 'none')
+    setNewPassword('')
     setEditOpen(true)
   }
 
@@ -198,6 +200,29 @@ export default function TeamManagementClient({
     )
     setEditOpen(false)
     router.refresh()
+  }
+
+  async function doResetPassword() {
+    if (!editId || newPassword.length < 8) return
+    setBusyId('resetPwd')
+    const data = await apiCall(async () => {
+      const res = await fetch(`/api/admin/team-members/${editId}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || 'Failed to reset password')
+      }
+      return res.json()
+    }, {
+      successMsg: 'Password reset and email sent',
+      errorMsg: 'Reset failed',
+    })
+    setBusyId(null)
+    if (!data) return
+    setNewPassword('')
   }
 
   function startResend(member: TeamMember) {
@@ -545,6 +570,27 @@ export default function TeamManagementClient({
                     </SelectContent>
                   </Select>
                 )}
+                <div className="mt-6 border-t dark:border-slate-700 pt-4">
+                  <h4 className="text-sm font-medium mb-1">Reset Password</h4>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Set a new temporary password for this user. They will receive an email with the new password.
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Min 8 characters"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                    />
+                    <Button
+                      variant="secondary"
+                      disabled={busyId === 'resetPwd' || newPassword.length < 8}
+                      onClick={doResetPassword}
+                    >
+                      {busyId === 'resetPwd' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reset & Email'}
+                    </Button>
+                  </div>
+                </div>
               </>
             )}
           </div>

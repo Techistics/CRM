@@ -3,13 +3,14 @@ import { and, count, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-o
 
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'
-import { leads, leadTagAssignments, leadTags, leadStageAssignments } from '@/db/schema'
+import { leads, leadTagAssignments, leadTags, leadStageAssignments, applications, leadRevenues, pipelineSubStatuses } from '@/db/schema'
 import { leadsVisibleWhere } from '@/lib/leads-scope'
 import { toMemberScope } from '@/lib/member-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
 import { leadCreateBodySchema } from '@/lib/validators/lead'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { getTenantPipeline } from '@/lib/pipeline/config'
+import { DEFAULT_SUB_STATUSES } from '@/constants/sub-status-defaults'
 import { rateLimit } from '@/lib/rate-limit'
 import { stripDealFieldsFromList, canEditPayments } from '@/lib/leads/deal-access'
 
@@ -31,6 +32,31 @@ export async function GET(req: NextRequest) {
     const stage = url.searchParams.get('stage')?.trim()
     const subStatusId = url.searchParams.get('subStatusId')?.trim()
     const idsOnly = url.searchParams.get('idsOnly') === 'true'
+
+    // ── Application filters ───────────────────────────────────
+    const appUniversityName = url.searchParams.get('appUniversityName')?.trim()
+    const appCourseName = url.searchParams.get('appCourseName')?.trim()
+    const appSource = url.searchParams.get('appSource')?.trim() as 'direct_uni' | 'partner_portal' | undefined | null
+    const appStatus = url.searchParams.get('appStatus')?.trim() as 'tag' | 'new_application' | 'intake' | undefined | null
+    const appIntakeMonthRaw = url.searchParams.get('appIntakeMonth')?.trim()
+    const appIntakeYearRaw = url.searchParams.get('appIntakeYear')?.trim()
+    const appIntakeMonth = appIntakeMonthRaw ? parseInt(appIntakeMonthRaw, 10) : null
+    const appIntakeYear = appIntakeYearRaw ? parseInt(appIntakeYearRaw, 10) : null
+
+    // ── Lead intake filters ────────────────────────────────────
+    const leadIntakeMonthRaw = url.searchParams.get('leadIntakeMonth')?.trim()
+    const leadIntakeYearRaw = url.searchParams.get('leadIntakeYear')?.trim()
+    const leadIntakeMonth = leadIntakeMonthRaw ? parseInt(leadIntakeMonthRaw, 10) : null
+    const leadIntakeYear = leadIntakeYearRaw ? parseInt(leadIntakeYearRaw, 10) : null
+
+    // ── Revenue intake filters ─────────────────────────────────
+    const revIntakeMonthRaw = url.searchParams.get('revIntakeMonth')?.trim()
+    const revIntakeYearRaw = url.searchParams.get('revIntakeYear')?.trim()
+    const revIntakeMonth = revIntakeMonthRaw ? parseInt(revIntakeMonthRaw, 10) : null
+    const revIntakeYear = revIntakeYearRaw ? parseInt(revIntakeYearRaw, 10) : null
+
+    // Whether we need to join applications
+    const needsAppJoin = !!(appUniversityName || appCourseName || appSource || appStatus || appIntakeMonth || appIntakeYear)
 
     const conditions = [leadsVisibleWhere(ctx.tenant.id, toMemberScope(ctx))]
 
@@ -81,6 +107,48 @@ export async function GET(req: NextRequest) {
       conditions.push(eq(leads.closedAction, closedActionFilter))
     }
 
+    // ── Application filter conditions (only added when join is active) ─
+    if (needsAppJoin) {
+      // Leads must HAVE an application when any app filter is active
+      conditions.push(sql`${applications.leadId} IS NOT NULL`)
+      if (appUniversityName) {
+        conditions.push(ilike(applications.universityName, `%${appUniversityName}%`))
+      }
+      if (appCourseName) {
+        conditions.push(ilike(applications.courseName, `%${appCourseName}%`))
+      }
+      if (appSource) {
+        conditions.push(eq(applications.source, appSource))
+      }
+      if (appStatus) {
+        conditions.push(eq(applications.applicationStatus, appStatus))
+      }
+      if (appIntakeMonth) {
+        conditions.push(eq(applications.intakeMonth, appIntakeMonth))
+      }
+      if (appIntakeYear) {
+        conditions.push(eq(applications.intakeYear, appIntakeYear))
+      }
+    }
+
+    // ── Lead intake filter conditions ──────────────────────────
+    if (leadIntakeMonth) {
+      conditions.push(eq(leads.intakeMonth, leadIntakeMonth))
+    }
+    if (leadIntakeYear) {
+      conditions.push(eq(leads.intakeYear, leadIntakeYear))
+    }
+
+    // ── Revenue intake filter (subquery) ───────────────────────
+    if (revIntakeMonth || revIntakeYear) {
+      const revSubConditions = [eq(leadRevenues.leadId, leads.id)]
+      if (revIntakeMonth) revSubConditions.push(eq(leadRevenues.intakeMonth, revIntakeMonth))
+      if (revIntakeYear) revSubConditions.push(eq(leadRevenues.intakeYear, revIntakeYear))
+      conditions.push(
+        sql`EXISTS (SELECT 1 FROM lead_revenues WHERE ${and(...revSubConditions)})`
+      )
+    }
+
     const where = and(...conditions)
 
     const attachTagsToLeads = async <
@@ -120,11 +188,25 @@ export async function GET(req: NextRequest) {
     }
 
     if (idsOnly) {
-      const rows = await db
-        .select({ id: leads.id })
-        .from(leads)
-        .where(where)
-        .orderBy(desc(leads.updatedAt))
+      const baseQuery = needsAppJoin
+        ? db
+            .select({ id: leads.id })
+            .from(leads)
+            .leftJoin(
+              applications,
+              and(
+                eq(applications.leadId, leads.id),
+                eq(applications.tenantId, ctx.tenant.id),
+              ),
+            )
+            .where(where)
+            .orderBy(desc(leads.updatedAt))
+        : db
+            .select({ id: leads.id })
+            .from(leads)
+            .where(where)
+            .orderBy(desc(leads.updatedAt))
+      const rows = await baseQuery
       return successResponse({ leadIds: rows.map((row) => row.id) })
     }
 
@@ -135,39 +217,58 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, Number(pageParam) || 1)
     const offset = (page - 1) * pageSize
 
+    // Common select shape — includes application badge fields
+    const leadSelectShape = {
+      id: leads.id,
+      tenantId: leads.tenantId,
+      fullName: leads.fullName,
+      contactNumber: leads.contactNumber,
+      email: leads.email,
+      city: leads.city,
+      country: leads.country,
+      lastQualification: leads.lastQualification,
+      grades: leads.grades,
+      source: leads.source,
+      rawData: leads.rawData,
+      stage: leads.primaryStage,
+      lastContactedAt: leads.lastContactedAt,
+      isDeadManual: leads.isDeadManual,
+      assignedTo: leads.assignedTo,
+      createdBy: leads.createdBy,
+      dealValue: leads.dealValue,
+      dealCurrency: leads.dealCurrency,
+      createdAt: leads.createdAt,
+      updatedAt: leads.updatedAt,
+      // Application badge fields (null when no application exists)
+      appUniversityName: applications.universityName,
+      appStatus: applications.applicationStatus,
+    }
+
     if (paginate) {
-      const [totalRow] = await db
-        .select({ c: count() })
-        .from(leads)
-        .where(where)
-      const rows = await db
-        .select({
-          id: leads.id,
-          tenantId: leads.tenantId,
-          fullName: leads.fullName,
-          contactNumber: leads.contactNumber,
-          email: leads.email,
-          city: leads.city,
-          country: leads.country,
-          lastQualification: leads.lastQualification,
-          grades: leads.grades,
-          source: leads.source,
-          rawData: leads.rawData,
-          stage: leads.primaryStage,
-          lastContactedAt: leads.lastContactedAt,
-          isDeadManual: leads.isDeadManual,
-          assignedTo: leads.assignedTo,
-          createdBy: leads.createdBy,
-          dealValue: leads.dealValue,
-          dealCurrency: leads.dealCurrency,
-          createdAt: leads.createdAt,
-          updatedAt: leads.updatedAt,
-        })
-        .from(leads)
-        .where(where)
-        .orderBy(desc(leads.updatedAt))
-        .limit(pageSize)
-        .offset(offset)
+      // Count query
+      const countBase = needsAppJoin
+        ? db.select({ c: count() }).from(leads)
+            .leftJoin(applications, and(eq(applications.leadId, leads.id), eq(applications.tenantId, ctx.tenant.id)))
+            .where(where)
+        : db.select({ c: count() }).from(leads).where(where)
+      const [totalRow] = await countBase
+
+      // Data query
+      const dataBase = needsAppJoin
+        ? db.select(leadSelectShape).from(leads)
+            .leftJoin(applications, and(eq(applications.leadId, leads.id), eq(applications.tenantId, ctx.tenant.id)))
+            .where(where)
+            .orderBy(desc(leads.updatedAt))
+            .limit(pageSize)
+            .offset(offset)
+        : db.select(leadSelectShape).from(leads)
+            .leftJoin(applications, and(eq(applications.leadId, leads.id), eq(applications.tenantId, ctx.tenant.id)))
+            .where(where)
+            .orderBy(desc(leads.updatedAt))
+            .limit(pageSize)
+            .offset(offset)
+      const rows = await dataBase
+
       const rowsWithTags = stripDealFieldsFromList(
         await attachTagsToLeads(rows),
         ctx.role,
@@ -183,29 +284,15 @@ export async function GET(req: NextRequest) {
     }
 
     const rows = await db
-      .select({
-        id: leads.id,
-        tenantId: leads.tenantId,
-        fullName: leads.fullName,
-        contactNumber: leads.contactNumber,
-        email: leads.email,
-        city: leads.city,
-        country: leads.country,
-        lastQualification: leads.lastQualification,
-        grades: leads.grades,
-        source: leads.source,
-        rawData: leads.rawData,
-          stage: leads.primaryStage,
-        lastContactedAt: leads.lastContactedAt,
-        isDeadManual: leads.isDeadManual,
-        assignedTo: leads.assignedTo,
-        createdBy: leads.createdBy,
-        dealValue: leads.dealValue,
-        dealCurrency: leads.dealCurrency,
-        createdAt: leads.createdAt,
-        updatedAt: leads.updatedAt,
-      })
+      .select(leadSelectShape)
       .from(leads)
+      .leftJoin(
+        applications,
+        and(
+          eq(applications.leadId, leads.id),
+          eq(applications.tenantId, ctx.tenant.id),
+        ),
+      )
       .where(where)
       .orderBy(desc(leads.updatedAt))
     const rowsWithTags = stripDealFieldsFromList(
@@ -287,6 +374,54 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    let [firstSubStatus] = await db
+      .select({ id: pipelineSubStatuses.id, closedActions: pipelineSubStatuses.closedActions })
+      .from(pipelineSubStatuses)
+      .where(
+        and(
+          eq(pipelineSubStatuses.tenantId, ctx.tenant.id),
+          eq(pipelineSubStatuses.stageKey, nextStage),
+          eq(pipelineSubStatuses.type, 'in_progress'),
+        ),
+      )
+      .orderBy(pipelineSubStatuses.sortOrder)
+      .limit(1)
+
+    if (!firstSubStatus) {
+      const rows: (typeof pipelineSubStatuses.$inferInsert)[] = []
+      for (const [sKey, subStatuses] of Object.entries(DEFAULT_SUB_STATUSES)) {
+        subStatuses.forEach((ss, index) => {
+          rows.push({
+            tenantId: ctx.tenant.id,
+            stageKey: sKey,
+            label: ss.label,
+            type: ss.type,
+            closedActions: ss.closedActions,
+            sortOrder: index,
+          })
+        })
+      }
+      if (rows.length > 0) {
+        await db.insert(pipelineSubStatuses).values(rows).onConflictDoNothing()
+        const [seededFirst] = await db
+          .select({ id: pipelineSubStatuses.id, closedActions: pipelineSubStatuses.closedActions })
+          .from(pipelineSubStatuses)
+          .where(
+            and(
+              eq(pipelineSubStatuses.tenantId, ctx.tenant.id),
+              eq(pipelineSubStatuses.stageKey, nextStage),
+              eq(pipelineSubStatuses.type, 'in_progress'),
+            ),
+          )
+          .orderBy(pipelineSubStatuses.sortOrder)
+          .limit(1)
+        firstSubStatus = seededFirst
+      }
+    }
+
+    const defaultSubStatusId = firstSubStatus?.id ?? null
+    const defaultClosedAction = (firstSubStatus?.closedActions as string[])?.[0] ?? null
+
     const created = await db.transaction(async (tx) => {
       const [row] = await tx
         .insert(leads)
@@ -308,13 +443,16 @@ export async function POST(req: NextRequest) {
             ? data.dealCurrency ?? 'USD'
             : 'USD',
           // NEW – intake & destination fields
-          intakeMonth: data.intakeMonth?.trim() || null,
+          intakeMonth: typeof data.intakeMonth === 'number' ? data.intakeMonth : null,
+          intakeYear: typeof data.intakeYear === 'number' ? data.intakeYear : null,
           destinationCountry: data.destinationCountry?.trim() || null,
           programOfInterest: data.programOfInterest?.trim() || null,
           createdBy: ctx.dbUserId,
           primaryStage: nextStage,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           stage: nextStage as any,
+          subStatusId: defaultSubStatusId,
+          closedAction: defaultClosedAction,
           updatedAt: new Date(),
         })
         .returning()

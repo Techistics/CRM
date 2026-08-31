@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast'
 import { tenantPath } from '@/lib/tenant-path'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   Collapsible,
@@ -82,17 +82,20 @@ export default function ImportPage({
   const [parseResult, setParseResult] = useState<ParseResponse | null>(null)
   const [confirmResult, setConfirmResult] = useState<ConfirmResponse | null>(null)
   const [agents, setAgents] = useState<Agent[]>([])
-  const [selectedAgentIds, setSelectedAgentIds] = useState<Set<string>>(new Set())
+  // agentId -> count admin wants to assign to that agent
+  const [agentCounts, setAgentCounts] = useState<Record<string, number>>({})
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [expectedOpen, setExpectedOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const selectedCount = selectedAgentIds.size
-  const distributionCount = useMemo(() => {
-    if (!parseResult || selectedCount === 0) return 0
-    return Math.ceil(parseResult.validRows / selectedCount)
-  }, [parseResult, selectedCount])
+  const totalAssigned = useMemo(
+    () => Object.values(agentCounts).reduce((sum, c) => sum + (c || 0), 0),
+    [agentCounts],
+  )
+  const remaining = parseResult ? parseResult.validRows - totalAssigned : 0
+  const overAssigned = remaining < 0
+  const countMismatch = parseResult ? totalAssigned !== parseResult.validRows : true
 
   async function readAsBase64(inputFile: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -119,7 +122,8 @@ export default function ImportPage({
     const data = await res.json()
     const members: Agent[] = (data.data?.members ?? []).filter((m: Agent) => m.role !== 'ADMIN')
     setAgents(members)
-    setSelectedAgentIds(new Set(members.map((member) => member.userId)))
+    // Start every agent's count at 0 — admin fills in what they want.
+    setAgentCounts(Object.fromEntries(members.map((m) => [m.userId, 0])))
   }
 
   function handleFile(f: File) {
@@ -128,6 +132,26 @@ export default function ImportPage({
     setConfirmResult(null)
     setState('idle')
     setError(null)
+  }
+
+  function setAgentCount(agentId: string, value: string) {
+    const num = Math.max(0, parseInt(value, 10) || 0)
+    setAgentCounts((prev) => ({ ...prev, [agentId]: num }))
+  }
+
+  function autoSplitEvenly() {
+    if (!parseResult || agents.length === 0) return
+    const base = Math.floor(parseResult.validRows / agents.length)
+    const extra = parseResult.validRows % agents.length
+    const next: Record<string, number> = {}
+    agents.forEach((agent, idx) => {
+      next[agent.userId] = base + (idx < extra ? 1 : 0)
+    })
+    setAgentCounts(next)
+  }
+
+  function clearAllCounts() {
+    setAgentCounts(Object.fromEntries(agents.map((a) => [a.userId, 0])))
   }
 
   async function handleParse() {
@@ -171,15 +195,23 @@ export default function ImportPage({
 
   async function handleConfirm() {
     if (!parseResult) return
+    if (totalAssigned !== parseResult.validRows) {
+      toast({ variant: 'destructive', title: 'Assignment count mismatch', description: `Assigned leads must exactly equal ${parseResult.validRows}.` })
+      return
+    }
     setState('confirming')
     try {
+      const agentAssignments = Object.entries(agentCounts)
+        .filter(([, count]) => count > 0)
+        .map(([agentId, count]) => ({ agentId, count }))
+
       const res = await fetch('/api/leads/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'confirm',
           parsedData: parseResult.parsedData,
-          assignToAgentIds: Array.from(selectedAgentIds),
+          agentAssignments,
           tenantSlug,
           fileName: parseResult.fileName,
           totalRows: parseResult.totalRows,
@@ -202,15 +234,14 @@ export default function ImportPage({
   return (
     <div className="w-full min-w-0 space-y-6 p-0 sm:p-2 lg:p-4">
       <div>
-        <h1 className="text-2xl font-semibold text-[#223955]">Import Leads</h1>
+        <h1 className="text-2xl font-semibold text-[#223955] dark:text-white">Import Leads</h1>
       </div>
 
       {state === 'idle' && (
         <>
           <Card
-            className={`rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-colors cursor-pointer ${
-              dragOver ? 'border-primary/60 bg-primary/5' : ''
-            }`}
+            className={`rounded-xl border-2 border-dashed border-border hover:border-primary/50 transition-colors cursor-pointer ${dragOver ? 'border-primary/60 bg-primary/5' : ''
+              }`}
             onClick={() => inputRef.current?.click()}
             onDragOver={(event) => {
               event.preventDefault()
@@ -320,47 +351,55 @@ export default function ImportPage({
           </Card>
 
           <Card className="p-4 space-y-3">
-            <p className="font-medium">Counselor assignment</p>
-            {agents.map((agent) => {
-              const checked = selectedAgentIds.has(agent.userId)
-              return (
-                <div key={agent.userId} className="flex items-center justify-between rounded border p-3">
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(value) => {
-                        setSelectedAgentIds((prev) => {
-                          const next = new Set(prev)
-                          if (value) next.add(agent.userId)
-                          else next.delete(agent.userId)
-                          return next
-                        })
-                      }}
-                    />
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>{agent.name.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{agent.name}</p>
-                        <Badge variant="secondary" className="text-[10px] h-4 px-1">
-                          {agent.role === 'PRO' ? 'Pro' : agent.role}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{agent.email}</p>
+            <div className="flex items-center justify-between">
+              <p className="font-medium">Counselor assignment</p>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={autoSplitEvenly}>
+                  Split Evenly
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={clearAllCounts}>
+                  Clear
+                </Button>
+              </div>
+            </div>
+
+            {agents.map((agent) => (
+              <div key={agent.userId} className="flex items-center justify-between rounded border p-3">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>{agent.name.charAt(0).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{agent.name}</p>
+                      <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                        {agent.role === 'PRO' ? 'Pro' : agent.role}
+                      </Badge>
                     </div>
+                    <p className="text-xs text-muted-foreground">{agent.email}</p>
                   </div>
-                  <span className="text-xs rounded bg-muted px-2 py-1">Active: {agent.activeLeadCount}</span>
                 </div>
-              )
-            })}
-            {selectedCount > 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Distribution preview: each selected counselor will receive ~{distributionCount} leads
-              </p>
-            ) : (
-              <p className="text-sm text-amber-600">All leads will be imported as Unassigned</p>
-            )}
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">Active: {agent.activeLeadCount}</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={parseResult.validRows}
+                    value={agentCounts[agent.userId] ?? 0}
+                    onChange={(e) => setAgentCount(agent.userId, e.target.value)}
+                    className="w-20 h-8 text-right"
+                  />
+                </div>
+              </div>
+            ))}
+
+            <div className={`text-sm rounded-md px-3 py-2 ${countMismatch ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+              {overAssigned
+                ? `Over by ${Math.abs(remaining)} — reduce counts to match ${parseResult.validRows} valid leads.`
+                : remaining > 0
+                  ? `Under by ${remaining} — assign ${remaining} more lead${remaining === 1 ? '' : 's'} to reach ${parseResult.validRows}.`
+                  : `Assigned: ${totalAssigned} / ${parseResult.validRows} — all leads accounted for.`}
+            </div>
           </Card>
 
           {(parseResult.errors.length > 0 || parseResult.duplicates.length > 0) && (
@@ -383,7 +422,9 @@ export default function ImportPage({
             <Button variant="outline" onClick={() => { setState('idle'); setFile(null); setParseResult(null) }}>
               Cancel Import
             </Button>
-            <Button onClick={handleConfirm}>Confirm Import ({parseResult.validRows} leads)</Button>
+            <Button onClick={handleConfirm} disabled={countMismatch}>
+              Confirm Import ({parseResult.validRows} leads)
+            </Button>
           </div>
         </div>
       )}

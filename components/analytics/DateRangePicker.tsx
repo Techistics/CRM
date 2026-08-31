@@ -1,7 +1,6 @@
 'use client'
 
 import { Input } from '@/components/ui/input'
-
 import { Calendar as CalendarIcon } from 'lucide-react'
 import {
   Select,
@@ -52,8 +51,8 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
   }
 
   const presets = [
+    { label: 'Last 30 Days', value: 'month', getValue: thisMonth },
     { label: 'This Week', value: 'week', getValue: thisWeek },
-    { label: 'This Month', value: 'month', getValue: thisMonth },
     { label: 'This Year', value: 'year', getValue: thisYear },
     { label: 'All Time', value: 'all', getValue: () => ({ from: null, to: null }) },
   ]
@@ -71,42 +70,43 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
     return 'custom'
   }
 
+  const formatDisplayDate = (date: Date | null) => {
+    if (!date) return '—'
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
   return (
-    <div className="flex items-center gap-2 h-9 rounded-lg border border-slate-200 bg-white px-3 dark:border-slate-700 dark:bg-slate-900">
-      <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 shrink-0">
-        <CalendarIcon className="h-3.5 w-3.5 text-slate-400" />
-        <span>Range</span>
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="flex h-8 items-center gap-1.5 rounded-consulty-sm border border-consulty-border-subtle bg-consulty-surface px-2.5 dark:border-consulty-border dark:bg-consulty-surface">
+        <Select
+          value={getCurrentPreset()}
+          onValueChange={(val) => {
+            const p = presets.find((x) => x.value === val)
+            if (p) onChange(p.getValue())
+          }}
+        >
+          <SelectTrigger className="h-7 w-auto min-w-24 border-none bg-transparent px-1 text-crm-xs shadow-none focus:ring-0">
+            <SelectValue placeholder="Select period" />
+          </SelectTrigger>
+          <SelectContent>
+            {presets.map((p) => (
+              <SelectItem key={p.value} value={p.value} className="text-crm-xs">
+                {p.label}
+              </SelectItem>
+            ))}
+            <SelectItem value="custom" disabled className="text-crm-xs">
+              Custom Range
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
-
-      <Select 
-        value={getCurrentPreset()} 
-        onValueChange={(val) => {
-          const p = presets.find(x => x.value === val)
-          if (p) onChange(p.getValue())
-        }}
-      >
-        <SelectTrigger className="h-7 w-auto min-w-[110px] text-xs border-none bg-transparent focus:ring-0 shadow-none px-2">
-          <SelectValue placeholder="Select period" />
-        </SelectTrigger>
-        <SelectContent>
-          {presets.map((p) => (
-            <SelectItem key={p.value} value={p.value} className="text-xs">
-              {p.label}
-            </SelectItem>
-          ))}
-          <SelectItem value="custom" disabled className="text-xs">Custom Range</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
-
-      <div className="flex items-center gap-1.5">
-        <div className="relative flex items-center">
+      <div className="flex h-8 items-center gap-1.5 rounded-consulty-sm border border-consulty-border-subtle bg-consulty-surface px-2.5 dark:border-consulty-border dark:bg-consulty-surface">
+        <CalendarIcon className="h-3.5 w-3.5 text-consulty-text-muted" />
+        <div className="flex items-center gap-1">
           <Input
             type="date"
-            className="h-7 w-[110px] text-xs border-none bg-transparent p-0 cursor-pointer focus:ring-0"
+            className="h-7 w-28 border-none bg-transparent p-0 text-crm-xs focus-visible:ring-0"
             value={value.from ? value.from.toISOString().split('T')[0] : ''}
             onChange={(e) => {
               const date = e.target.value ? new Date(e.target.value) : null
@@ -114,12 +114,10 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
               onChange({ ...value, from: date })
             }}
           />
-        </div>
-        <span className="text-xs text-slate-400">to</span>
-        <div className="relative flex items-center">
+          <span className="text-crm-xs text-consulty-text-muted">–</span>
           <Input
             type="date"
-            className="h-7 w-[110px] text-xs border-none bg-transparent p-0 cursor-pointer focus:ring-0"
+            className="h-7 w-28 border-none bg-transparent p-0 text-crm-xs focus-visible:ring-0"
             value={value.to ? value.to.toISOString().split('T')[0] : ''}
             onChange={(e) => {
               const date = e.target.value ? new Date(e.target.value) : null
@@ -128,6 +126,9 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
             }}
           />
         </div>
+        <span className="hidden text-crm-xs text-consulty-text-muted lg:inline">
+          {formatDisplayDate(value.from)} – {formatDisplayDate(value.to)}
+        </span>
       </div>
     </div>
   )

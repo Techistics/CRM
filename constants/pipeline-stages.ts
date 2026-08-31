@@ -128,3 +128,8 @@ export const STAGE_LABELS = PIPELINE_STAGES.reduce((acc, stage) => {
   return acc
 }, {} as Record<StageValue, { label: string; color: string }>)
 
+export const MOVE_STAGE_OPTIONS = [
+  'new_lead', 'unresponsive', 'follow_up', 'walkin_booked',
+  'docs_received', 'options_sent', 'paid', 'cancelled',
+] as const
+

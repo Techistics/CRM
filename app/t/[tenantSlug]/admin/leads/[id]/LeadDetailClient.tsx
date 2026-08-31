@@ -25,12 +25,26 @@ import { apiCall } from '@/lib/utils/api-handler'
 import { WhatsappLogger } from '@/components/leads/WhatsappLogger'
 import { LeadDeleteButton } from '@/components/leads/LeadDeleteButton'
 import { LeadRevenueCard } from '@/components/leads/LeadRevenueCard'
+import { ApplicationTab } from '@/components/leads/ApplicationTab'
 import SubStatusCustomFieldsForm from '@/components/leads/SubStatusCustomFieldsForm'
 import {
   areCustomFieldsComplete,
   normalizeCustomFields,
   normalizeFieldValues,
 } from '@/lib/pipeline/sub-status-fields'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+function getIntakeYears(): number[] {
+  const cur = new Date().getFullYear()
+  const years: number[] = []
+  for (let y = cur - 1; y <= cur + 10; y++) years.push(y)
+  return years
+}
 
 export default function LeadDetailClient({
   lead,
@@ -95,12 +109,15 @@ export default function LeadDetailClient({
     country: lead.country ?? DEFAULT_LEAD_COUNTRY,
     lastQualification: lead.lastQualification ?? '',
     grades: lead.grades ?? '',
-    intakeMonth: lead.intakeMonth ?? '',
+    intakeMonth: lead.intakeMonth ? String(lead.intakeMonth) : '',
+    intakeYear: lead.intakeYear ? String(lead.intakeYear) : '',
     destinationCountry: lead.destinationCountry ?? '',
     programOfInterest: lead.programOfInterest ?? '',
     dealValue: lead.dealValue ?? '',
     dealCurrency: lead.dealCurrency ?? 'USD',
   })
+
+  const intakeYears = getIntakeYears()
 
   const [logType, setLogType] = useState<'note' | 'call' | 'message'>('note')
   const [logBody, setLogBody] = useState('')
@@ -222,17 +239,17 @@ export default function LeadDetailClient({
   }
 
   async function handleStageToggle(stageKey: string) {
-  if (stageKey === primaryStage) return
-  const prevPrimary = primaryStage
-  const prevActive = activeStages
-  setPrimaryStage(stageKey)
-  setActiveStages([stageKey])
-  const ok = await persistStages(stageKey, [stageKey])
-  if (!ok) {
-    setPrimaryStage(prevPrimary)
-    setActiveStages(prevActive)
+    if (stageKey === primaryStage) return
+    const prevPrimary = primaryStage
+    const prevActive = activeStages
+    setPrimaryStage(stageKey)
+    setActiveStages([stageKey])
+    const ok = await persistStages(stageKey, [stageKey])
+    if (!ok) {
+      setPrimaryStage(prevPrimary)
+      setActiveStages(prevActive)
+    }
   }
-}
 
   const handleSaveAssign = async () => {
     if (selectedAssignee === assignedTo) return
@@ -280,7 +297,8 @@ export default function LeadDetailClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...profileForm,
-          intakeMonth: profileForm.intakeMonth?.trim() || null,
+          intakeMonth: profileForm.intakeMonth ? parseInt(profileForm.intakeMonth, 10) : null,
+          intakeYear: profileForm.intakeYear ? parseInt(profileForm.intakeYear, 10) : null,
           destinationCountry: profileForm.destinationCountry?.trim() || null,
           programOfInterest: profileForm.programOfInterest?.trim() || null,
           dealValue: profileForm.dealValue === '' ? null : Number(profileForm.dealValue),
@@ -367,7 +385,7 @@ export default function LeadDetailClient({
             ← Back to Leads
           </Link>
           <div className="mt-2 flex flex-wrap items-center gap-3 sm:gap-4">
-            <h1 className="min-w-0 break-words text-2xl font-semibold text-slate-900">
+            <h1 className="min-w-0 break-words text-2xl font-semibold text-slate-900 dark:text-white">
               {lead.fullName}
             </h1>
             {lead.dealValue && (
@@ -459,6 +477,7 @@ export default function LeadDetailClient({
       <Tabs value={activeTab} className="w-full">
         <TabsList className="mb-6 inline-flex w-auto sticky top-[60px] z-10 bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-700 pb-0">
           <TabsTrigger value="overview" onClick={() => setActiveTab('overview')}>Overview</TabsTrigger>
+          <TabsTrigger value="application" onClick={() => setActiveTab('application')}>Application</TabsTrigger>
           <TabsTrigger value="documents" onClick={() => setActiveTab('documents')}>Documents</TabsTrigger>
           <TabsTrigger value="pipeline" onClick={() => setActiveTab('pipeline')}>Pipeline</TabsTrigger>
           <TabsTrigger value="activity" onClick={() => setActiveTab('activity')}>Activity</TabsTrigger>
@@ -492,7 +511,12 @@ export default function LeadDetailClient({
                       label: 'Deal Value',
                       value: lead.dealValue ? `${lead.dealCurrency} ${Number(lead.dealValue).toLocaleString()}` : '—',
                     },
-                    { label: 'Intake', value: lead.intakeMonth ?? '—' },
+                    {
+                      label: 'Intake',
+                      value: (lead.intakeMonth && lead.intakeYear)
+                        ? `${MONTH_NAMES[lead.intakeMonth - 1]} ${lead.intakeYear}`
+                        : (lead.intakeMonth ? MONTH_NAMES[lead.intakeMonth - 1] : (lead.intakeYear ? String(lead.intakeYear) : '—'))
+                    },
                     { label: 'Study Destination', value: lead.destinationCountry ?? '—' },
                     { label: 'Program of Interest', value: lead.programOfInterest ?? '—' },
                   ].map(({ label, value }) => (
@@ -517,7 +541,6 @@ export default function LeadDetailClient({
                       ['country', 'Country'],
                       ['lastQualification', 'Qualification'],
                       ['grades', 'Grades'],
-                      ['intakeMonth', 'Intake'],
                       ['destinationCountry', 'Study Destination'],
                       ['programOfInterest', 'Program of Interest'],
                     ] as const
@@ -533,20 +556,57 @@ export default function LeadDetailClient({
                       />
                     </label>
                   ))}
+
+                  {/* Intake Fields */}
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Intake Month</span>
+                    <Select
+                      value={profileForm.intakeMonth || undefined}
+                      onValueChange={(val) => setProfileForm((prev) => ({ ...prev, intakeMonth: val }))}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select Month..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MONTH_NAMES.map((m, i) => (
+                          <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Intake Year</span>
+                    <Select
+                      value={profileForm.intakeYear || undefined}
+                      onValueChange={(val) => setProfileForm((prev) => ({ ...prev, intakeYear: val }))}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select Year..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {intakeYears.map((y) => (
+                          <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </label>
+
                   <div className="col-span-2 grid grid-cols-3 gap-3">
                     <label className="col-span-1 flex flex-col gap-1">
                       <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Currency</span>
-                      <select
+                      <Select
                         value={profileForm.dealCurrency}
-                        onChange={(e) =>
-                          setProfileForm((prev) => ({ ...prev, dealCurrency: e.target.value }))
-                        }
-                        className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
+                        onValueChange={(val) => setProfileForm((prev) => ({ ...prev, dealCurrency: val }))}
                       >
-                        {CURRENCIES.map(c => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CURRENCIES.map((c) => (
+                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </label>
                     <label className="col-span-2 flex flex-col gap-1">
                       <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
@@ -574,7 +634,7 @@ export default function LeadDetailClient({
                   {editingLead ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Lead Profile'}
                 </button>
               </div>
-              
+
               {/* Lead Revenue */}
               <div className={isDeadState ? 'pointer-events-none opacity-50' : ''}>
                 <LeadRevenueCard leadId={lead.id} />
@@ -587,17 +647,23 @@ export default function LeadDetailClient({
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Assigned To</h2>
                 <div className="flex flex-col gap-2">
-                  <select
-                    value={selectedAssignee}
+                  <Select
+                    value={selectedAssignee || 'unassigned'}
                     disabled={isDeadState || savingAssignee}
-                    onChange={(e) => setSelectedAssignee(e.target.value)}
-                    className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
+                    onValueChange={(val) => setSelectedAssignee(val === 'unassigned' ? '' : val)}
                   >
-                    <option value="">Unassigned</option>
-                    {proUsers.map((u) => (
-                      <option key={u.id} value={u.id}>{u.name ?? u.id} {u.role === 'ADMIN' ? '(Admin)' : ''}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {proUsers.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.name ?? u.id} {u.role === 'ADMIN' ? '(Admin)' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <button
                     onClick={handleSaveAssign}
                     disabled={selectedAssignee === assignedTo || isDeadState || savingAssignee}
@@ -679,9 +745,8 @@ export default function LeadDetailClient({
                     <button
                       key={t}
                       onClick={() => setLogType(t)}
-                      className={`text-xs px-3.5 py-1.5 rounded-lg transition-all font-medium capitalize ${
-                        logType === t ? 'bg-white text-slate-900 border border-slate-200 shadow-sm dark:bg-[#0f172a] dark:text-slate-100 dark:border-slate-600' : 'border border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
-                      }`}
+                      className={`text-xs px-3.5 py-1.5 rounded-lg transition-all font-medium capitalize ${logType === t ? 'bg-white text-slate-900 border border-slate-200 shadow-sm dark:bg-[#0f172a] dark:text-slate-100 dark:border-slate-600' : 'border border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300'
+                        }`}
                     >
                       {t}
                     </button>
@@ -714,11 +779,10 @@ export default function LeadDetailClient({
                     ) : (
                       logs.map((log: any) => (
                         <div key={log.id} className="bg-slate-50 dark:bg-slate-800/40 rounded-lg p-3 border border-slate-100 dark:border-slate-700/50">
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                            log.type === 'call' ? 'bg-emerald-100 text-emerald-700' :
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${log.type === 'call' ? 'bg-emerald-100 text-emerald-700' :
                             log.type === 'message' ? 'bg-violet-100 text-violet-700' :
-                            'bg-sky-100 text-sky-700'
-                          }`}>{log.type}</span>
+                              'bg-sky-100 text-sky-700'
+                            }`}>{log.type}</span>
                           <p className="text-sm text-slate-700 dark:text-slate-300 mt-1 line-clamp-2">{log.body}</p>
                           <p className="text-xs text-slate-400 mt-2">
                             {log.userName} · {formatDistanceToNow(new Date(log.createdAt), { addSuffix: true })}
@@ -742,95 +806,101 @@ export default function LeadDetailClient({
                 <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
               </div>
             ) : (
-            <>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {(pipelineStages.length > 0
-                ? pipelineStages.map((s) => ({
-                  value: s.key,
-                  label: s.label,
-                  mutedClasses:
-                    styleByKey[s.key]?.mutedClasses ??
-                    'bg-gray-500/10 text-gray-400 border-gray-500/20',
-                }))
-                : PIPELINE_STAGES
-              ).map((s) => (
-                <button
-                  key={s.value}
-                  onClick={() => handleStageToggle(s.value)}
-                  className={`text-left px-3 py-2 rounded-lg text-sm transition-colors border ${primaryStage === s.value
-                    ? s.mutedClasses
-                    : activeStages.includes(s.value)
-                      ? 'bg-brand-light border-brand/30 text-brand'
-                      : 'bg-white border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 dark:bg-[#0f172a] dark:border-slate-700 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-700'
-                    }`}
-                >
-                  {activeStages.includes(s.value) && <span className="mr-1">✓</span>}
-                  {s.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Sub Status & Action */}
-            <div className="flex flex-col gap-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/50 rounded-xl p-4 mt-6">
-              <div className="flex flex-col sm:flex-row items-end gap-4">
-                <div className="flex-1 w-full">
-                  <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 mb-1.5 block">
-                    Sub Status <span className="text-red-400">*</span>
-                  </label>
-                  <select
-                    value={selectedSubStatusId ?? ''}
-                    onChange={(e) => {
-                      setSelectedSubStatusId(e.target.value || null)
-                      setSelectedClosedAction(null)
-                      setSubStatusFieldValues({})
-                    }}
-                    className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 transition-shadow"
-                  >
-                    <option value="">— Select sub status —</option>
-                    {subStatuses.map((ss) => (
-                      <option key={ss.id} value={ss.id}>{ss.label}</option>
-                    ))}
-                  </select>
+              <>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {(pipelineStages.length > 0
+                    ? pipelineStages.map((s) => ({
+                      value: s.key,
+                      label: s.label,
+                      mutedClasses:
+                        styleByKey[s.key]?.mutedClasses ??
+                        'bg-gray-500/10 text-gray-400 border-gray-500/20',
+                    }))
+                    : PIPELINE_STAGES
+                  ).map((s) => (
+                    <button
+                      key={s.value}
+                      onClick={() => handleStageToggle(s.value)}
+                      className={`text-left px-3 py-2 rounded-lg text-sm transition-colors border ${primaryStage === s.value
+                        ? s.mutedClasses
+                        : activeStages.includes(s.value)
+                          ? 'bg-brand-light border-brand/30 text-brand'
+                          : 'bg-white border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 dark:bg-[#0f172a] dark:border-slate-700 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-700'
+                        }`}
+                    >
+                      {activeStages.includes(s.value) && <span className="mr-1">✓</span>}
+                      {s.label}
+                    </button>
+                  ))}
                 </div>
 
-                {selectedSubStatusId && needsClosedAction && (
-                  <div className="flex-1 w-full">
-                    <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 mb-1.5 block">
-                      Closed Action <span className="text-red-400">*</span>
-                    </label>
-                    <select
-                      value={selectedClosedAction ?? ''}
-                      onChange={(e) => setSelectedClosedAction(e.target.value || null)}
-                      className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 transition-shadow"
-                    >
-                      <option value="">— Select action —</option>
-                      {closedActions.map((a) => (
-                        <option key={a} value={a}>{a}</option>
-                      ))}
-                    </select>
+                {/* Sub Status & Action */}
+                <div className="flex flex-col gap-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/50 rounded-xl p-4 mt-6">
+                  <div className="flex flex-col sm:flex-row items-end gap-4">
+                    <div className="flex-1 w-full">
+                      <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 mb-1.5 block">
+                        Sub Status <span className="text-red-400">*</span>
+                      </label>
+                      <Select
+                        value={selectedSubStatusId ?? undefined}
+                        onValueChange={(val) => {
+                          setSelectedSubStatusId(val || null)
+                          setSelectedClosedAction(null)
+                          setSubStatusFieldValues({})
+                        }}
+                      >
+                        <SelectTrigger className="w-full h-10">
+                          <SelectValue placeholder="— Select sub status —" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {subStatuses.map((ss) => (
+                            <SelectItem key={ss.id} value={ss.id}>{ss.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {selectedSubStatusId && needsClosedAction && (
+                      <div className="flex-1 w-full">
+                        <label className="text-[11px] uppercase tracking-wider font-semibold text-slate-500 dark:text-slate-400 mb-1.5 block">
+                          Closed Action <span className="text-red-400">*</span>
+                        </label>
+                        <Select
+                          value={selectedClosedAction ?? undefined}
+                          onValueChange={(val) => setSelectedClosedAction(val || null)}
+                        >
+                          <SelectTrigger className="w-full h-10">
+                            <SelectValue placeholder="— Select action —" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {closedActions.map((a) => (
+                              <SelectItem key={a} value={a}>{a}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {selectedSubStatusId && needsCustomFields && (
-                <SubStatusCustomFieldsForm
-                  fields={activeCustomFields}
-                  values={subStatusFieldValues}
-                  onChange={handleSubStatusFieldChange}
-                />
-              )}
+                  {selectedSubStatusId && needsCustomFields && (
+                    <SubStatusCustomFieldsForm
+                      fields={activeCustomFields}
+                      values={subStatusFieldValues}
+                      onChange={handleSubStatusFieldChange}
+                    />
+                  )}
 
-              <div className="flex justify-end">
-                <button
-                  onClick={handleSubStatusSave}
-                  disabled={savingSubStatus || !canSaveSubStatus}
-                  className="h-10 px-6 bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg shadow-sm transition-all w-full sm:w-auto flex items-center justify-center gap-1.5"
-                >
-                  {savingSubStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Save</>}
-                </button>
-              </div>
-            </div>
-            </>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleSubStatusSave}
+                      disabled={savingSubStatus || !canSaveSubStatus}
+                      className="h-10 px-6 bg-brand hover:bg-brand-hover disabled:opacity-50 text-white text-sm font-medium rounded-lg shadow-sm transition-all w-full sm:w-auto flex items-center justify-center gap-1.5"
+                    >
+                      {savingSubStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Save</>}
+                    </button>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </TabsContent>
@@ -900,6 +970,10 @@ export default function LeadDetailClient({
           </div>
         </TabsContent>
 
+        {/* ==== Application ==== */}
+        <TabsContent value="application" className="outline-none">
+          <ApplicationTab leadId={lead.id} />
+        </TabsContent>
       </Tabs>
     </div>
   </TooltipProvider>

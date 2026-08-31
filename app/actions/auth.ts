@@ -2,7 +2,7 @@
 
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
-import { users } from '@/db/schema'
+import { users, tenantMembers } from '@/db/schema'
 import { nanoid } from 'nanoid'
 import { sendPasswordResetEmail } from '@/lib/mail'
 import bcrypt from 'bcryptjs'
@@ -21,6 +21,19 @@ export async function requestPasswordReset(email: string) {
 
   // For security, don't reveal if user exists or not
   if (!user) {
+    return { success: true }
+  }
+
+  // Check if user is only a PRO across all their workspaces
+  const memberships = await db
+    .select({ role: tenantMembers.role })
+    .from(tenantMembers)
+    .where(eq(tenantMembers.userId, user.id))
+    
+  const isOnlyPro = memberships.length > 0 && memberships.every(m => m.role === 'PRO')
+  
+  if (isOnlyPro) {
+    // Abort silently to prevent email enumeration
     return { success: true }
   }
 

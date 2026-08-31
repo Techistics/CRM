@@ -221,14 +221,14 @@ function SignInForm() {
                 required
                 className="h-11 bg-transparent border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#069BAF]"
               />
-              <div className="flex justify-end">
+              {/* <div className="flex justify-end">
                 <Link
                   href="/forgot-password"
                   className="text-xs font-medium text-[#069BAF] hover:underline"
                 >
                   Forgot Password?
                 </Link>
-              </div>
+              </div> */}
             </div>
           </>
         )}

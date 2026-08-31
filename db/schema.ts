@@ -183,7 +183,8 @@ export const leads = pgTable('leads', {
   createdBy: uuid('created_by').references(() => users.id),
   dealValue: decimal('deal_value', { precision: 12, scale: 2 }),
   dealCurrency: varchar('deal_currency', { length: 3 }).default('USD').notNull(),
-  intakeMonth: text('intake_month'), // e.g. "Sep 2026", "Jan 2027"
+  intakeMonth: integer('intake_month'), // 1–12, nullable
+  intakeYear: integer('intake_year'),   // e.g. 2026, nullable
   destinationCountry: text('destination_country'), // nullable
   programOfInterest: text('program_of_interest'), // nullable
   deadReason: text('dead_reason'), // nullable
@@ -291,6 +292,7 @@ export const leadReminders = pgTable('lead_reminders', {
     onDelete: 'set null',
   }),
   completedAt: timestamp('completed_at'),
+  emailSentAt: timestamp('email_sent_at'),
   createdBy: uuid('created_by')
     .references(() => users.id)
     .notNull(),
@@ -463,10 +465,55 @@ export const leadTagAssignments = pgTable(
   }),
 )
 
+// ─── Applications (one per lead) ─────────────────────────────
+export const applications = pgTable(
+  'applications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    leadId: uuid('lead_id')
+      .references(() => leads.id, { onDelete: 'cascade' })
+      .notNull()
+      .unique(), // one application per lead
+    tenantId: uuid('tenant_id')
+      .references(() => tenants.id, { onDelete: 'cascade' })
+      .notNull(),
+    universityName: text('university_name').notNull(),
+    courseName: text('course_name').notNull(),
+    source: text('source', { enum: ['direct_uni', 'partner_portal'] }).notNull(),
+    partnerPortalName: text('partner_portal_name'), // nullable — only when source = partner_portal
+    applicationStatus: text('application_status', {
+      enum: ['tag', 'new_application', 'intake'],
+    }).notNull(),
+    intakeMonth: integer('intake_month'), // 1–12, nullable
+    intakeYear: integer('intake_year'), // e.g. 2026, nullable
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at').defaultNow(),
+  },
+  (t) => ({
+    idx_lead: index('idx_applications_lead').on(t.leadId),
+    idx_tenant: index('idx_applications_tenant').on(t.tenantId),
+  }),
+)
+
 // ─── Relations (cont.) ────────────────────────────────────────
-export const leadRelations = relations(leads, ({ many }) => ({
+export const leadRelations = relations(leads, ({ many, one }) => ({
   tagAssignments: many(leadTagAssignments),
   revenues: many(leadRevenues),
+  application: one(applications, {
+    fields: [leads.id],
+    references: [applications.leadId],
+  }),
+}))
+
+export const applicationRelations = relations(applications, ({ one }) => ({
+  lead: one(leads, {
+    fields: [applications.leadId],
+    references: [leads.id],
+  }),
+  tenant: one(tenants, {
+    fields: [applications.tenantId],
+    references: [tenants.id],
+  }),
 }))
 
 export const leadTagRelations = relations(leadTags, ({ many }) => ({
@@ -495,7 +542,8 @@ export const leadRevenues = pgTable(
     leadId: uuid('lead_id')
       .references(() => leads.id, { onDelete: 'cascade' })
       .notNull(),
-    intake: text('intake'),
+    intakeMonth: integer('intake_month'), // 1–12, nullable
+    intakeYear: integer('intake_year'),   // e.g. 2026, nullable
     university: text('university'),
     country: text('country'),
     counselorFee: decimal('counselor_fee', { precision: 12, scale: 2 }),

@@ -45,7 +45,7 @@ export function LeadReminders({ leadId, className, variant = 'dark' }: LeadRemin
         body: JSON.stringify({
           title: title.trim(),
           note: note.trim() || null,
-          dueAt: new Date(dueAt).toISOString(),
+          dueAt: new Date(dueAt.length === 16 ? dueAt + ':00' : dueAt).toISOString(),
         }),
       })
       return res.json()

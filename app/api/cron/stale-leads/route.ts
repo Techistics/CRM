@@ -5,12 +5,15 @@ import { leads, users, leadReminders, notifications } from '@/db/schema'
 
 export async function POST(req: NextRequest) {
   // 1. Security Check
-  const secret = req.headers.get('authorization')?.replace('Bearer ', '')
+  const secret =
+    req.headers.get('authorization')?.replace('Bearer ', '') ||
+    req.nextUrl.searchParams.get('key')
   if (!secret || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
+
     const staleLeads = await db
       .select({
         leadId: leads.id,
@@ -101,3 +104,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
+
+export const GET = POST
+

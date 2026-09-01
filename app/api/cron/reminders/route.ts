@@ -6,14 +6,17 @@ import { leadReminders, leads, tenantMembers, tenants, users } from '@/db/schema
 import { sendReminderEmail } from '@/lib/mail'
 
 export async function POST(req: NextRequest) {
-  // Security: same pattern as stale-leads cron
-  const secret = req.headers.get('authorization')?.replace('Bearer ', '')
+  // Security: authorization header or key query parameter
+  const secret =
+    req.headers.get('authorization')?.replace('Bearer ', '') ||
+    req.nextUrl.searchParams.get('key')
   if (!secret || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
     const now = new Date()
+
 
     // Fetch all reminders that are due and haven't sent an email yet
     const dueReminders = await db
@@ -112,3 +115,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
+
+export const GET = POST
+

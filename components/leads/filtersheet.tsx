@@ -154,248 +154,277 @@ export function FilterSheet({
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
-        <Button variant="outline" className="h-9 gap-2 shrink-0 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-full px-4">
-          <Filter className="h-4 w-4 text-slate-500" />
-          <span className="text-sm font-medium">Filters</span>
+        <Button variant="outline" className="h-9 gap-2 shrink-0 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-full px-4 hover:border-slate-300 dark:hover:border-slate-600 transition-all shadow-xs">
+          <Filter className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Filters</span>
           {activeFilterCount > 0 && (
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-600 ml-1">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white ml-0.5">
               {activeFilterCount}
             </span>
           )}
         </Button>
       </SheetTrigger>
 
-      <SheetContent side="right" className="w-full sm:max-w-sm flex flex-col p-0 border-l border-slate-200 dark:border-slate-800 overflow-hidden gap-0 bg-white dark:bg-slate-900">
-        <SheetHeader className="flex-row items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0 pr-12 space-y-0">
-          <SheetTitle className="text-base font-semibold text-slate-900 dark:text-slate-100">Filters</SheetTitle>
+      <SheetContent side="right" className="w-full sm:max-w-md flex flex-col p-0 border-l border-slate-200 dark:border-slate-800 overflow-hidden gap-0 bg-white dark:bg-slate-900 shadow-2xl">
+        <SheetHeader className="flex-row items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 shrink-0 pr-12 space-y-0 bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <SheetTitle className="text-base font-bold text-slate-900 dark:text-slate-100">Filters</SheetTitle>
+            {activeFilterCount > 0 && (
+              <span className="ml-1 rounded-full bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:text-blue-300">
+                {activeFilterCount} active
+              </span>
+            )}
+          </div>
           {activeFilterCount > 0 && (
             <button
               type="button"
               onClick={handleClearAll}
               title="Reset all filters"
-              className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors"
             >
-              <RotateCcw className="h-4 w-4" />
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Reset</span>
             </button>
           )}
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
-          <div className="space-y-1.5">
-            <Label className={FIELD_LABEL_CLASS}>Pipeline Stage</Label>
-            <Select
-              value={pendingFilters.stage ?? 'all'}
-              onValueChange={(val) => patch({
-                stage: val === 'all' ? null : val,
-                subStatusType: null,
-                subStatusId: null,
-                closedAction: null,
-              })}
-            >
-              <SelectTrigger className={FIELD_TRIGGER_CLASS}><SelectValue placeholder="Any Stage" /></SelectTrigger>
-              <SelectContent className={DROPDOWN_SCROLL_CLASS}>
-                <SelectItem value="all">Any Stage</SelectItem>
-                {tenantStages.map((s) => (
-                  <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {pendingFilters.stage && (
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+          {/* Pipeline & Stage */}
+          <div className="space-y-3.5">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Pipeline & Stage</p>
+            
             <div className="space-y-1.5">
-              <Label className={FIELD_LABEL_CLASS}>Status Type</Label>
-              <div className="flex gap-1 rounded-full bg-slate-100 dark:bg-slate-800 p-1">
-                {SUB_STATUS_TYPE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => patch({
-                      subStatusType: pendingFilters.subStatusType === opt.value ? null : opt.value,
-                      subStatusId: null,
-                      closedAction: null,
-                    })}
-                    className={cn(
-                      'flex-1 h-8 rounded-full text-[11px] font-medium transition-colors',
-                      pendingFilters.subStatusType === opt.value
-                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300',
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <Label className={FIELD_LABEL_CLASS}>Pipeline Stage</Label>
+              <Select
+                value={pendingFilters.stage ?? 'all'}
+                onValueChange={(val) => patch({
+                  stage: val === 'all' ? null : val,
+                  subStatusType: null,
+                  subStatusId: null,
+                  closedAction: null,
+                })}
+              >
+                <SelectTrigger className={FIELD_TRIGGER_CLASS}><SelectValue placeholder="Any Stage" /></SelectTrigger>
+                <SelectContent className={DROPDOWN_SCROLL_CLASS}>
+                  <SelectItem value="all">Any Stage</SelectItem>
+                  {tenantStages.map((s) => (
+                    <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {pendingFilters.stage && (
+              <div className="space-y-1.5">
+                <Label className={FIELD_LABEL_CLASS}>Status Type</Label>
+                <div className="flex gap-1 rounded-xl bg-slate-100/90 dark:bg-slate-800 p-1 border border-slate-200/60 dark:border-slate-700/60">
+                  {SUB_STATUS_TYPE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => patch({
+                        subStatusType: pendingFilters.subStatusType === opt.value ? null : opt.value,
+                        subStatusId: null,
+                        closedAction: null,
+                      })}
+                      className={cn(
+                        'flex-1 h-8 rounded-lg text-[11px] font-semibold transition-all',
+                        pendingFilters.subStatusType === opt.value
+                          ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200',
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {pendingFilters.stage && pendingFilters.subStatusType && (
+            {pendingFilters.stage && pendingFilters.subStatusType && (
+              <div className="space-y-1.5">
+                <Label className={FIELD_LABEL_CLASS}>Sub-Status</Label>
+                <Select
+                  value={selectedSubStatusOptionValue ?? 'all'}
+                  onValueChange={(val) => {
+                    if (val === 'all') {
+                      patch({ subStatusId: null, closedAction: null })
+                      return
+                    }
+                    const opt = subStatusOptions.find((o) => o.value === val)
+                    patch({ subStatusId: opt?.subStatusId ?? null, closedAction: opt?.closedAction ?? null })
+                  }}
+                  disabled={subStatusesLoading}
+                >
+                  <SelectTrigger className={FIELD_TRIGGER_CLASS}>
+                    <SelectValue placeholder={subStatusesLoading ? 'Loading…' : 'Any Sub-Status'} />
+                  </SelectTrigger>
+                  <SelectContent className={DROPDOWN_SCROLL_CLASS}>
+                    <SelectItem value="all">Any Sub-Status</SelectItem>
+                    {subStatusOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!subStatusesLoading && subStatusOptions.length === 0 && (
+                  <p className="text-[11px] text-slate-400">No sub-statuses of this type for this stage.</p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-1.5">
-              <Label className={FIELD_LABEL_CLASS}>Sub-Status</Label>
-              <Select
-                value={selectedSubStatusOptionValue ?? 'all'}
-                onValueChange={(val) => {
-                  if (val === 'all') {
-                    patch({ subStatusId: null, closedAction: null })
-                    return
-                  }
-                  const opt = subStatusOptions.find((o) => o.value === val)
-                  patch({ subStatusId: opt?.subStatusId ?? null, closedAction: opt?.closedAction ?? null })
-                }}
-                disabled={subStatusesLoading}
-              >
-                <SelectTrigger className={FIELD_TRIGGER_CLASS}>
-                  <SelectValue placeholder={subStatusesLoading ? 'Loading…' : 'Any Sub-Status'} />
-                </SelectTrigger>
+              <Label className={FIELD_LABEL_CLASS}>Heat</Label>
+              <Select value={pendingFilters.heat ?? 'all'} onValueChange={(val) => patch({ heat: val })}>
+                <SelectTrigger className={FIELD_TRIGGER_CLASS}><SelectValue placeholder="All" /></SelectTrigger>
                 <SelectContent className={DROPDOWN_SCROLL_CLASS}>
-                  <SelectItem value="all">Any Sub-Status</SelectItem>
-                  {subStatusOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {!subStatusesLoading && subStatusOptions.length === 0 && (
-                <p className="text-[11px] text-slate-400">No sub-statuses of this type for this stage.</p>
-              )}
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <Label className={FIELD_LABEL_CLASS}>Heat</Label>
-            <Select value={pendingFilters.heat ?? 'all'} onValueChange={(val) => patch({ heat: val })}>
-              <SelectTrigger className={FIELD_TRIGGER_CLASS}><SelectValue placeholder="All" /></SelectTrigger>
-              <SelectContent className={DROPDOWN_SCROLL_CLASS}>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="cold">Cold</SelectItem>
-                <SelectItem value="dead">Dead</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {isAdmin && agents.length > 0 && (
-            <div className="space-y-1.5">
-              <Label className={FIELD_LABEL_CLASS}>Assigned To</Label>
-              <Select
-                value={pendingFilters.assignedTo ?? 'all'}
-                onValueChange={(val) => patch({ assignedTo: val === 'all' ? null : val })}
-              >
-                <SelectTrigger className={FIELD_TRIGGER_CLASS}><SelectValue placeholder="Any Team Member" /></SelectTrigger>
-                <SelectContent className={DROPDOWN_SCROLL_CLASS}>
-                  <SelectItem value="all">Any Team Member</SelectItem>
-                  <SelectItem value="unassigned">
-                    <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-medium">
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                      <span>Unassigned</span>
-                    </div>
-                  </SelectItem>
-                  {agents.map((agent) => (
-                    <SelectItem key={agent.userId} value={agent.userId}>{agent.name}</SelectItem>
-                  ))}
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="cold">Cold</SelectItem>
+                  <SelectItem value="dead">Dead</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          )}
 
-          <div className="space-y-1.5">
-            <Label className={FIELD_LABEL_CLASS}>Lead Intake</Label>
-            <MonthYearSelect
-              month={pendingFilters.leadIntakeMonth}
-              year={pendingFilters.leadIntakeYear}
-              onMonthChange={(v) => patch({ leadIntakeMonth: v })}
-              onYearChange={(v) => patch({ leadIntakeYear: v })}
-            />
+            {isAdmin && agents.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className={FIELD_LABEL_CLASS}>Assigned Counselor</Label>
+                <Select
+                  value={pendingFilters.assignedTo ?? 'all'}
+                  onValueChange={(val) => patch({ assignedTo: val === 'all' ? null : val })}
+                >
+                  <SelectTrigger className={FIELD_TRIGGER_CLASS}><SelectValue placeholder="Any Team Member" /></SelectTrigger>
+                  <SelectContent className={DROPDOWN_SCROLL_CLASS}>
+                    <SelectItem value="all">Any Team Member</SelectItem>
+                    <SelectItem value="unassigned">
+                      <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-medium">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        <span>Unassigned</span>
+                      </div>
+                    </SelectItem>
+                    {agents.map((agent) => (
+                      <SelectItem key={agent.userId} value={agent.userId}>{agent.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label className={FIELD_LABEL_CLASS}>Revenue Intake</Label>
-            <MonthYearSelect
-              month={pendingFilters.revIntakeMonth}
-              year={pendingFilters.revIntakeYear}
-              onMonthChange={(v) => patch({ revIntakeMonth: v })}
-              onYearChange={(v) => patch({ revIntakeYear: v })}
-            />
+          <hr className="border-slate-100 dark:border-slate-800/80" />
+
+          {/* Intake & Dates */}
+          <div className="space-y-3.5">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Intake & Date Ranges</p>
+
+            <div className="space-y-1.5">
+              <Label className={FIELD_LABEL_CLASS}>Lead Intake</Label>
+              <MonthYearSelect
+                month={pendingFilters.leadIntakeMonth}
+                year={pendingFilters.leadIntakeYear}
+                onMonthChange={(v) => patch({ leadIntakeMonth: v })}
+                onYearChange={(v) => patch({ leadIntakeYear: v })}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={FIELD_LABEL_CLASS}>Revenue Intake</Label>
+              <MonthYearSelect
+                month={pendingFilters.revIntakeMonth}
+                year={pendingFilters.revIntakeYear}
+                onMonthChange={(v) => patch({ revIntakeMonth: v })}
+                onYearChange={(v) => patch({ revIntakeYear: v })}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={FIELD_LABEL_CLASS}>App Intake</Label>
+              <MonthYearSelect
+                month={pendingFilters.appIntakeMonth}
+                year={pendingFilters.appIntakeYear}
+                onMonthChange={(v) => patch({ appIntakeMonth: v })}
+                onYearChange={(v) => patch({ appIntakeYear: v })}
+              />
+            </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className={FIELD_LABEL_CLASS}>App Intake</Label>
-            <MonthYearSelect
-              month={pendingFilters.appIntakeMonth}
-              year={pendingFilters.appIntakeYear}
-              onMonthChange={(v) => patch({ appIntakeMonth: v })}
-              onYearChange={(v) => patch({ appIntakeYear: v })}
-            />
-          </div>
+          <hr className="border-slate-100 dark:border-slate-800/80" />
 
-          <div className="space-y-1.5">
-            <Label className={FIELD_LABEL_CLASS}>University</Label>
-            <input
-              value={pendingFilters.appUniversityName ?? ''}
-              onChange={(e) => patch({ appUniversityName: e.target.value || null })}
-              placeholder="University name..."
-              className={FIELD_INPUT_CLASS}
-            />
-          </div>
+          {/* Application Details & Tags */}
+          <div className="space-y-3.5">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Application & Tags</p>
 
-          <div className="space-y-1.5">
-            <Label className={FIELD_LABEL_CLASS}>Course</Label>
-            <input
-              value={pendingFilters.appCourseName ?? ''}
-              onChange={(e) => patch({ appCourseName: e.target.value || null })}
-              placeholder="Course name..."
-              className={FIELD_INPUT_CLASS}
-            />
-          </div>
+            <div className="space-y-1.5">
+              <Label className={FIELD_LABEL_CLASS}>University Name</Label>
+              <input
+                value={pendingFilters.appUniversityName ?? ''}
+                onChange={(e) => patch({ appUniversityName: e.target.value || null })}
+                placeholder="University name..."
+                className={FIELD_INPUT_CLASS}
+              />
+            </div>
 
-          <div className="space-y-1.5">
-            <Label className={FIELD_LABEL_CLASS}>Source</Label>
-            <Select
-              value={pendingFilters.appSource ?? 'all'}
-              onValueChange={(val) => patch({ appSource: val === 'all' ? null : val })}
-            >
-              <SelectTrigger className={FIELD_TRIGGER_CLASS}><SelectValue placeholder="Any Source" /></SelectTrigger>
-              <SelectContent className={DROPDOWN_SCROLL_CLASS}>
-                <SelectItem value="all">Any Source</SelectItem>
-                <SelectItem value="direct_uni">Direct University</SelectItem>
-                <SelectItem value="partner_portal">Partner Portal</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="space-y-1.5">
+              <Label className={FIELD_LABEL_CLASS}>Course Name</Label>
+              <input
+                value={pendingFilters.appCourseName ?? ''}
+                onChange={(e) => patch({ appCourseName: e.target.value || null })}
+                placeholder="Course name..."
+                className={FIELD_INPUT_CLASS}
+              />
+            </div>
 
-          <div className="space-y-1.5">
-            <Label className={FIELD_LABEL_CLASS}>Application Status</Label>
-            <Select
-              value={pendingFilters.appStatus ?? 'all'}
-              onValueChange={(val) => patch({ appStatus: val === 'all' ? null : val })}
-            >
-              <SelectTrigger className={FIELD_TRIGGER_CLASS}><SelectValue placeholder="Any Status" /></SelectTrigger>
-              <SelectContent className={DROPDOWN_SCROLL_CLASS}>
-                <SelectItem value="all">Any Status</SelectItem>
-                <SelectItem value="tag">Tag</SelectItem>
-                <SelectItem value="new_application">New Application</SelectItem>
-                <SelectItem value="intake">Intake</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className={FIELD_LABEL_CLASS}>Tags</Label>
-            <TagFilter value={pendingFilters.tags} onChange={(tags) => patch({ tags })} />
+            <div className="space-y-1.5">
+              <Label className={FIELD_LABEL_CLASS}>Application Source</Label>
+              <Select
+                value={pendingFilters.appSource ?? 'all'}
+                onValueChange={(val) => patch({ appSource: val === 'all' ? null : val })}
+              >
+                <SelectTrigger className={FIELD_TRIGGER_CLASS}><SelectValue placeholder="Any Source" /></SelectTrigger>
+                <SelectContent className={DROPDOWN_SCROLL_CLASS}>
+                  <SelectItem value="all">Any Source</SelectItem>
+                  <SelectItem value="direct_uni">Direct University</SelectItem>
+                  <SelectItem value="partner_portal">Partner Portal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={FIELD_LABEL_CLASS}>Application Status</Label>
+              <Select
+                value={pendingFilters.appStatus ?? 'all'}
+                onValueChange={(val) => patch({ appStatus: val === 'all' ? null : val })}
+              >
+                <SelectTrigger className={FIELD_TRIGGER_CLASS}><SelectValue placeholder="Any Status" /></SelectTrigger>
+                <SelectContent className={DROPDOWN_SCROLL_CLASS}>
+                  <SelectItem value="all">Any Status</SelectItem>
+                  <SelectItem value="tag">Tag</SelectItem>
+                  <SelectItem value="new_application">New Application</SelectItem>
+                  <SelectItem value="intake">Intake</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={FIELD_LABEL_CLASS}>Tags</Label>
+              <TagFilter value={pendingFilters.tags} onChange={(tags) => patch({ tags })} />
+            </div>
           </div>
         </div>
 
-        <SheetFooter className="p-4 border-t border-slate-100 dark:border-slate-800 shrink-0 flex-row gap-2 sm:space-x-0">
-          <Button onClick={handleApplyFilters} className="flex-1 h-10 rounded-full bg-slate-900 hover:bg-slate-800 text-white">
-            Apply
+        <SheetFooter className="p-4 border-t border-slate-100 dark:border-slate-800 shrink-0 flex-row gap-3 sm:space-x-0 bg-slate-50/80 dark:bg-slate-900/80">
+          <Button onClick={handleApplyFilters} className="flex-1 h-11 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white font-semibold shadow-xs transition-all">
+            Apply Filters
           </Button>
           <Button
             variant="outline"
             onClick={handleClearAll}
-            className="flex-1 h-10 rounded-full border-sky-400 text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950"
+            className="flex-1 h-11 rounded-xl border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold transition-all"
           >
-            Clear all
+            Clear All
           </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>
   )
-}
+}

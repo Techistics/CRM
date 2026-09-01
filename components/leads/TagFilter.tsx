@@ -281,23 +281,25 @@ export function TagFilter({ value, onChange }: TagFilterProps) {
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            size="sm"
             className={cn(
-              "h-9 border px-3 text-xs font-medium dark:text-white text-black",
-              selectedTagsCount > 0 && "border-blue-200 bg-blue-50"
+              "h-10 w-full justify-between rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/60 hover:bg-slate-100/80 dark:bg-slate-800/80 dark:hover:bg-slate-800 px-3.5 text-sm font-medium text-slate-900 dark:text-slate-100 transition-all shadow-xs",
+              selectedTagsCount > 0 && "border-blue-400/80 bg-blue-50/80 dark:bg-blue-950/60 text-blue-900 dark:text-blue-200"
             )}
           >
-            Tags
-            {selectedTagsCount > 0 && (
+            <span>{selectedTagsCount > 0 ? `${selectedTagsCount} tag${selectedTagsCount > 1 ? 's' : ''} selected` : 'Select Tags'}</span>
+            {selectedTagsCount > 0 ? (
               <Badge
                 variant="secondary"
-                className="ml-2 h-5 min-w-[20px] justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white hover:bg-blue-600"
+                className="ml-2 h-5 min-w-[20px] justify-center rounded-full bg-blue-600 px-1.5 text-[10px] font-bold text-white hover:bg-blue-600"
               >
                 {selectedTagsCount}
               </Badge>
+            ) : (
+              <span className="text-xs text-slate-400">Choose...</span>
             )}
           </Button>
         </PopoverTrigger>
+
         <PopoverContent className="w-[200px] p-0" align="start">
           <Command>
             <CommandInput placeholder="Filter tags..." />

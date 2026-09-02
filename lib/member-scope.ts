@@ -19,9 +19,9 @@ export function toMemberScope(input: {
   }
 }
 
-/** ADMIN or custom role → tenant-wide access for granted permissions. */
+/** ADMIN role → tenant-wide access for granted permissions. */
 export function hasElevatedScope(scope: MemberScope): boolean {
-  return scope.role === 'ADMIN' || scope.customRoleId != null
+  return scope.role === 'ADMIN'
 }
 
 export function canViewAllAnalytics(scope: MemberScope): boolean {

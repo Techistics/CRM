@@ -28,13 +28,6 @@ export const proMainNav: PermissionNavLink[] = [
     permission: 'leads.receive',
   },
   {
-    name: 'Kanban',
-    href: PRO_ROUTES.kanban,
-    icon: BarChart3,
-    matchPrefix: true,
-    permission: 'kanban.view',
-  },
-  {
     name: 'Analytics',
     href: PRO_ROUTES.analytics,
     icon: BarChart3,

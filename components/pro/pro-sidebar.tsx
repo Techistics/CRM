@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   Users,
-  Kanban,
   BarChart3,
   LogOut,
   Settings,
@@ -17,7 +16,6 @@ import { cn } from '@/lib/utils'
 const proNavItems = [
   { label: 'Overview', href: '/pro/overview', icon: LayoutDashboard },
   { label: 'My Leads', href: '/pro/leads', icon: Users },
-  { label: 'Kanban Board', href: '/pro/kanban', icon: Kanban },
   { label: 'Analytics', href: '/pro/analytics', icon: BarChart3 },
   { label: 'Templates', href: '/pro/templates', icon: FileText },
   { label: 'Settings', href: '/pro/settings', icon: Settings },

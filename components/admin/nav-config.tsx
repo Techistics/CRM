@@ -62,13 +62,6 @@ export const adminMainNav: PermissionNavLink[] = [
     permission: 'leads.view',
   },
   {
-    name: 'Kanban',
-    href: ADMIN_ROUTES.kanban,
-    icon: BarChart3,
-    matchPrefix: true,
-    permission: 'kanban.view',
-  },
-  {
     name: 'Analytics',
     href: ADMIN_ROUTES.analytics,
     icon: LineChart,

@@ -2,21 +2,26 @@
 
 import { LeadsDashboard } from '@/components/leads/LeadsDashboard'
 
+export type ProLeadsPermissions = {
+  canCreate: boolean
+  canEdit: boolean
+  canDelete: boolean
+  canAssign: boolean
+  canReceive: boolean
+  canViewPayments: boolean
+  canEditPayments: boolean
+  tenantWideAccess: boolean
+}
+
 export default function ProLeadsPageClient({
-  tenantWideAccess = false,
-  canDelete = false,
-  canEditPayments = false,
+  permissions,
 }: {
-  tenantWideAccess?: boolean
-  canDelete?: boolean
-  canEditPayments?: boolean
+  permissions: ProLeadsPermissions
 }) {
   return (
     <LeadsDashboard
       role="PRO"
-      tenantWideAccess={tenantWideAccess}
-      canDelete={canDelete}
-      canEditPayments={canEditPayments}
+      permissions={permissions}
     />
   )
 }

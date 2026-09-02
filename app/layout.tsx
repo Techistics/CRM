@@ -6,6 +6,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next"
 import { AuthToastWrapper } from '@/components/auth-toast-wrapper'
 import { FetchInterceptor } from '@/components/FetchInterceptor'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import Script from 'next/script'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -23,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={dmSans.variable} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: `(() => {
+        <Script id="theme-script" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: `(() => {
           try {
             const s = localStorage.getItem('crm-theme');
             const dark = s === 'dark' || (!s && window.matchMedia('(prefers-color-scheme: dark)').matches);

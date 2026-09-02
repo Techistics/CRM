@@ -35,21 +35,41 @@ import { BulkActionsBar } from '@/components/leads/Bulkactionsbar'
 import { LeadsTable } from '@/components/leads/leadstable'
 import { Agent, LeadRow } from '@/types/LeadsDashboard'
 
+export type LeadsPermissions = {
+  canCreate: boolean
+  canEdit: boolean
+  canDelete: boolean
+  canAssign: boolean
+  canReceive: boolean
+  canViewPayments: boolean
+  canEditPayments: boolean
+  tenantWideAccess: boolean
+}
+
+const ADMIN_PERMISSIONS: LeadsPermissions = {
+  canCreate: true,
+  canEdit: true,
+  canDelete: true,
+  canAssign: true,
+  canReceive: true,
+  canViewPayments: true,
+  canEditPayments: true,
+  tenantWideAccess: true,
+}
+
 interface LeadsDashboardProps {
   role: 'ADMIN' | 'PRO'
-  tenantWideAccess?: boolean
-  canDelete?: boolean
-  canEditPayments?: boolean
+  permissions?: LeadsPermissions
 }
 
 const FETCH_DEBOUNCE_MS = 250
 
 export function LeadsDashboard({
   role,
-  tenantWideAccess = false,
-  canDelete = false,
-  canEditPayments = false,
+  permissions: permissionsProp,
 }: LeadsDashboardProps) {
+  const permissions = role === 'ADMIN' ? ADMIN_PERMISSIONS : (permissionsProp ?? ADMIN_PERMISSIONS)
+  const { canCreate, canEdit, canDelete, canAssign, canEditPayments, tenantWideAccess } = permissions
   const router = useRouter()
   const routeParams = useParams<{ tenantSlug: string }>()
   const searchParams = useSearchParams()
@@ -394,7 +414,7 @@ export function LeadsDashboard({
             </DropdownMenu>
           )}
 
-          {isAdmin && <CreateLeadDialog tenantSlug={tenantSlug} showPaymentFields={role === 'ADMIN' || canEditPayments} />}
+          {(isAdmin || canCreate) && <CreateLeadDialog tenantSlug={tenantSlug} showPaymentFields={role === 'ADMIN' || canEditPayments} />}
         </div>
       </div>
 

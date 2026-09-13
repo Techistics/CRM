@@ -12,6 +12,7 @@ import {
   unique,
   index,
   primaryKey,
+  serial,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -141,6 +142,7 @@ export const tenantMemberRelations = relations(tenantMembers, ({ one }) => ({
 // ─── Leads ───────────────────────────────────────────────────
 export const leads = pgTable('leads', {
   id: uuid('id').primaryKey().defaultRandom(),
+  displayId: serial('display_id'),
   tenantId: uuid('tenant_id')
     .references(() => tenants.id, { onDelete: 'cascade' })
     .notNull(),
@@ -240,6 +242,35 @@ export const leadStageAssignments = pgTable(
     pk: primaryKey({ columns: [t.leadId, t.stageKey] }),
     idx_lead: index('idx_lead_stage_assignments_lead').on(t.leadId),
     idx_tenant: index('idx_lead_stage_assignments_tenant').on(t.tenantId),
+  }),
+)
+
+// ─── Lead Co-Assignments ───────────────────────────────────────
+// Tracks a single shared co-assignee per lead (in addition to the primary assignedTo owner).
+// Created when a lead reaches a pipeline stage marked with meta.assignmentTrigger = true.
+export const leadCoAssignments = pgTable(
+  'lead_co_assignments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .references(() => tenants.id, { onDelete: 'cascade' })
+      .notNull(),
+    leadId: uuid('lead_id')
+      .references(() => leads.id, { onDelete: 'cascade' })
+      .notNull()
+      .unique(), // one co-assignee per lead
+    assignedUserId: uuid('assigned_user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    assignedByUserId: uuid('assigned_by_user_id')
+      .references(() => users.id, { onDelete: 'set null' }),
+    triggerStageKey: varchar('trigger_stage_key', { length: 64 }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    idx_lead: index('idx_lead_co_assignments_lead').on(t.leadId),
+    idx_tenant: index('idx_lead_co_assignments_tenant').on(t.tenantId),
+    idx_user: index('idx_lead_co_assignments_user').on(t.assignedUserId),
   }),
 )
 
@@ -479,7 +510,7 @@ export const applications = pgTable(
       .notNull(),
     universityName: text('university_name').notNull(),
     courseName: text('course_name').notNull(),
-    source: text('source', { enum: ['direct_uni', 'partner_portal'] }).notNull(),
+    source: text('source', { enum: ['direct_uni', 'partner_portal', 'other'] }).notNull(),
     partnerPortalName: text('partner_portal_name'), // nullable — only when source = partner_portal
     applicationStatus: text('application_status', {
       enum: ['tag', 'new_application', 'intake'],

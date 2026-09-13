@@ -1,6 +1,6 @@
 import { db } from '@/db'
-import { leadActivities, users, tenantMembers, leadTags, leadTagAssignments, leadStageAssignments } from '@/db/schema'
-import { eq, desc, and } from 'drizzle-orm'
+import { leadActivities, users, tenantMembers, leadTags, leadTagAssignments, leadStageAssignments, leadCoAssignments } from '@/db/schema'
+import { eq, desc, and, isNull } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import LeadDetailClient from './LeadDetailClient'
 import { requireTenantAdminSession } from '@/lib/tenant-server'
@@ -46,7 +46,7 @@ export default async function LeadDetailPage({
     })
     .from(tenantMembers)
     .innerJoin(users, eq(tenantMembers.userId, users.id))
-    .where(eq(tenantMembers.tenantId, tenant.id))
+    .where(and(eq(tenantMembers.tenantId, tenant.id), isNull(tenantMembers.deletedAt)))
 
   const tags = await db
     .select({
@@ -70,6 +70,22 @@ export default async function LeadDetailPage({
       ),
     )
 
+  // Fetch existing co-assignee for this lead
+  const [coAssignmentRow] = await db
+    .select({
+      id: leadCoAssignments.id,
+      assignedUserId: leadCoAssignments.assignedUserId,
+      assignedByUserId: leadCoAssignments.assignedByUserId,
+      triggerStageKey: leadCoAssignments.triggerStageKey,
+      createdAt: leadCoAssignments.createdAt,
+      userName: users.name,
+      userEmail: users.email,
+    })
+    .from(leadCoAssignments)
+    .leftJoin(users, eq(users.id, leadCoAssignments.assignedUserId))
+    .where(eq(leadCoAssignments.leadId, id))
+    .limit(1)
+
   return (
     <LeadDetailClient 
       lead={lead} 
@@ -77,6 +93,8 @@ export default async function LeadDetailPage({
       allUsers={allUsers} 
       tags={tags} 
       activeStages={stageAssignments.map((r) => r.stageKey)}
+      initialCoAssignment={coAssignmentRow ?? null}
     />
   )
 }
+

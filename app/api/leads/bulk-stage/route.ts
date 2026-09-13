@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.id, allowedLeadIds)))
 
     for (const lead of affected) {
-      const validation = validateStageTransition(lead.fromStage, stage, pipeline.stages, parsed.data.deadReason)
+      const validation = validateStageTransition(lead.fromStage, stage, pipeline.stages, parsed.data.deadReason, ctx.role === 'ADMIN')
       if (!validation.valid) {
         return errorResponse(`Lead ${lead.id}: ${validation.error}`, 'INVALID_TRANSITION', 400)
       }

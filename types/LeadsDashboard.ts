@@ -1,5 +1,6 @@
 export type LeadRow = {
   id: string
+  displayId: number | null
   fullName: string
   email: string | null
   contactNumber: string | null

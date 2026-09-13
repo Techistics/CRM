@@ -2,7 +2,8 @@ export function validateStageTransition(
   currentStageKey: string | null | undefined,
   newStageKey: string,
   orderedStages: { key: string }[],
-  deadReason?: string
+  deadReason?: string,
+  allowBackward?: boolean
 ): { valid: boolean; error?: string } {
   // 1. Enforce reason for terminal stages
   if (['cancelled', 'dead', 'closed'].includes(newStageKey)) {
@@ -20,7 +21,7 @@ export function validateStageTransition(
 
   // If there's a valid current stage, enforce sequence rules
   if (currentIdx !== -1) {
-    if (newIdx <= currentIdx) {
+    if (newIdx < currentIdx && !allowBackward) {
       return { valid: false, error: 'Cannot move backwards in the pipeline.' }
     }
     if (newIdx > currentIdx + 1) {

@@ -1,0 +1,1 @@
+ALTER TABLE "leads" ADD COLUMN "display_id" SERIAL NOT NULL;

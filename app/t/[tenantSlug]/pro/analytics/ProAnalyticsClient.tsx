@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Clock, Calendar, CheckCircle2, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
@@ -31,6 +32,12 @@ type Summary = {
 type DrilldownPayload = {
   punchInToday: string | null;
   totalHours: number;
+  punchRecords: Array<{
+    date: string;
+    punchIn: string;
+    punchOut: string | null;
+    totalMinutes: number | null;
+  }>;
   leads: {
     touchedToday: Lead[];
     cold: Lead[];
@@ -38,6 +45,11 @@ type DrilldownPayload = {
     active: Lead[];
   };
   activityGraph: Array<{ date: string; count: number }>;
+  leadActivities: Array<{
+    leadId: string;
+    logs: Array<{ type: string; note: string | null; createdAt: string }>;
+    otherActivities: Array<{ type: string; note: string | null; createdAt: string }>;
+  }>;
 };
 
 export default function ProAnalyticsClient({ viewAll = false }: { viewAll?: boolean }) {
@@ -46,11 +58,32 @@ export default function ProAnalyticsClient({ viewAll = false }: { viewAll?: bool
   const todayStr = new Date().toISOString().split("T")[0];
   const [from, setFrom] = useState(todayStr);
   const [to, setTo] = useState(todayStr);
+  const [logType, setLogType] = useState<string>("all");
 
   const [summary, setSummary] = useState<Summary | null>(null);
   const [allSummaries, setAllSummaries] = useState<Summary[]>([]);
   const [selectedCounselorId, setSelectedCounselorId] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+
+  const [pipelineStages, setPipelineStages] = useState<Array<{ key: string; label: string }>>([]);
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch('/api/pipeline-stages')
+        const data = await res.json()
+        setPipelineStages((data?.data?.stages ?? data?.stages ?? []) as Array<{ key: string; label: string }>)
+      } catch {
+        setPipelineStages([])
+      }
+    })()
+  }, [])
+
+  const stageLabelByKey = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const s of pipelineStages) map.set(s.key, s.label)
+    return map
+  }, [pipelineStages])
 
   const [drilldown, setDrilldown] = useState<DrilldownPayload | null>(null);
   const [drilldownLoading, setDrilldownLoading] = useState(false);
@@ -121,6 +154,20 @@ export default function ProAnalyticsClient({ viewAll = false }: { viewAll?: bool
     });
   }, [drilldown]);
 
+  const filteredTouchedLeads = useMemo(() => {
+    if (!drilldown?.leads.touchedToday) return [];
+    if (logType === "all") return drilldown.leads.touchedToday;
+
+    return drilldown.leads.touchedToday.filter((lead) => {
+      const activityData = drilldown.leadActivities?.find((la) => la.leadId === lead.id);
+      if (!activityData) return false;
+
+      const hasLog = activityData.logs.some((log) => log.type === logType);
+      const hasOther = activityData.otherActivities.some((act) => act.type === logType);
+      return hasLog || hasOther;
+    });
+  }, [drilldown, logType]);
+
   return (
     <div className="flex-1 space-y-6 w-full pb-12 animate-in fade-in duration-500">
       {/* Header with date range */}
@@ -164,9 +211,6 @@ export default function ProAnalyticsClient({ viewAll = false }: { viewAll?: bool
                   <tr className="border-b border-[var(--card-border-color)] text-left text-xs text-[var(--muted-text)]">
                     <th className="px-4 py-3 font-medium">Counselor</th>
                     <th className="px-4 py-3 font-medium text-center">Total</th>
-                    <th className="px-4 py-3 font-medium text-center">Active</th>
-                    <th className="px-4 py-3 font-medium text-center">Cold</th>
-                    <th className="px-4 py-3 font-medium text-center">Dead</th>
                     <th className="px-4 py-3 font-medium text-center">Hours Today</th>
                     <th className="px-4 py-3 font-medium text-center">Edits Today</th>
                   </tr>
@@ -188,9 +232,6 @@ export default function ProAnalyticsClient({ viewAll = false }: { viewAll?: bool
                         <div className="text-xs text-[var(--muted-text)]">{row.email}</div>
                       </td>
                       <td className="px-4 py-3 text-center">{row.totalLeads}</td>
-                      <td className="px-4 py-3 text-center">{row.activeLeads}</td>
-                      <td className="px-4 py-3 text-center">{row.coldLeads}</td>
-                      <td className="px-4 py-3 text-center">{row.deadLeads}</td>
                       <td className="px-4 py-3 text-center">{row.todayHours}h</td>
                       <td className="px-4 py-3 text-center">{row.todayEdits}</td>
                     </tr>
@@ -203,12 +244,9 @@ export default function ProAnalyticsClient({ viewAll = false }: { viewAll?: bool
       )}
 
       {/* Summary cards row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
           { title: "Total Leads", val: summary?.totalLeads },
-          { title: "Active Leads", val: summary?.activeLeads },
-          { title: "Cold Leads", val: summary?.coldLeads },
-          { title: "Dead Leads", val: summary?.deadLeads },
         ].map((item, idx) => (
           <Card key={idx} className="border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] shadow-crm-sm rounded-[12px]">
             <CardHeader className="pb-2 pt-4 px-4">
@@ -288,16 +326,70 @@ export default function ProAnalyticsClient({ viewAll = false }: { viewAll?: bool
                 </span>
               </div>
             </div>
+
+            {/* Punch Timings in Range */}
+            <div className="border-[0.5px] border-[var(--card-border-color)] bg-[var(--main-bg)] rounded-[8px] p-4 space-y-2">
+              <p className="text-[11px] text-[var(--muted-text)] uppercase font-semibold tracking-wider mb-2">
+                Punch Timings in Range
+              </p>
+              {!drilldown.punchRecords || drilldown.punchRecords.length === 0 ? (
+                <p className="text-xs text-[var(--muted-text)]">No punch records in this period.</p>
+              ) : (
+                <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                  {drilldown.punchRecords.map((rec, i) => (
+                    <div
+                      key={i}
+                      className="flex flex-col gap-0.5 bg-[var(--card-bg)] rounded-[6px] border-[0.5px] border-[var(--card-border-color)] p-2.5"
+                    >
+                      <span className="text-[10px] font-semibold text-indigo-400">{rec.date}</span>
+                      <div className="flex items-center justify-between text-xs text-[var(--text-strong)]">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3 text-emerald-500" />
+                          {new Date(rec.punchIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <span className="text-[var(--muted-text)] text-[10px]">→</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3 text-rose-400" />
+                          {rec.punchOut
+                            ? new Date(rec.punchOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                            : <span className="text-amber-400">Still clocked in</span>}
+                        </span>
+                        {rec.totalMinutes != null && (
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-indigo-500/20 bg-indigo-500/10 text-indigo-400 rounded-full ml-1">
+                            {Math.floor(rec.totalMinutes / 60)}h {rec.totalMinutes % 60}m
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="border-[0.5px] border-[var(--card-border-color)] bg-[var(--main-bg)] rounded-[8px] p-4 space-y-3">
-              <h3 className="font-medium text-xs text-[var(--text-strong)] flex items-center gap-1.5 border-b border-[var(--card-border-color)] pb-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                Leads Touched Today ({drilldown.leads.touchedToday.length})
-              </h3>
-              {drilldown.leads.touchedToday.length === 0 ? (
-                <p className="text-xs text-[var(--muted-text)]">No leads touched today.</p>
+              <div className="flex items-center justify-between border-b border-[var(--card-border-color)] pb-2">
+                <h3 className="font-medium text-xs text-[var(--text-strong)] flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  Leads Touched in Range ({filteredTouchedLeads.length})
+                </h3>
+                <Select value={logType} onValueChange={setLogType}>
+                  <SelectTrigger className="w-[120px] h-7 text-[10px] bg-[var(--card-bg)] border-[var(--card-border-color)] text-[var(--text-strong)] shadow-none">
+                    <SelectValue placeholder="Log Type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[var(--card-bg)] border-[var(--card-border-color)]">
+                    <SelectItem value="all" className="text-[10px] text-[var(--text-strong)]">All Logs</SelectItem>
+                    <SelectItem value="call" className="text-[10px] text-[var(--text-strong)]">Calls</SelectItem>
+                    <SelectItem value="message" className="text-[10px] text-[var(--text-strong)]">Messages</SelectItem>
+                    <SelectItem value="whatsapp" className="text-[10px] text-[var(--text-strong)]">WhatsApp</SelectItem>
+                    <SelectItem value="note" className="text-[10px] text-[var(--text-strong)]">Notes</SelectItem>
+                    <SelectItem value="stage_change" className="text-[10px] text-[var(--text-strong)]">Stage Changes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {filteredTouchedLeads.length === 0 ? (
+                <p className="text-xs text-[var(--muted-text)]">No leads match this filter.</p>
               ) : (
                 <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
-                  {drilldown.leads.touchedToday.map((l) => (
+                  {filteredTouchedLeads.map((l) => (
                     <div
                       key={l.id}
                       className="flex justify-between items-center bg-[var(--card-bg)] p-2.5 rounded-[6px] border-[0.5px] border-[var(--card-border-color)] hover:opacity-80 transition-opacity"
@@ -309,7 +401,7 @@ export default function ProAnalyticsClient({ viewAll = false }: { viewAll?: bool
                         {l.fullName}
                       </Link>
                       <Badge variant="secondary" className="text-[10px] scale-90 bg-[var(--main-bg)] text-[var(--text-strong)] border-[0.5px] border-[var(--card-border-color)]">
-                        {l.stage.replace("_", " ")}
+                        {stageLabelByKey.get(l.stage) ?? l.stage.replace("_", " ")}
                       </Badge>
                     </div>
                   ))}

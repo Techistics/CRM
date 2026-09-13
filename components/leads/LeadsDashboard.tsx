@@ -107,6 +107,9 @@ export function LeadsDashboard({
   const leadIntakeYearFilter = searchParams.get('leadIntakeYear') ?? undefined
   const revIntakeMonthFilter = searchParams.get('revIntakeMonth') ?? undefined
   const revIntakeYearFilter = searchParams.get('revIntakeYear') ?? undefined
+  const createdFromFilter = searchParams.get('createdFrom') ?? undefined
+  const createdToFilter = searchParams.get('createdTo') ?? undefined
+  const csvImportIdFilter = searchParams.get('csvImportId') ?? undefined
 
   const currentPage = Math.max(1, Number(page) || 1)
   const pageSize = Number(pageSizeParam) || 10
@@ -145,6 +148,9 @@ export function LeadsDashboard({
       if (leadIntakeYearFilter) params.set('leadIntakeYear', leadIntakeYearFilter)
       if (revIntakeMonthFilter) params.set('revIntakeMonth', revIntakeMonthFilter)
       if (revIntakeYearFilter) params.set('revIntakeYear', revIntakeYearFilter)
+      if (createdFromFilter) params.set('createdFrom', createdFromFilter)
+      if (createdToFilter) params.set('createdTo', createdToFilter)
+      if (csvImportIdFilter) params.set('csvImportId', csvImportIdFilter)
       params.set('_t', Date.now().toString())
 
       const [leadsRes, agentsRes] = await Promise.all([
@@ -170,6 +176,7 @@ export function LeadsDashboard({
     assignedTo, currentPage, pageSize, q, stageFilter, subStatusIdFilter, closedActionFilter, tagsParam,
     appUniversityNameFilter, appCourseNameFilter, appSourceFilter, appStatusFilter, appIntakeMonthFilter, appIntakeYearFilter,
     leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter,
+    createdFromFilter, createdToFilter, csvImportIdFilter,
   ])
 
   useEffect(() => {
@@ -221,11 +228,14 @@ export function LeadsDashboard({
     if (appUniversityNameFilter || appCourseNameFilter || appSourceFilter || appStatusFilter) count++
     if (leadIntakeMonthFilter || leadIntakeYearFilter) count++
     if (revIntakeMonthFilter || revIntakeYearFilter) count++
+    if (createdFromFilter || createdToFilter) count++
+    if (csvImportIdFilter) count++
     return count
   }, [
     stageFilter, subStatusIdFilter, closedActionFilter, heatFilter, assignedTo, tagsParam,
     appUniversityNameFilter, appCourseNameFilter, appSourceFilter, appStatusFilter,
     leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter,
+    createdFromFilter, createdToFilter, csvImportIdFilter,
   ])
 
   const handleToggleSelect = useCallback((id: string, checked: boolean) => {

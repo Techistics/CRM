@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { users, tenantMembers, leads, tenantTimesheets, leadActivities } from '@/db/schema'
-import { eq, and, gte, lte, sql } from 'drizzle-orm'
+import { eq, and, gte, lte, sql, isNull } from 'drizzle-orm'
 import { requirePermissionApi } from '@/lib/tenant-api'
 import { canViewAllAnalytics, toMemberScope } from '@/lib/member-scope'
 
@@ -49,7 +49,8 @@ export async function GET(request: Request) {
     // Build main user stats query
     const whereConditions = [
       eq(tenantMembers.tenantId, tenant.id),
-      eq(tenantMembers.role, 'PRO')
+      eq(tenantMembers.role, 'PRO'),
+      isNull(tenantMembers.deletedAt)
     ]
     if (!viewAll) {
       whereConditions.push(eq(users.id, dbUserId))

@@ -133,7 +133,7 @@ export async function sendInviteEmail({
             <a href="${workspaceUrl}" style="color: #4f46e5; text-decoration: none; word-break: break-all;">${workspaceUrl}</a>
           </p>
         ` : undefined,
-        ctaLabel: 'Accept Architecture Invitation',
+        ctaLabel: 'Accept Invitation',
         ctaUrl: inviteLink,
         footerText: "Security Note: If you were not anticipating this institutional invitation, please safely drop or ignore this transmission.",
       }),

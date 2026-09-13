@@ -162,6 +162,13 @@
       "when": 1776352410013,
       "tag": "0022_seed_default_pipeline_stages",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1789315610736,
+      "tag": "0023_add_display_id",
+      "breakpoints": true
     }
   ]
 }

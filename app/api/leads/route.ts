@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { and, count, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm'
+import { and, count, desc, eq, gte, ilike, inArray, isNull, lte, or, sql } from 'drizzle-orm'
 
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     // ── Application filters ───────────────────────────────────
     const appUniversityName = url.searchParams.get('appUniversityName')?.trim()
     const appCourseName = url.searchParams.get('appCourseName')?.trim()
-    const appSource = url.searchParams.get('appSource')?.trim() as 'direct_uni' | 'partner_portal' | undefined | null
+    const appSource = url.searchParams.get('appSource')?.trim() as 'direct_uni' | 'partner_portal' | 'other' | undefined | null
     const appStatus = url.searchParams.get('appStatus')?.trim() as 'tag' | 'new_application' | 'intake' | undefined | null
     const appIntakeMonthRaw = url.searchParams.get('appIntakeMonth')?.trim()
     const appIntakeYearRaw = url.searchParams.get('appIntakeYear')?.trim()
@@ -54,6 +54,13 @@ export async function GET(req: NextRequest) {
     const revIntakeYearRaw = url.searchParams.get('revIntakeYear')?.trim()
     const revIntakeMonth = revIntakeMonthRaw ? parseInt(revIntakeMonthRaw, 10) : null
     const revIntakeYear = revIntakeYearRaw ? parseInt(revIntakeYearRaw, 10) : null
+
+    // ── Created date range filters ─────────────────────────────
+    const createdFrom = url.searchParams.get('createdFrom')?.trim() || null
+    const createdTo = url.searchParams.get('createdTo')?.trim() || null
+
+    // ── CSV Import batch filter ────────────────────────────────
+    const csvImportId = url.searchParams.get('csvImportId')?.trim() || null
 
     // Whether we need to join applications
     const needsAppJoin = !!(appUniversityName || appCourseName || appSource || appStatus || appIntakeMonth || appIntakeYear)
@@ -149,6 +156,22 @@ export async function GET(req: NextRequest) {
       )
     }
 
+    // ── Created date range filter conditions ───────────────────
+    if (createdFrom) {
+      conditions.push(gte(leads.createdAt, new Date(createdFrom)))
+    }
+    if (createdTo) {
+      // Include the entire "To" day by setting time to end-of-day
+      const toDate = new Date(createdTo)
+      toDate.setHours(23, 59, 59, 999)
+      conditions.push(lte(leads.createdAt, toDate))
+    }
+
+    // ── CSV Import batch filter condition ──────────────────────
+    if (csvImportId) {
+      conditions.push(eq(leads.csvImportId, csvImportId))
+    }
+
     const where = and(...conditions)
 
     const attachTagsToLeads = async <
@@ -220,6 +243,7 @@ export async function GET(req: NextRequest) {
     // Common select shape — includes application badge fields
     const leadSelectShape = {
       id: leads.id,
+      displayId: leads.displayId,
       tenantId: leads.tenantId,
       fullName: leads.fullName,
       contactNumber: leads.contactNumber,

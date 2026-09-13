@@ -11,6 +11,7 @@ import { toMemberScope } from '@/lib/member-scope'
 import { can } from '@/lib/authz'
 import { getTenantMembershipWithPermissions } from '@/lib/tenant-membership'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
+import { broadcastNotification } from '@/lib/supabase-server'
 
 const assignSchema = z.object({
   assignedTo: z.string().uuid().optional().nullable(),
@@ -99,14 +100,16 @@ export async function PATCH(
           ? `${lead.fullName} has been reassigned to you`
           : `${lead.fullName} has been assigned to you`
 
-      await db.insert(notifications).values({
+      const [newNotification] = await db.insert(notifications).values({
         tenantId: ctx.tenant.id,
         userId: assignedTo,
         title: notificationTitle,
         body: notificationBody,
         type: 'lead_assigned',
         leadId: id,
-      })
+      }).returning()
+
+      await broadcastNotification(`notifs:${ctx.tenant.id}:${assignedTo}`, newNotification)
       const adminMembers = await db
         .select({ userId: tenantMembers.userId })
         .from(tenantMembers)
@@ -123,14 +126,16 @@ export async function PATCH(
         .filter((uid) => uid !== ctx.dbUserId && uid !== assignedTo)
 
       for (const userId of adminRecipients) {
-        await db.insert(notifications).values({
+        const [newNotification] = await db.insert(notifications).values({
           tenantId: ctx.tenant.id,
           userId,
           title: 'Lead assigned',
           body: `${lead.fullName} has been assigned to a counselor`,
           type: 'lead_assigned',
           leadId: id,
-        })
+        }).returning()
+
+        await broadcastNotification(`notifs:${ctx.tenant.id}:${userId}`, newNotification)
       }
 
           const [agent] = await db

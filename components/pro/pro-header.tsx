@@ -138,10 +138,12 @@ function TimesheetPunchBar() {
 
 export function ProHeader({
   tenant,
-  user
+  user,
+  userId
 }: {
   tenant: Tenant,
-  user: { name: string, email: string }
+  user: { name: string, email: string },
+  userId: string
 }) {
   const { toggle } = useSidebar()
 
@@ -183,7 +185,7 @@ export function ProHeader({
             <TimesheetPunchBar />
             <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
             <ThemeToggle />
-            <NotificationBell tenantSlug={tenant.slug} portalBase="pro" />
+            <NotificationBell tenantSlug={tenant.slug} tenantId={tenant.id} userId={userId} portalBase="pro" />
             <UserMenu user={user} role="PRO" tenantSlug={tenant.slug} />
           </div>
         </div>

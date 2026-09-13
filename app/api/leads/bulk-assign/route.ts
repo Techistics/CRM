@@ -3,12 +3,13 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { db } from '@/db'
-import { leads, tenantMembers, users } from '@/db/schema'
+import { leads, tenantMembers, users, notifications } from '@/db/schema'
 import { errorResponse, successResponse, withApiErrorHandling } from '@/lib/api-response'
 import { sendLeadAssignedEmail } from '@/lib/mail'
 import { leadIdsInScopeWhere } from '@/lib/leads-scope'
 import { toMemberScope } from '@/lib/member-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
+import { broadcastNotification } from '@/lib/supabase-server'
 
 const bodySchema = z.object({
   leadIds: z.array(z.string().uuid()).min(1).max(500),
@@ -77,6 +78,16 @@ export async function POST(req: NextRequest) {
       } catch (err) {
         console.error('[bulk-assign] Email failed:', err)
       }
+      
+      const [newNotification] = await db.insert(notifications).values({
+        tenantId: ctx.tenant.id,
+        userId: parsed.data.assignedTo,
+        title: 'Leads assigned in bulk',
+        body: `${updatedRows.length} leads have been assigned to you`,
+        type: 'lead_assigned',
+      }).returning()
+
+      await broadcastNotification(`notifs:${ctx.tenant.id}:${parsed.data.assignedTo}`, newNotification)
     }
 
     return successResponse({ updated: updatedRows.length })

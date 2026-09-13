@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireTenantMemberApi } from '@/lib/tenant-api'
 import { db } from '@/db'
-import { consultantLogs, users, leads } from '@/db/schema'
+import { consultantLogs, users, leads, leadActivities } from '@/db/schema'
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
 import { toMemberScope } from '@/lib/member-scope'
@@ -51,6 +51,14 @@ export async function POST(req: Request) {
         body,
       })
       .returning()
+
+    await db.insert(leadActivities).values({
+      tenantId: ctx.tenant.id,
+      leadId,
+      userId: ctx.dbUserId,
+      type,
+      note: body,
+    })
 
     return NextResponse.json(insertedLog, { status: 201 })
   } catch (error: unknown) {

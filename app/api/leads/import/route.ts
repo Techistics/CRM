@@ -5,15 +5,24 @@ import { and, eq, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { db } from '@/db'
-import { csvImports, leads, tenantMembers, users, leadStageAssignments, pipelineSubStatuses } from '@/db/schema'
+import { csvImports, leads, tenantMembers, users, leadStageAssignments, pipelineSubStatuses, notifications } from '@/db/schema'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { sendLeadAssignedEmail } from '@/lib/mail'
 import { requirePermissionApi } from '@/lib/tenant-api'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 import { DEFAULT_SUB_STATUSES } from '@/constants/sub-status-defaults'
+import { broadcastNotification } from '@/lib/supabase-server'
 
 const parseBodySchema = z.object({
   action: z.literal('parse'),
+  fileData: z.string().min(1),
+  fileName: z.string().min(1),
+  tenantSlug: z.string().min(1),
+  mapping: z.any().optional(),
+})
+
+const extractHeadersBodySchema = z.object({
+  action: z.literal('extract_headers'),
   fileData: z.string().min(1),
   fileName: z.string().min(1),
   tenantSlug: z.string().min(1),
@@ -191,6 +200,35 @@ export async function POST(req: NextRequest) {
       return errorResponse('Invalid JSON body', 'INVALID_JSON', 400)
     }
 
+    if (body.action === 'extract_headers') {
+      const parsed = extractHeadersBodySchema.safeParse(body)
+      if (!parsed.success) {
+        return errorResponse('Validation failed', 'VALIDATION_ERROR', 400)
+      }
+      if (parsed.data.tenantSlug !== ctx.tenant.slug) {
+        return errorResponse('Forbidden', 'FORBIDDEN', 403)
+      }
+
+      let rawRows: Record<string, unknown>[] = []
+      try {
+        rawRows = parseRows(parsed.data.fileName, parsed.data.fileData)
+      } catch {
+        return errorResponse('Only CSV and XLSX are supported', 'INVALID_FILE_TYPE', 400)
+      }
+
+      if (rawRows.length === 0) {
+        return errorResponse('The file is empty', 'EMPTY_FILE', 400)
+      }
+
+      const headers = Object.keys(rawRows[0])
+      const sample = rawRows.slice(0, 5)
+
+      return successResponse({
+        headers,
+        sample,
+      })
+    }
+
     if (body.action === 'parse') {
       const parsed = parseBodySchema.safeParse(body)
       if (!parsed.success) {
@@ -213,11 +251,21 @@ export async function POST(req: NextRequest) {
       rawRows.forEach((row, idx) => {
         const rowNumber = idx + 2
         const mapped: Record<string, unknown> = {}
-        Object.entries(row).forEach(([key, value]) => {
-          const normalized = key.toLowerCase().trim().replace(/\s+/g, ' ')
-          const target = COLUMN_MAP[normalized]
-          if (target) mapped[target] = typeof value === 'string' ? value.trim() : value
-        })
+        
+        if (parsed.data.mapping) {
+          Object.entries(parsed.data.mapping).forEach(([csvHeader, canonicalField]) => {
+            if (canonicalField && canonicalField !== 'ignore') {
+              const value = row[csvHeader]
+              mapped[canonicalField as string] = typeof value === 'string' ? value.trim() : value
+            }
+          })
+        } else {
+          Object.entries(row).forEach(([key, value]) => {
+            const normalized = key.toLowerCase().trim().replace(/\s+/g, ' ')
+            const target = COLUMN_MAP[normalized]
+            if (target) mapped[target] = typeof value === 'string' ? value.trim() : value
+          })
+        }
 
         const fullName = String(mapped.fullName ?? '').trim()
         if (fullName.length < 2) {
@@ -517,10 +565,24 @@ export async function POST(req: NextRequest) {
         }
       })
 
-      // Send ONE email per agent summarizing their new leads
+      // Send ONE email and ONE in-app notification per agent summarizing their new leads
       for (const member of assignableMembers) {
         const count = assignedCounts.get(member.userId) ?? 0
         if (count <= 0 || !member.email) continue
+
+        try {
+          const [newNotification] = await db.insert(notifications).values({
+            tenantId: ctx.tenant.id,
+            userId: member.userId,
+            title: 'New leads imported',
+            body: `${count} new leads have been assigned to you via CSV import.`,
+            type: 'lead_assigned',
+          }).returning()
+
+          await broadcastNotification(`notifs:${ctx.tenant.id}:${member.userId}`, newNotification)
+        } catch (err) {
+          console.error('[import-confirm] In-app notification failed:', err)
+        }
 
         try {
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''

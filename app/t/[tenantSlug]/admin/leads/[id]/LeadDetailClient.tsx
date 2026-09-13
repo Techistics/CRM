@@ -46,18 +46,30 @@ function getIntakeYears(): number[] {
   return years
 }
 
+type CoAssignment = {
+  id: string
+  assignedUserId: string
+  assignedByUserId: string | null
+  triggerStageKey: string | null
+  createdAt: string | Date
+  userName: string | null
+  userEmail: string | null
+} | null
+
 export default function LeadDetailClient({
   lead,
   activities: initialActivities,
   allUsers,
   tags,
   activeStages: activeStagesProp,
+  initialCoAssignment,
 }: {
   lead: Lead
   activities: ActivityRow[]
   allUsers: UserRow[]
   tags: { id: string; name: string; color: string }[]
   activeStages: string[]
+  initialCoAssignment: CoAssignment
 }) {
   const router = useRouter()
   const params = useParams()
@@ -78,11 +90,16 @@ export default function LeadDetailClient({
   const [activeStages, setActiveStages] = useState<string[]>(
     activeStagesProp?.length ? activeStagesProp : [(lead.primaryStage ?? lead.stage ?? 'new_lead')]
   )
-  const [pipelineStages, setPipelineStages] = useState<Array<{ key: string; label: string }>>([])
+  const [pipelineStages, setPipelineStages] = useState<Array<{ key: string; label: string; meta?: { assignmentTrigger?: boolean } | null }>>([])
   const [stagesLoading, setStagesLoading] = useState(true)
   const [assignedTo, setAssignedTo] = useState(lead.assignedTo ?? '')
   const [selectedAssignee, setSelectedAssignee] = useState(lead.assignedTo ?? '')
   const [savingAssignee, setSavingAssignee] = useState(false)
+  // Co-assignment state
+  const [coAssignment, setCoAssignment] = useState<CoAssignment>(initialCoAssignment)
+  const [selectedCoAssignee, setSelectedCoAssignee] = useState('')
+  const [savingCoAssign, setSavingCoAssign] = useState(false)
+  const [removingCoAssign, setRemovingCoAssign] = useState(false)
   const [note, setNote] = useState('')
   const [noteType, setNoteType] = useState<'note' | 'call' | 'message'>('note')
   const [saving, setSaving] = useState(false)
@@ -155,7 +172,7 @@ export default function LeadDetailClient({
       try {
         const res = await fetch('/api/pipeline-stages')
         const data = await res.json()
-        const rows = (data?.data?.stages ?? data?.stages ?? []) as Array<{ key: string; label: string }>
+        const rows = (data?.data?.stages ?? data?.stages ?? []) as Array<{ key: string; label: string; meta?: { assignmentTrigger?: boolean } | null }>
         setPipelineStages(rows)
       } catch {
         // If this fails, we still allow fallback single-stage behavior.
@@ -164,6 +181,11 @@ export default function LeadDetailClient({
       }
     })()
   }, [])
+
+  // Whether the current primary stage requires co-assignment
+  const isCoAssignTriggerStage = pipelineStages.some(
+    (s) => s.key === primaryStage && s.meta?.assignmentTrigger === true,
+  )
 
   useEffect(() => {
     setIsDead(lead.isDeadManual ?? false)
@@ -270,6 +292,40 @@ export default function LeadDetailClient({
     }
     setAssignedTo(selectedAssignee)
     router.refresh()
+  }
+
+  const handleSaveCoAssign = async () => {
+    if (!selectedCoAssignee) return
+    setSavingCoAssign(true)
+    const data = await apiCall(async () => {
+      const res = await fetch(`/api/leads/${lead.id}/co-assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignedUserId: selectedCoAssignee }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Could not co-assign lead')
+      return res.json()
+    }, { successMsg: 'Lead shared successfully', errorMsg: 'Could not co-assign lead' })
+    setSavingCoAssign(false)
+    if (!data) return
+    // Refresh co-assignment display
+    const refreshRes = await fetch(`/api/leads/${lead.id}/co-assign`)
+    const refreshData = await refreshRes.json()
+    setCoAssignment(refreshData?.data?.coAssignment ?? null)
+    setSelectedCoAssignee('')
+  }
+
+  const handleRemoveCoAssign = async () => {
+    setRemovingCoAssign(true)
+    const data = await apiCall(async () => {
+      const res = await fetch(`/api/leads/${lead.id}/co-assign`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Could not remove co-assignment')
+      return res.json()
+    }, { successMsg: 'Co-assignment removed', errorMsg: 'Could not remove co-assignment' })
+    setRemovingCoAssign(false)
+    if (data) setCoAssignment(null)
   }
 
   async function handleAddNote() {
@@ -400,7 +456,7 @@ export default function LeadDetailClient({
           <div className="mt-1 flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Student ID:</span>
             <span className="text-xs font-mono text-muted-foreground" title={lead.id}>
-              {lead.id.slice(0, 7)}...
+              #{lead.displayId ? 100000 + lead.displayId : lead.id.slice(0, 7) + '...'}
             </span>
             <button
               onClick={() => {
@@ -679,6 +735,8 @@ export default function LeadDetailClient({
                 </div>
               </div>
 
+
+
               {/* Mark as Dead */}
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Mark as Dead</h2>
@@ -833,6 +891,78 @@ export default function LeadDetailClient({
                     </button>
                   ))}
                 </div>
+
+                {/* Co-assign Panel — visible only when current stage is an assignment trigger */}
+                {isCoAssignTriggerStage && (
+                  <div className="bg-white border border-sky-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-sky-800/60 mt-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-sky-50 dark:bg-sky-500/10">
+                        <svg className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </span>
+                      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Co-assign Lead</h2>
+                      <span className="ml-auto text-xs bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded-full dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/30">Shared Access</span>
+                    </div>
+
+                    {coAssignment ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-sky-50/60 border border-sky-100 dark:bg-sky-500/5 dark:border-sky-500/20">
+                          <div className="h-8 w-8 rounded-full bg-sky-500/10 border border-sky-200 dark:border-sky-500/30 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-semibold text-sky-700 dark:text-sky-400">
+                              {(coAssignment.userName ?? coAssignment.userEmail ?? '?')[0].toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{coAssignment.userName ?? coAssignment.userEmail}</p>
+                            <p className="text-xs text-slate-400">Shared access</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleRemoveCoAssign}
+                          disabled={removingCoAssign || isDeadState}
+                          className="w-full h-8 text-xs font-medium border border-slate-200 text-slate-500 hover:text-red-500 hover:border-red-200 rounded-lg transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5 dark:border-slate-700 dark:text-slate-400"
+                        >
+                          {removingCoAssign ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                          Remove co-assignment
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+                          This stage requires a co-assignee. Select a team member to share full access with.
+                        </p>
+                        <Select
+                          value={selectedCoAssignee || 'none'}
+                          disabled={isDeadState || savingCoAssign}
+                          onValueChange={(val) => setSelectedCoAssignee(val === 'none' ? '' : val)}
+                        >
+                          <SelectTrigger className="w-full h-9">
+                            <SelectValue placeholder="Select team member..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none" disabled>Select team member...</SelectItem>
+                            {allUsers
+                              .filter((u) => u.id !== lead.assignedTo)
+                              .map((u) => (
+                                <SelectItem key={u.id} value={u.id}>
+                                  {u.name ?? u.id} {u.role === 'ADMIN' ? '(Admin)' : ''}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <button
+                          onClick={handleSaveCoAssign}
+                          disabled={!selectedCoAssignee || savingCoAssign || isDeadState}
+                          className="w-full h-9 bg-sky-500 hover:bg-sky-600 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                        >
+                          {savingCoAssign ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                          Share Lead
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Sub Status & Action */}
                 <div className="flex flex-col gap-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/50 rounded-xl p-4 mt-6">

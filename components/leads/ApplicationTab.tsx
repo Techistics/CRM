@@ -15,7 +15,7 @@ import { apiCall } from '@/lib/utils/api-handler'
 
 // ─── Types ────────────────────────────────────────────────────
 
-type ApplicationSource = 'direct_uni' | 'partner_portal'
+type ApplicationSource = 'direct_uni' | 'partner_portal' | 'other'
 type ApplicationStatus = 'tag' | 'new_application' | 'intake'
 
 interface ApplicationData {
@@ -47,6 +47,7 @@ const MONTH_NAMES = [
 const SOURCE_LABELS: Record<ApplicationSource, string> = {
   direct_uni: 'Direct Uni',
   partner_portal: 'Partner Portal',
+  other: 'Other',
 }
 
 const STATUS_LABELS: Record<ApplicationStatus, string> = {
@@ -283,6 +284,7 @@ export function ApplicationTab({ leadId }: { leadId: string }) {
               <SelectContent>
                 <SelectItem value="direct_uni">Direct Uni</SelectItem>
                 <SelectItem value="partner_portal">Partner Portal</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
               </SelectContent>
             </Select>
             {getError('source') && (

@@ -3,19 +3,24 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowUp, ArrowDown, Plus, Trash, Save, Loader2 } from 'lucide-react';
+import { ArrowUp, ArrowDown, Plus, Trash, Save, Loader2, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const BRAND = '#0DA2E7'
+
+interface StageRow {
+  key: string
+  label: string
+  sortOrder: number
+  meta?: { assignmentTrigger?: boolean } | null
+}
 
 interface PipelineStagesEditorProps {
   onSaved?: () => void
 }
 
 export default function PipelineStagesEditor({ onSaved }: PipelineStagesEditorProps) {
-  const [stages, setStages] = useState<
-    { key: string; label: string; sortOrder: number }[]
-  >([]);
+  const [stages, setStages] = useState<StageRow[]>([]);
   const [isLocked, setIsLocked] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -26,7 +31,6 @@ export default function PipelineStagesEditor({ onSaved }: PipelineStagesEditorPr
         const res = await fetch('/api/admin/pipeline-stages');
         if (!res.ok) throw new Error('Failed to load stages');
         const data = await res.json();
-        console.log(JSON.stringify(data));
         const extractedStages = data?.data?.stages ?? data?.stages ?? [];
         const extractedIsLocked = data?.data?.isLocked ?? data?.isLocked ?? false;
         setStages(Array.isArray(extractedStages) ? extractedStages : []);
@@ -42,14 +46,26 @@ export default function PipelineStagesEditor({ onSaved }: PipelineStagesEditorPr
   const addStage = () => {
     setStages((prev) => [
       ...prev,
-      { key: `custom_${Date.now()}`, label: '', sortOrder: prev.length },
+      { key: `custom_${Date.now()}`, label: '', sortOrder: prev.length, meta: null },
     ]);
   };
 
   const renameStage = (idx: number, newLabel: string) => {
     setStages((prev) => {
       const copy = [...prev];
-      copy[idx].label = newLabel;
+      copy[idx] = { ...copy[idx], label: newLabel };
+      return copy;
+    });
+  };
+
+  const toggleAssignmentTrigger = (idx: number) => {
+    setStages((prev) => {
+      const copy = [...prev];
+      const current = copy[idx].meta?.assignmentTrigger ?? false;
+      copy[idx] = {
+        ...copy[idx],
+        meta: { ...(copy[idx].meta ?? {}), assignmentTrigger: !current },
+      };
       return copy;
     });
   };
@@ -90,9 +106,8 @@ export default function PipelineStagesEditor({ onSaved }: PipelineStagesEditorPr
       const res = await fetch('/api/admin/pipeline-stages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // No tenantId needed; API derives it from session
         body: JSON.stringify({
-          stages: stages.map(({ key, label, sortOrder }) => ({ key, label, sortOrder }))
+          stages: stages.map(({ key, label, sortOrder, meta }) => ({ key, label, sortOrder, meta: meta ?? null }))
         }),
       });
       if (!res.ok) {
@@ -111,9 +126,14 @@ export default function PipelineStagesEditor({ onSaved }: PipelineStagesEditorPr
 
   return (
     <div className="mt-8 space-y-4">
-      <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-        Pipeline Stages
-      </h2>
+      <div>
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+          Pipeline Stages
+        </h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Enable <span className="inline-flex items-center gap-1 font-medium text-sky-600 dark:text-sky-400"><Users className="h-3.5 w-3.5" />Co-assign</span> on a stage to show a co-assignment dropdown when a lead reaches that stage.
+        </p>
+      </div>
 
       {isLocked ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -141,6 +161,25 @@ export default function PipelineStagesEditor({ onSaved }: PipelineStagesEditorPr
                 placeholder="Stage label"
                 className="flex-1 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-700 placeholder-slate-400 dark:placeholder-slate-500 focus-visible:ring-2 focus-visible:ring-[#0DA2E7]/30 focus-visible:border-[#0DA2E7]"
               />
+
+              {/* Co-assignment trigger toggle */}
+              <button
+                type="button"
+                disabled={isLocked}
+                onClick={() => toggleAssignmentTrigger(idx)}
+                title={stage.meta?.assignmentTrigger ? 'Co-assignment required at this stage (click to disable)' : 'Enable co-assignment requirement at this stage'}
+                className={cn(
+                  'flex items-center gap-1 px-2 py-1.5 rounded-md text-xs font-medium transition-all border',
+                  stage.meta?.assignmentTrigger
+                    ? 'bg-sky-50 border-sky-300 text-sky-700 dark:bg-sky-500/10 dark:border-sky-500/40 dark:text-sky-400'
+                    : 'bg-white border-slate-200 text-slate-400 hover:border-sky-300 hover:text-sky-600 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-500',
+                  isLocked && 'opacity-50 cursor-not-allowed',
+                )}
+              >
+                <Users className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Co-assign</span>
+              </button>
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -201,3 +240,4 @@ export default function PipelineStagesEditor({ onSaved }: PipelineStagesEditorPr
     </div>
   );
 }
+

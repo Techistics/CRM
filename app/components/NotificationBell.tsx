@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useToast } from '@/hooks/use-toast'
 
 import { tenantPath } from '@/lib/tenant-path'
+import { supabaseClient } from '@/lib/supabase-client'
 
 type Notification = {
   id: string
@@ -17,9 +18,13 @@ type Notification = {
 
 export default function NotificationBell({
   tenantSlug,
+  tenantId,
+  userId,
   portalBase,
 }: {
   tenantSlug: string
+  tenantId: string
+  userId: string
   portalBase: 'admin' | 'pro'
 }) {
   const { toast } = useToast()
@@ -31,25 +36,54 @@ export default function NotificationBell({
 
   useEffect(() => {
     let cancelled = false
-    async function load() {
+
+    async function loadInitial() {
       try {
-        const res = await fetch('/api/notifications')
+        const res = await fetch('/api/notifications/stream', {
+          headers: { 'x-tenant-slug': tenantSlug },
+        })
+        if (!res.ok) return
         const data = await res.json()
-        if (!cancelled) setNotifs(data.notifications ?? [])
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Failed to load notifications'
-        toast({ variant: 'destructive', title: 'Error', description: msg })
-      }
+        if (!cancelled && data.notifications) {
+          setNotifs(data.notifications)
+        }
+      } catch (e) { }
     }
-    void load()
-    const interval = setInterval(() => {
-      void load()
-    }, 30000)
+
+    void loadInitial()
+console.log('[Client subscribing to]', `notifs:${tenantId}:${userId}`)
+    const channel = supabaseClient
+      .channel(`notifs:${tenantId}:${userId}`)
+      .on('broadcast', { event: 'new_notification' }, (payload) => {
+        const n = payload.payload as Notification
+        setNotifs((prev) => {
+          if (prev.some((p) => p.id === n.id)) return prev
+          return [n, ...prev]
+        })
+        toast({
+          title: n.title,
+          description: n.body,
+          action: n.leadId ? (
+            <button
+              onClick={() => {
+                window.location.href = tenantPath(tenantSlug, `/${portalBase}/leads/${n.leadId}`)
+              }}
+              className="text-xs font-medium underline"
+            >
+              View
+            </button>
+          ) : undefined,
+        })
+      })
+      .subscribe((status, err) => {
+        console.log('[Supabase Channel Status]', status, err)
+      })
+
     return () => {
       cancelled = true
-      clearInterval(interval)
+      supabaseClient.removeChannel(channel)
     }
-  }, [])
+  }, [tenantId, userId, tenantSlug, portalBase, toast])
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -61,35 +95,41 @@ export default function NotificationBell({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-    async function markAllRead() {
-      try {
-        await fetch('/api/notifications/read', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ notificationId: 'all' }),
-        })
-        setNotifs((prev) => prev.map((n) => ({ ...n, read: true })))
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Failed to mark all read'
-        toast({ variant: 'destructive', title: 'Error', description: msg })
-      }
+  async function markAllRead() {
+    try {
+      await fetch('/api/notifications/read', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-slug': tenantSlug,
+        },
+        body: JSON.stringify({ notificationId: 'all' }),
+      })
+      setNotifs((prev) => prev.map((n) => ({ ...n, read: true })))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to mark all read'
+      toast({ variant: 'destructive', title: 'Error', description: msg })
     }
+  }
 
-    async function markRead(id: string) {
-      try {
-        await fetch('/api/notifications/read', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ notificationId: id }),
-        })
-        setNotifs((prev) =>
-          prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-        )
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Failed to mark notification read'
-        toast({ variant: 'destructive', title: 'Error', description: msg })
-      }
+  async function markRead(id: string) {
+    try {
+      await fetch('/api/notifications/read', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-slug': tenantSlug,
+        },
+        body: JSON.stringify({ notificationId: id }),
+      })
+      setNotifs((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to mark notification read'
+      toast({ variant: 'destructive', title: 'Error', description: msg })
     }
+  }
 
   function formatTime(d: string) {
     const date = new Date(d)
@@ -167,9 +207,8 @@ export default function NotificationBell({
                       )
                     }
                   }}
-                  className={`flex cursor-pointer gap-3 border-b border-border/50 px-4 py-3 transition-colors hover:bg-accent ${
-                    !n.read ? 'bg-muted/40' : ''
-                  }`}
+                  className={`flex cursor-pointer gap-3 border-b border-border/50 px-4 py-3 transition-colors hover:bg-accent ${!n.read ? 'bg-muted/40' : ''
+                    }`}
                 >
                   <span className="text-base mt-0.5 shrink-0">
                     {TYPE_ICONS[n.type] ?? '🔔'}

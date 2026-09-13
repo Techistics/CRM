@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { leads, users, leadReminders, notifications } from '@/db/schema'
+import { broadcastNotification } from '@/lib/supabase-server'
 
 export async function POST(req: NextRequest) {
   // 1. Security Check
@@ -77,14 +78,16 @@ export async function POST(req: NextRequest) {
 
           // 2. Create In-App Notification if lead is assigned
           if (lead.agentId) {
-            await db.insert(notifications).values({
+            const [newNotification] = await db.insert(notifications).values({
               tenantId: lead.tenantId,
               userId: lead.agentId,
               title: 'Stale Lead Follow-up',
               body: `Lead "${lead.fullName}" has been in Follow Up for ${daysSince} days without activity.`,
               type: 'stale_lead',
               leadId: lead.leadId,
-            })
+            }).returning()
+
+            await broadcastNotification(`notifs:${lead.tenantId}:${lead.agentId}`, newNotification)
             notificationsSent++
           }
         } catch (err) {

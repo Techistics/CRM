@@ -14,9 +14,13 @@ import { UserMenu } from '@/components/shared/UserMenu'
 export function AdminHeader({ 
   user,
   tenantSlug,
+  tenantId,
+  userId,
 }: { 
   user: { name: string, email: string }
   tenantSlug: string
+  tenantId: string
+  userId: string
 }) {
   const { toggle } = useSidebar()
   const pathname = usePathname()
@@ -58,7 +62,7 @@ export function AdminHeader({
           <div className="flex items-center gap-2">
             <div className="hidden h-4 w-px bg-consulty-border-subtle dark:bg-consulty-border sm:block" />
             <ThemeToggle />
-            <NotificationBell tenantSlug={tenantSlug} portalBase="admin" />
+            <NotificationBell tenantSlug={tenantSlug} tenantId={tenantId} userId={userId} portalBase="admin" />
             <UserMenu user={user} role="ADMIN" tenantSlug={tenantSlug} />
           </div>
         </div>

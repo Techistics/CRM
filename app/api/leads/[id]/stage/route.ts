@@ -83,7 +83,8 @@ export async function PATCH(
       lead.primaryStage,
       primaryStage,
       pipeline.stages,
-      parsed.data.deadReason
+      parsed.data.deadReason,
+      ctx.role === 'ADMIN'
     )
     if (!validation.valid) {
       return errorResponse(validation.error!, 'INVALID_TRANSITION', 400)

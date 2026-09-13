@@ -86,6 +86,10 @@ export type PendingFilters = {
   leadIntakeYear: string | null
   revIntakeMonth: string | null
   revIntakeYear: string | null
+  createdFrom: string | null
+  createdTo: string | null
+  /** Filter by CSV import batch ID */
+  csvImportId: string | null
 }
 
 export type FilterSheetProps = {

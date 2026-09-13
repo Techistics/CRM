@@ -24,6 +24,7 @@ import {
   normalizeFieldValues,
   validateFieldValues,
 } from '@/lib/pipeline/sub-status-fields'
+import { broadcastNotification } from '@/lib/supabase-server'
 
 export async function GET(
 _req: NextRequest,
@@ -255,14 +256,16 @@ return withApiErrorHandling(async () => {
     recipients.delete(ctx.dbUserId)
 
     for (const userId of recipients) {
-      await db.insert(notifications).values({
+      const [newNotification] = await db.insert(notifications).values({
         tenantId: ctx.tenant.id,
         userId,
         title: 'Lead marked as dead',
         body: `${lead.fullName} has been marked as dead`,
         type: 'stage_changed',
         leadId: id,
-      })
+      }).returning()
+
+      await broadcastNotification(`notifs:${ctx.tenant.id}:${userId}`, newNotification)
     }
   }
 

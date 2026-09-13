@@ -4,7 +4,7 @@ export const applicationUpsertBodySchema = z
   .object({
     universityName: z.string().trim().min(1, 'University name is required').max(500),
     courseName: z.string().trim().min(1, 'Course name is required').max(500),
-    source: z.enum(['direct_uni', 'partner_portal']),
+    source: z.enum(['direct_uni', 'partner_portal', 'other']),
     partnerPortalName: z.string().trim().max(500).optional().nullable(),
     applicationStatus: z.enum(['tag', 'new_application', 'intake']),
     intakeMonth: z.number().int().min(1).max(12).optional().nullable(),

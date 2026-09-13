@@ -65,6 +65,24 @@ export async function GET(request: Request) {
 
     const punchInToday = timesheetToday?.punchIn ?? null
 
+    // 1b. All punch records in the selected date range
+    const punchRecordsConditions = [
+      eq(tenantTimesheets.tenantId, tenant.id),
+      eq(tenantTimesheets.userId, targetUserId),
+      ...(timesheetStartDateStr ? [gte(tenantTimesheets.date, timesheetStartDateStr)] : []),
+      ...(timesheetEndDateStr ? [lte(tenantTimesheets.date, timesheetEndDateStr)] : []),
+    ]
+    const punchRecords = await db
+      .select({
+        date: tenantTimesheets.date,
+        punchIn: tenantTimesheets.punchIn,
+        punchOut: tenantTimesheets.punchOut,
+        totalMinutes: tenantTimesheets.totalMinutes,
+      })
+      .from(tenantTimesheets)
+      .where(and(...punchRecordsConditions))
+      .orderBy(tenantTimesheets.date, tenantTimesheets.punchIn)
+
     // 2. Total Hours in Range
     const timesheetSumConditions = [
       eq(tenantTimesheets.tenantId, tenant.id),
@@ -251,6 +269,7 @@ export async function GET(request: Request) {
     const payload = {
       punchInToday,
       totalHours,
+      punchRecords,
       leads: {
         touchedToday,
         cold: coldLeads,

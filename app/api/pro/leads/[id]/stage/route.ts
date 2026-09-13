@@ -10,6 +10,7 @@ import { toMemberScope } from '@/lib/member-scope'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 import { validateStageTransition } from '@/lib/lead-stage-validation'
+import { broadcastNotification } from '@/lib/supabase-server'
 
 const bodySchema = z.union([
   z.object({ 
@@ -82,7 +83,8 @@ export async function PATCH(
       lead.primaryStage, 
       primaryStage, 
       pipeline.stages, 
-      parsed.data.deadReason
+      parsed.data.deadReason,
+      ctx.role === 'ADMIN' // Only admins can move backwards
     )
     if (!validation.valid) {
       return errorResponse(validation.error!, 'INVALID_TRANSITION', 400)
@@ -146,14 +148,16 @@ export async function PATCH(
     recipients.delete(ctx.dbUserId)
 
     for (const userId of recipients) {
-      await db.insert(notifications).values({
+      const [newNotification] = await db.insert(notifications).values({
         tenantId: ctx.tenant.id,
         userId,
         title: 'Stage updated',
         body: `${lead.fullName} moved to ${primaryStage}`,
         type: 'stage_changed',
         leadId: id,
-      })
+      }).returning()
+
+      await broadcastNotification(`notifs:${ctx.tenant.id}:${userId}`, newNotification)
     }
 
     return successResponse({ ok: true })

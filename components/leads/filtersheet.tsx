@@ -43,6 +43,8 @@ export function FilterSheet({
   const [isOpen, setIsOpen] = useState(false)
   const [subStatuses, setSubStatuses] = useState<SubStatusRow[]>([])
   const [subStatusesLoading, setSubStatusesLoading] = useState(false)
+  const [importBatches, setImportBatches] = useState<{ id: string; fileName: string | null; createdAt: string | null }[]>([])
+  const [batchesLoading, setBatchesLoading] = useState(false)
 
   const buildInitialFilters = useCallback((): PendingFilters => ({
     tags: searchParams.get('tags') ? searchParams.get('tags')!.split(',') : [],
@@ -62,12 +64,34 @@ export function FilterSheet({
     leadIntakeYear: searchParams.get('leadIntakeYear'),
     revIntakeMonth: searchParams.get('revIntakeMonth'),
     revIntakeYear: searchParams.get('revIntakeYear'),
+    createdFrom: searchParams.get('createdFrom'),
+    createdTo: searchParams.get('createdTo'),
+    csvImportId: searchParams.get('csvImportId'),
   }), [searchParams, heatFilter])
 
   const [pendingFilters, setPendingFilters] = useState<PendingFilters>(buildInitialFilters)
 
   useEffect(() => {
-    if (isOpen) setPendingFilters(buildInitialFilters())
+    if (isOpen) {
+      setPendingFilters(buildInitialFilters())
+      // Fetch import batches lazily when sheet opens
+      if (importBatches.length === 0 && !batchesLoading) {
+        setBatchesLoading(true)
+        fetch('/api/leads/import/batches')
+          .then((r) => r.json())
+          .then((data) => {
+            setImportBatches(
+              (data?.data?.batches ?? []).map((b: { id: string; fileName: string | null; createdAt: string | null }) => ({
+                id: b.id,
+                fileName: b.fileName,
+                createdAt: b.createdAt,
+              }))
+            )
+          })
+          .catch(() => {})
+          .finally(() => setBatchesLoading(false))
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
@@ -135,6 +159,9 @@ export function FilterSheet({
     setOrDelete('leadIntakeYear', pendingFilters.leadIntakeYear)
     setOrDelete('revIntakeMonth', pendingFilters.revIntakeMonth)
     setOrDelete('revIntakeYear', pendingFilters.revIntakeYear)
+    setOrDelete('createdFrom', pendingFilters.createdFrom)
+    setOrDelete('createdTo', pendingFilters.createdTo)
+    setOrDelete('csvImportId', pendingFilters.csvImportId && pendingFilters.csvImportId !== 'all' ? pendingFilters.csvImportId : null)
 
     sp.delete('page')
     onHeatFilterChange(pendingFilters.heat ?? 'all')
@@ -346,6 +373,31 @@ export function FilterSheet({
                 onYearChange={(v) => patch({ appIntakeYear: v })}
               />
             </div>
+
+            {/* Created Date Range */}
+            <div className="space-y-1.5">
+              <Label className={FIELD_LABEL_CLASS}>Lead Created Date</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wide">From</span>
+                  <input
+                    type="date"
+                    value={pendingFilters.createdFrom ?? ''}
+                    onChange={(e) => patch({ createdFrom: e.target.value || null })}
+                    className={FIELD_INPUT_CLASS}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wide">To</span>
+                  <input
+                    type="date"
+                    value={pendingFilters.createdTo ?? ''}
+                    onChange={(e) => patch({ createdTo: e.target.value || null })}
+                    className={FIELD_INPUT_CLASS}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           <hr className="border-slate-100 dark:border-slate-800/80" />
@@ -385,6 +437,7 @@ export function FilterSheet({
                   <SelectItem value="all">Any Source</SelectItem>
                   <SelectItem value="direct_uni">Direct University</SelectItem>
                   <SelectItem value="partner_portal">Partner Portal</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -410,6 +463,37 @@ export function FilterSheet({
               <TagFilter value={pendingFilters.tags} onChange={(tags) => patch({ tags })} />
             </div>
           </div>
+
+          <hr className="border-slate-100 dark:border-slate-800/80" />
+
+          {/* Import Batch */}
+          <div className="space-y-3.5">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Import Batch</p>
+            <div className="space-y-1.5">
+              <Label className={FIELD_LABEL_CLASS}>Imported From</Label>
+              <Select
+                value={pendingFilters.csvImportId ?? 'all'}
+                onValueChange={(val) => patch({ csvImportId: val === 'all' ? null : val })}
+                disabled={batchesLoading}
+              >
+                <SelectTrigger className={FIELD_TRIGGER_CLASS}>
+                  <SelectValue placeholder={batchesLoading ? 'Loading…' : 'Any Import'} />
+                </SelectTrigger>
+                <SelectContent className={DROPDOWN_SCROLL_CLASS}>
+                  <SelectItem value="all">Any Import</SelectItem>
+                  {importBatches.map((batch) => (
+                    <SelectItem key={batch.id} value={batch.id}>
+                      {batch.fileName ?? 'Import'}
+                      {batch.createdAt ? ` · ${new Date(batch.createdAt).toLocaleDateString()}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!batchesLoading && importBatches.length === 0 && (
+                <p className="text-[11px] text-slate-400">No import batches found.</p>
+              )}
+            </div>
+          </div>
         </div>
 
         <SheetFooter className="p-4 border-t border-slate-100 dark:border-slate-800 shrink-0 flex-row gap-3 sm:space-x-0 bg-slate-50/80 dark:bg-slate-900/80">
@@ -427,4 +511,4 @@ export function FilterSheet({
       </SheetContent>
     </Sheet>
   )
-}
+}

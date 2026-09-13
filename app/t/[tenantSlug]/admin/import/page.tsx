@@ -19,7 +19,54 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { ImportBatchHistory } from '@/components/leads/ImportBatchHistory'
 
-type ImportState = 'idle' | 'parsing' | 'preview' | 'confirming' | 'done'
+type ImportState = 'idle' | 'parsing' | 'mapping' | 'preview' | 'confirming' | 'done'
+
+const CANONICAL_FIELDS = [
+  { value: 'ignore', label: '-- Ignore this column --' },
+  { value: 'fullName', label: 'Full Name (Required)' },
+  { value: 'contactNumber', label: 'Contact Number' },
+  { value: 'email', label: 'Email Address' },
+  { value: 'city', label: 'City' },
+  { value: 'country', label: 'Country' },
+  { value: 'stage', label: 'Stage' },
+  { value: 'source', label: 'Source' },
+  { value: 'notes', label: 'Notes (Qualification)' },
+  { value: 'intakeMonth', label: 'Intake Month' },
+  { value: 'destinationCountry', label: 'Destination Country' },
+  { value: 'programOfInterest', label: 'Program of Interest' },
+]
+
+const AUTO_MAP: Record<string, string> = {
+  'full name': 'fullName',
+  fullname: 'fullName',
+  name: 'fullName',
+  contact: 'contactNumber',
+  phone: 'contactNumber',
+  contactnumber: 'contactNumber',
+  contact_number: 'contactNumber',
+  email: 'email',
+  city: 'city',
+  country: 'country',
+  stage: 'stage',
+  source: 'source',
+  notes: 'notes',
+  intake: 'intakeMonth',
+  'intake month': 'intakeMonth',
+  intake_month: 'intakeMonth',
+  intakemonth: 'intakeMonth',
+  destination: 'destinationCountry',
+  'destination country': 'destinationCountry',
+  destination_country: 'destinationCountry',
+  'study destination': 'destinationCountry',
+  study_destination: 'destinationCountry',
+  destinationcountry: 'destinationCountry',
+  program: 'programOfInterest',
+  programme: 'programOfInterest',
+  'program of interest': 'programOfInterest',
+  program_of_interest: 'programOfInterest',
+  'programme of interest': 'programOfInterest',
+  programofinterest: 'programOfInterest',
+}
 
 type Agent = {
   userId: string
@@ -87,6 +134,11 @@ export default function ImportPage({
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [expectedOpen, setExpectedOpen] = useState(false)
+  
+  const [headers, setHeaders] = useState<string[]>([])
+  const [sampleData, setSampleData] = useState<Record<string, unknown>[]>([])
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
+  
   const inputRef = useRef<HTMLInputElement>(null)
 
   const totalAssigned = useMemo(
@@ -154,7 +206,55 @@ export default function ImportPage({
     setAgentCounts(Object.fromEntries(agents.map((a) => [a.userId, 0])))
   }
 
-  async function handleParse() {
+  async function handleExtractHeaders() {
+    if (!file) return
+    setState('parsing')
+    setError(null)
+    setParseResult(null)
+    setConfirmResult(null)
+
+    try {
+      const base64 = await readAsBase64(file)
+      const payload = {
+        action: 'extract_headers',
+        fileData: base64,
+        fileName: file.name,
+        tenantSlug,
+      }
+      const res = await fetch('/api/leads/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error ?? 'Extract headers failed')
+        toast({ variant: 'destructive', title: 'Extract Failed', description: data.error ?? 'Invalid file data.' })
+        setState('idle')
+      } else {
+        const extractedHeaders = data.data.headers as string[]
+        const sample = data.data.sample as Record<string, unknown>[]
+        
+        setHeaders(extractedHeaders)
+        setSampleData(sample)
+        
+        const initialMap: Record<string, string> = {}
+        extractedHeaders.forEach((h) => {
+          const normalized = h.toLowerCase().trim().replace(/\s+/g, ' ')
+          initialMap[h] = AUTO_MAP[normalized] || 'ignore'
+        })
+        setColumnMapping(initialMap)
+        setState('mapping')
+      }
+    } catch {
+      setError('Something went wrong. Try again.')
+      toast({ variant: 'destructive', title: 'Network Error', description: 'Could not connect to server.' })
+      setState('idle')
+    }
+  }
+
+  async function handleConfirmMapping() {
     if (!file) return
     setState('parsing')
     setError(null)
@@ -168,6 +268,7 @@ export default function ImportPage({
         fileData: base64,
         fileName: file.name,
         tenantSlug,
+        mapping: columnMapping
       }
       const parseRes = await fetch('/api/leads/import', {
         method: 'POST',
@@ -179,6 +280,7 @@ export default function ImportPage({
       if (!parseRes.ok) {
         setError(data.error ?? 'Import failed')
         toast({ variant: 'destructive', title: 'Import Failed', description: data.error ?? 'Invalid file data.' })
+        setState('mapping')
       } else {
         setParseResult(data.data)
         setState('preview')
@@ -187,9 +289,7 @@ export default function ImportPage({
     } catch {
       setError('Something went wrong. Try again.')
       toast({ variant: 'destructive', title: 'Network Error', description: 'Could not connect to server.' })
-      setState('idle')
-    } finally {
-      setState((current) => (current === 'parsing' ? 'idle' : current))
+      setState('mapping')
     }
   }
 
@@ -278,7 +378,7 @@ export default function ImportPage({
               }}
             />
           </Card>
-          <Button onClick={handleParse} disabled={!file}>Parse File</Button>
+          <Button onClick={handleExtractHeaders} disabled={!file}>Parse File</Button>
 
           <Collapsible open={expectedOpen} onOpenChange={setExpectedOpen}>
             <CollapsibleTrigger className="flex items-center text-sm font-medium">
@@ -316,6 +416,69 @@ export default function ImportPage({
         <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span>Parsing your file...</span>
+        </div>
+      )}
+
+      {state === 'mapping' && (
+        <div className="space-y-6">
+          <Card className="p-4 space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-[#223955] dark:text-white">Map Columns</h2>
+              <p className="text-sm text-muted-foreground">
+                We've extracted the headers from your file. Please map them to the corresponding fields in the system.
+              </p>
+            </div>
+            
+            <div className="rounded-md border overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 border-b">
+                  <tr>
+                    <th className="p-3 text-left font-medium w-1/3">Column from File</th>
+                    <th className="p-3 text-left font-medium w-1/3">System Field</th>
+                    <th className="p-3 text-left font-medium w-1/3">Sample Data</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {headers.map((header) => (
+                    <tr key={header} className="border-b last:border-b-0">
+                      <td className="p-3 font-medium">{header}</td>
+                      <td className="p-3">
+                        <select
+                          className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          value={columnMapping[header] ?? 'ignore'}
+                          onChange={(e) => setColumnMapping({ ...columnMapping, [header]: e.target.value })}
+                        >
+                          {CANONICAL_FIELDS.map((field) => (
+                            <option key={field.value} value={field.value}>{field.label}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="p-3 text-muted-foreground truncate max-w-[200px]" title={String(sampleData[0]?.[header] ?? '')}>
+                        {String(sampleData[0]?.[header] ?? '—')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="flex flex-col items-end gap-2 pt-4 border-t">
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => { setState('idle'); setFile(null); }}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleConfirmMapping} 
+                  disabled={!Object.values(columnMapping).includes('fullName')}
+                >
+                  Confirm Mapping & Preview
+                </Button>
+              </div>
+              {!Object.values(columnMapping).includes('fullName') && (
+                <p className="text-sm text-red-600 font-medium">You must map at least one column to 'Full Name'.</p>
+              )}
+            </div>
+          </Card>
         </div>
       )}
 

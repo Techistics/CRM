@@ -18,12 +18,16 @@ export const EMPTY_FILTERS: PendingFilters = {
   leadIntakeYear: null,
   revIntakeMonth: null,
   revIntakeYear: null,
+  createdFrom: null,
+  createdTo: null,
+  csvImportId: null,
 }
 
 export const FILTER_URL_KEYS = [
   'stage', 'subStatusType', 'subStatusId', 'closedAction', 'assignedTo', 'tags', 'page',
   'appUniversityName', 'appCourseName', 'appSource', 'appStatus', 'appIntakeMonth', 'appIntakeYear',
   'leadIntakeMonth', 'leadIntakeYear', 'revIntakeMonth', 'revIntakeYear',
+  'createdFrom', 'createdTo', 'csvImportId',
 ] as const
 
 export const FILTER_FIELD_CLASSES = {

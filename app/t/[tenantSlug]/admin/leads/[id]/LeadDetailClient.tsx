@@ -109,6 +109,8 @@ export default function LeadDetailClient({
     country: lead.country ?? DEFAULT_LEAD_COUNTRY,
     lastQualification: lead.lastQualification ?? '',
     grades: lead.grades ?? '',
+    tuitionBudget: lead.tuitionBudget ?? '',
+    englishTest: lead.englishTest ?? '',
     intakeMonth: lead.intakeMonth ? String(lead.intakeMonth) : '',
     intakeYear: lead.intakeYear ? String(lead.intakeYear) : '',
     destinationCountry: lead.destinationCountry ?? '',
@@ -506,6 +508,8 @@ export default function LeadDetailClient({
                     { label: 'Country', value: lead.country },
                     { label: 'Qualification', value: lead.lastQualification },
                     { label: 'Grades', value: lead.grades },
+                    { label: 'Tuition Budget', value: lead.tuitionBudget },
+                    { label: 'English Test', value: lead.englishTest },
                     { label: 'Source', value: lead.source },
                     {
                       label: 'Deal Value',
@@ -541,6 +545,8 @@ export default function LeadDetailClient({
                       ['country', 'Country'],
                       ['lastQualification', 'Qualification'],
                       ['grades', 'Grades'],
+                      ['tuitionBudget', 'Tuition Budget'],
+                      ['englishTest', 'English Test'],
                       ['destinationCountry', 'Study Destination'],
                       ['programOfInterest', 'Program of Interest'],
                     ] as const

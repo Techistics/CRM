@@ -151,6 +151,8 @@ export const leads = pgTable('leads', {
   country: text('country').default('Pakistan'),
   lastQualification: text('last_qualification'),
   grades: text('grades'),
+  tuitionBudget: text('tuition_budget'),
+  englishTest: text('english_test'),
   source: text('source').default('csv_import'),
   rawData: jsonb('raw_data'),
 

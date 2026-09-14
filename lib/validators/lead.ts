@@ -13,6 +13,8 @@ export const leadCreateBodySchema = z.object({
   country: z.string().trim().max(120).optional().nullable(),
   lastQualification: z.string().trim().max(500).optional().nullable(),
   grades: z.string().trim().max(200).optional().nullable(),
+  tuitionBudget: z.string().trim().max(500).optional().nullable(),
+  englishTest: z.string().trim().max(500).optional().nullable(),
   /* NEW – intake as structured month (1–12) + year integers */
   intakeMonth: z.number().int().min(1).max(12).optional().nullable(),
   intakeYear: z.number().int().min(2000).max(2100).optional().nullable(),
@@ -35,6 +37,8 @@ export const leadPatchBodySchema = z
     country: z.string().trim().max(120).optional().nullable(),
     lastQualification: z.string().trim().max(500).optional().nullable(),
     grades: z.string().trim().max(200).optional().nullable(),
+    tuitionBudget: z.string().trim().max(500).optional().nullable(),
+    englishTest: z.string().trim().max(500).optional().nullable(),
     intakeMonth: z.number().int().min(1).max(12).optional().nullable(),
     intakeYear: z.number().int().min(2000).max(2100).optional().nullable(),
     destinationCountry: z.string().trim().max(120).optional().nullable(),

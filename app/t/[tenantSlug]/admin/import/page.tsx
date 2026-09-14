@@ -18,8 +18,10 @@ import {
 } from '@/components/ui/collapsible'
 import { Badge } from '@/components/ui/badge'
 import { ImportBatchHistory } from '@/components/leads/ImportBatchHistory'
+import { ImportColumnMapper } from '@/components/leads/ImportColumnMapper'
+import type { ImportFieldKey } from '@/lib/leads/import-fields'
 
-type ImportState = 'idle' | 'parsing' | 'preview' | 'confirming' | 'done'
+type ImportState = 'idle' | 'mapping' | 'parsing' | 'preview' | 'confirming' | 'done'
 
 type Agent = {
   userId: string
@@ -55,8 +57,16 @@ type ParseResponse = {
     stage: string
     source?: string | null
     dealValue?: number | null
-    notes?: string | null
+    activityNote?: string | null
   }>
+}
+
+type DetectResponse = {
+  fileName: string
+  headers: string[]
+  totalRows: number
+  suggestedMapping: Record<string, ImportFieldKey>
+  pipelineStages: Array<{ key: string; label: string }>
 }
 
 type ConfirmResponse = {
@@ -87,7 +97,15 @@ export default function ImportPage({
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [expectedOpen, setExpectedOpen] = useState(false)
+  const [detectResult, setDetectResult] = useState<DetectResponse | null>(null)
+  const [columnMapping, setColumnMapping] = useState<Record<string, ImportFieldKey>>({})
+  const [fileDataBase64, setFileDataBase64] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const hasFullNameMapping = useMemo(
+    () => Object.values(columnMapping).includes('fullName'),
+    [columnMapping],
+  )
 
   const totalAssigned = useMemo(
     () => Object.values(agentCounts).reduce((sum, c) => sum + (c || 0), 0),
@@ -130,8 +148,15 @@ export default function ImportPage({
     setFile(f)
     setParseResult(null)
     setConfirmResult(null)
+    setDetectResult(null)
+    setColumnMapping({})
+    setFileDataBase64(null)
     setState('idle')
     setError(null)
+  }
+
+  function setMappingForHeader(header: string, fieldKey: ImportFieldKey) {
+    setColumnMapping((prev) => ({ ...prev, [header]: fieldKey }))
   }
 
   function setAgentCount(agentId: string, value: string) {
@@ -154,31 +179,74 @@ export default function ImportPage({
     setAgentCounts(Object.fromEntries(agents.map((a) => [a.userId, 0])))
   }
 
-  async function handleParse() {
+  async function handleDetect() {
     if (!file) return
+    setState('parsing')
+    setError(null)
+    setDetectResult(null)
+    setParseResult(null)
+    setConfirmResult(null)
+
+    try {
+      const base64 = await readAsBase64(file)
+      setFileDataBase64(base64)
+      const detectRes = await fetch('/api/leads/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'detect',
+          fileData: base64,
+          fileName: file.name,
+          tenantSlug,
+        }),
+      })
+      const data = await detectRes.json()
+
+      if (!detectRes.ok) {
+        setError(data.error ?? 'Import failed')
+        toast({ variant: 'destructive', title: 'Import Failed', description: data.error ?? 'Invalid file data.' })
+        setState('idle')
+      } else {
+        setDetectResult(data.data)
+        setColumnMapping(data.data.suggestedMapping ?? {})
+        setState('mapping')
+      }
+    } catch {
+      setError('Something went wrong. Try again.')
+      toast({ variant: 'destructive', title: 'Network Error', description: 'Could not connect to server.' })
+      setState('idle')
+    }
+  }
+
+  async function handleParse() {
+    if (!file || !fileDataBase64) return
+    if (!hasFullNameMapping) {
+      toast({ variant: 'destructive', title: 'Mapping required', description: 'Map at least one CSV column to Full Name.' })
+      return
+    }
     setState('parsing')
     setError(null)
     setParseResult(null)
     setConfirmResult(null)
 
     try {
-      const base64 = await readAsBase64(file)
-      const payload = {
-        action: 'parse',
-        fileData: base64,
-        fileName: file.name,
-        tenantSlug,
-      }
       const parseRes = await fetch('/api/leads/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          action: 'parse',
+          fileData: fileDataBase64,
+          fileName: file.name,
+          tenantSlug,
+          columnMapping,
+        }),
       })
       const data = await parseRes.json()
 
       if (!parseRes.ok) {
         setError(data.error ?? 'Import failed')
         toast({ variant: 'destructive', title: 'Import Failed', description: data.error ?? 'Invalid file data.' })
+        setState('mapping')
       } else {
         setParseResult(data.data)
         setState('preview')
@@ -187,9 +255,7 @@ export default function ImportPage({
     } catch {
       setError('Something went wrong. Try again.')
       toast({ variant: 'destructive', title: 'Network Error', description: 'Could not connect to server.' })
-      setState('idle')
-    } finally {
-      setState((current) => (current === 'parsing' ? 'idle' : current))
+      setState('mapping')
     }
   }
 
@@ -278,38 +344,50 @@ export default function ImportPage({
               }}
             />
           </Card>
-          <Button onClick={handleParse} disabled={!file}>Parse File</Button>
+          <Button onClick={handleDetect} disabled={!file}>Map Columns</Button>
 
           <Collapsible open={expectedOpen} onOpenChange={setExpectedOpen}>
             <CollapsibleTrigger className="flex items-center text-sm font-medium">
-              Expected format <ChevronDown className="h-4 w-4 ml-1" />
+              How column mapping works <ChevronDown className="h-4 w-4 ml-1" />
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2">
-              <div className="rounded-md border text-sm">
-                <div className="grid grid-cols-2 border-b p-2 font-medium">
-                  <span>Field</span>
-                  <span>Accepted columns</span>
-                </div>
-                {[
-                  ['fullName (required)', 'full name, fullname, name'],
-                  ['contactNumber', 'contact, phone, contactnumber, contact_number'],
-                  ['email', 'email'],
-                  ['intake (optional)', 'intake, intake month, intake_month, intakemonth'],
-                  ['stage (optional)', 'stage — uses first pipeline stage if blank'],
-                  ['city', 'city'],
-                  ['country', 'country'],
-                  ['source', 'source'],
-                  ['notes', 'notes → stored as qualification'],
-                ].map(([field, aliases]) => (
-                  <div key={field} className="grid grid-cols-2 p-2 border-b last:border-b-0">
-                    <span>{field}</span>
-                    <span className="text-muted-foreground">{aliases}</span>
-                  </div>
-                ))}
-              </div>
+              <p className="text-sm text-muted-foreground">
+                After upload, match each CSV column to a CRM field. Unmatched columns can be mapped to
+                {' '}<strong>Notes (Activity Log)</strong> so the data appears on the lead activity timeline.
+                Only <strong>Full Name</strong> is required.
+              </p>
             </CollapsibleContent>
           </Collapsible>
         </>
+      )}
+
+      {state === 'mapping' && detectResult && (
+        <div className="space-y-4">
+          <Card className="p-4 space-y-3">
+            <div>
+              <p className="font-medium">Map CSV columns to CRM fields</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {detectResult.totalRows} rows · {detectResult.headers.length} columns in {detectResult.fileName}
+              </p>
+            </div>
+            <ImportColumnMapper
+              headers={detectResult.headers}
+              mapping={columnMapping}
+              onMappingChange={setMappingForHeader}
+            />
+            {!hasFullNameMapping && (
+              <p className="text-sm text-red-600">Map at least one column to Full Name before continuing.</p>
+            )}
+          </Card>
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" onClick={() => { setState('idle'); setDetectResult(null) }}>
+              Back
+            </Button>
+            <Button onClick={handleParse} disabled={!hasFullNameMapping}>
+              Parse &amp; Preview
+            </Button>
+          </div>
+        </div>
       )}
 
       {state === 'parsing' && (
@@ -419,7 +497,10 @@ export default function ImportPage({
           )}
 
           <div className="flex items-center justify-end gap-2">
-            <Button variant="outline" onClick={() => { setState('idle'); setFile(null); setParseResult(null) }}>
+            <Button variant="outline" onClick={() => { setState('mapping'); setParseResult(null) }}>
+              Back to Mapping
+            </Button>
+            <Button variant="outline" onClick={() => { setState('idle'); setFile(null); setParseResult(null); setDetectResult(null) }}>
               Cancel Import
             </Button>
             <Button onClick={handleConfirm} disabled={countMismatch}>

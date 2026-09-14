@@ -178,6 +178,14 @@ return withApiErrorHandling(async () => {
         ? strOrNull(patch.lastQualification)
         : lead.lastQualification,
     grades: patch.grades !== undefined ? strOrNull(patch.grades) : lead.grades,
+    tuitionBudget:
+      patch.tuitionBudget !== undefined
+        ? strOrNull(patch.tuitionBudget)
+        : lead.tuitionBudget,
+    englishTest:
+      patch.englishTest !== undefined
+        ? strOrNull(patch.englishTest)
+        : lead.englishTest,
     /* NEW – intake & destination fields */
     intakeMonth:
       patch.intakeMonth !== undefined
@@ -275,6 +283,8 @@ return withApiErrorHandling(async () => {
   if (patch.country !== undefined) changed.push('country')
   if (patch.lastQualification !== undefined) changed.push('qualification')
   if (patch.grades !== undefined) changed.push('grades')
+  if (patch.tuitionBudget !== undefined) changed.push('tuition budget')
+  if (patch.englishTest !== undefined) changed.push('english test')
     if (patch.intakeMonth !== undefined) changed.push('intake month')
     if (patch.destinationCountry !== undefined) changed.push('destination country')
     if (patch.programOfInterest !== undefined) changed.push('program of interest')

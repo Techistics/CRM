@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { requireTenantSession } from '@/lib/tenant-server'
 import { tenantPath } from '@/lib/tenant-path'
 import { getStageInfo, PIPELINE_STAGES } from '@/constants/pipeline-stages'
+import { getTenantPipeline } from '@/lib/pipeline/config'
 import {
   Users,
   Activity,
@@ -188,6 +189,8 @@ export default async function ProOverviewPage() {
   ]
 
   // ── Pipeline donut segments ───────────────────────────────────────────────
+  const pipeline = await getTenantPipeline(tenant.id)
+
   const stageCounts = new Map<string, number>()
   for (const l of myLeads) {
     const st = l.stage || 'new_lead'
@@ -196,35 +199,36 @@ export default async function ProOverviewPage() {
 
   const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0)
 
-  const knownKeys = new Set<string>(PIPELINE_STAGES.map((s) => s.value))
+  const chartColorForStage = (key: string) =>
+    PIPELINE_STAGES.find((s) => s.value === key)?.chartColor ?? '#6b7280'
 
-  const donutSegments: DonutSegment[] = PIPELINE_STAGES
-    .map((s) => {
-      const c = stageCounts.get(s.value) || 0
+  const FALLBACK_COLORS = ['#ec4899', '#8b5cf6', '#06b6d4', '#f59e0b', '#10b981']
+
+  const configuredStages =
+    pipeline.stages.length > 0
+      ? pipeline.stages
+      : PIPELINE_STAGES.map((s) => ({ key: s.value, label: s.label, sortOrder: 0, meta: null }))
+
+  const stageLabelByKey = new Map(configuredStages.map((s) => [s.key, s.label]))
+
+  const donutSegments: DonutSegment[] = configuredStages
+    .map((s, i) => {
+      const c = stageCounts.get(s.key) || 0
+      const defaultColor = chartColorForStage(s.key)
       return {
-        key: s.value,
+        key: s.key,
         label: s.label,
         count: c,
         pct: pct(c),
-        color: s.chartColor,
+        color: defaultColor !== '#6b7280' ? defaultColor : FALLBACK_COLORS[i % FALLBACK_COLORS.length],
       }
     })
-    .filter((seg) => seg.count > 0 || (['new_lead', 'follow_up', 'paid', 'cancelled'] as string[]).includes(seg.key))
-
-  const FALLBACK_COLORS = ['#ec4899', '#8b5cf6', '#06b6d4', '#f59e0b', '#10b981']
-  let fallbackIdx = 0
-  for (const [stKey, cnt] of stageCounts.entries()) {
-    if (!knownKeys.has(stKey) && cnt > 0) {
-      donutSegments.push({
-        key: stKey,
-        label: stKey.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-        count: cnt,
-        pct: pct(cnt),
-        color: FALLBACK_COLORS[fallbackIdx % FALLBACK_COLORS.length],
-      })
-      fallbackIdx++
-    }
-  }
+    .filter(
+      (seg) =>
+        seg.count > 0 ||
+        (pipeline.stages.length === 0 &&
+          (['new_lead', 'follow_up', 'paid', 'cancelled'] as string[]).includes(seg.key)),
+    )
 
   // ── Performance metrics ───────────────────────────────────────────────────
   const conversionRate = total > 0 ? Math.round((wonLeads.length / total) * 100) : 0
@@ -459,6 +463,7 @@ export default async function ProOverviewPage() {
                 <tbody>
                   {recentLeads.map((lead, idx) => {
                     const stageInfo = getStageInfo(lead.stage)
+                    const stageLabel = stageLabelByKey.get(lead.stage ?? '') ?? stageInfo.label
                     const avatarInitials = initials(lead.fullName)
                     return (
                       <tr
@@ -500,7 +505,7 @@ export default async function ProOverviewPage() {
                         {/* Stage badge */}
                         <td className="px-3.5 py-2">
                           <ProStageBadge
-                            label={stageInfo.label}
+                            label={stageLabel}
                             badgeClasses={stageInfo.badgeClasses}
                             mutedClasses={stageInfo.mutedClasses}
                           />

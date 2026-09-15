@@ -208,17 +208,6 @@ return withApiErrorHandling(async () => {
         ? patch.dealValue?.toString() ?? null
         : lead.dealValue,
     dealCurrency: patch.dealCurrency ?? lead.dealCurrency,
-    // NEW – dead‑status fields
-    isDeadManual:
-      patch.isDeadManual !== undefined
-        ? Boolean(patch.isDeadManual)
-        : lead.isDeadManual,
-    deadReason:
-      patch.isDeadManual === false
-        ? null
-        : patch.deadReason !== undefined
-          ? (patch.deadReason === '' ? null : String(patch.deadReason).trim())
-          : lead.deadReason,
     updatedAt: new Date(),
     subStatusId: patch.subStatusId !== undefined ? patch.subStatusId : lead.subStatusId,
     closedAction: patch.closedAction !== undefined ? strOrNull(patch.closedAction) : lead.closedAction,
@@ -248,31 +237,7 @@ return withApiErrorHandling(async () => {
     .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenant.id)))
     .returning()
 
-  if (patch.isDeadManual === true) {
-    const adminMembers = await db
-      .select({ userId: tenantMembers.userId })
-      .from(tenantMembers)
-      .where(and(
-        eq(tenantMembers.tenantId, ctx.tenant.id),
-        eq(tenantMembers.role, 'ADMIN'),
-        isNull(tenantMembers.deletedAt)
-      ))
 
-    const recipients = new Set(adminMembers.map(m => m.userId))
-    if (lead.assignedTo) recipients.add(lead.assignedTo)
-    recipients.delete(ctx.dbUserId)
-
-    for (const userId of recipients) {
-      await db.insert(notifications).values({
-        tenantId: ctx.tenant.id,
-        userId,
-        title: 'Lead marked as dead',
-        body: `${lead.fullName} has been marked as dead`,
-        type: 'stage_changed',
-        leadId: id,
-      })
-    }
-  }
 
   const changed: string[] = []
   if (patch.fullName !== undefined && updates.fullName !== lead.fullName)
@@ -290,7 +255,6 @@ return withApiErrorHandling(async () => {
     if (patch.programOfInterest !== undefined) changed.push('program of interest')
   if (patch.dealValue !== undefined) changed.push('deal value')
   if (patch.dealCurrency !== undefined) changed.push('currency')
-  if (patch.isDeadManual !== undefined) changed.push('dead status')
     if (patch.subStatusId !== undefined) changed.push('sub status')
     if (patch.closedAction !== undefined) changed.push('closed action')
     if (patch.subStatusFieldValues !== undefined) changed.push('sub status fields')

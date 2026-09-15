@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     filters.push(lte(leads.createdAt, toDate))
   }
 
-  const leadRows = await db
+    const leadRows = await db
     .select({
       leadId: leads.id,
       fullName: leads.fullName,
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
       subStatusId: leads.subStatusId,
       closedAction: leads.closedAction,
       lastContactedAt: leads.lastContactedAt,
-      isDead: leads.isDeadManual,
+      subStatusType: pipelineSubStatuses.type,
       assignedToId: leads.assignedTo,
       assignedToName: users.name,
       createdAt: leads.createdAt,
@@ -74,6 +74,7 @@ export async function GET(req: NextRequest) {
     })
     .from(leads)
     .leftJoin(users, eq(leads.assignedTo, users.id))
+    .leftJoin(pipelineSubStatuses, eq(leads.subStatusId, pipelineSubStatuses.id))
     .where(and(...filters))
     .orderBy(leads.primaryStage, leads.createdAt)
     .limit(pageSize)
@@ -102,8 +103,8 @@ export async function GET(req: NextRequest) {
   csvLines.push('"PIPELINE REPORT SUMMARY"')
   csvLines.push(`"Page: ${page}, Page size: ${pageSize}, Rows on page: ${leadRows.length}"`)
   csvLines.push(['Stage', 'Total Leads', 'Active', 'Dead'].join(','))
-  for (const [stageKey, rows] of stageGroups) {
-    const dead = rows.filter((r) => r.isDead).length
+    for (const [stageKey, rows] of stageGroups) {
+    const dead = rows.filter((r) => r.subStatusType === 'closed_lost').length
     csvLines.push([
       `"${stageLabelMap.get(stageKey) ?? stageKey}"`,
       rows.length,
@@ -132,7 +133,7 @@ export async function GET(req: NextRequest) {
         `"${r.closedAction ?? ''}"`,
         `"${r.assignedToName ?? 'Unassigned'}"`,
         r.lastContactedAt ? new Date(r.lastContactedAt).toLocaleDateString() : 'Never',
-        r.isDead ? 'Dead' : 'Active',
+        r.subStatusType === 'closed_lost' ? 'Dead' : 'Active',
         new Date(r.createdAt!).toLocaleDateString(),
       ].join(','))
     }

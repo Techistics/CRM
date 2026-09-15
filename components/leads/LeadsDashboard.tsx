@@ -11,7 +11,7 @@ import PageSizeDropdown from '@/components/PageSizeDropdown'
 import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { tenantPath } from '@/lib/tenant-path'
 import { CreateLeadDialog } from '@/components/leads/CreateLeadDialog'
-import { getHeatLevel } from '@/lib/leads/heat'
+
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -85,7 +85,7 @@ export function LeadsDashboard({
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
-  const [heatFilter, setHeatFilter] = useState<string>('all')
+
   const [tenantStages, setTenantStages] = useState<{ key: string; label: string }[]>([])
 
   const assignedTo = searchParams.get('assignedTo') ?? undefined
@@ -133,6 +133,7 @@ export function LeadsDashboard({
       if (assignedTo) params.set('assignedTo', assignedTo)
       if (tagsParam) params.set('tags', tagsParam)
       if (stageFilter) params.set('stage', stageFilter)
+      if (subStatusTypeFilter) params.set('subStatusType', subStatusTypeFilter)
       if (subStatusIdFilter) params.set('subStatusId', subStatusIdFilter)
       if (closedActionFilter) params.set('closedAction', closedActionFilter)
       if (appUniversityNameFilter) params.set('appUniversityName', appUniversityNameFilter)
@@ -167,7 +168,7 @@ export function LeadsDashboard({
       setLoading(false)
     }
   }, [
-    assignedTo, currentPage, pageSize, q, stageFilter, subStatusIdFilter, closedActionFilter, tagsParam,
+    assignedTo, currentPage, pageSize, q, stageFilter, subStatusTypeFilter, subStatusIdFilter, closedActionFilter, tagsParam,
     appUniversityNameFilter, appCourseNameFilter, appSourceFilter, appStatusFilter, appIntakeMonthFilter, appIntakeYearFilter,
     leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter,
   ])
@@ -177,15 +178,7 @@ export function LeadsDashboard({
     return () => clearTimeout(timer)
   }, [fetchData])
 
-  const filteredLeads = useMemo(() => (
-    heatFilter === 'all'
-      ? leads
-      : leads.filter((lead) => getHeatLevel(
-          lead.lastContactedAt ? new Date(lead.lastContactedAt) : null,
-          new Date(lead.createdAt),
-          lead.isDeadManual,
-        ) === heatFilter)
-  ), [leads, heatFilter])
+  const filteredLeads = useMemo(() => leads, [leads])
 
   const selectedCount = selectedIds.size
 
@@ -213,9 +206,10 @@ export function LeadsDashboard({
   const activeFilterCount = useMemo(() => {
     let count = 0
     if (stageFilter) count++
+    if (subStatusTypeFilter) count++
     if (subStatusIdFilter) count++
     if (closedActionFilter) count++
-    if (heatFilter !== 'all') count++
+
     if (assignedTo) count++
     if (tagsParam) count++
     if (appUniversityNameFilter || appCourseNameFilter || appSourceFilter || appStatusFilter) count++
@@ -223,7 +217,7 @@ export function LeadsDashboard({
     if (revIntakeMonthFilter || revIntakeYearFilter) count++
     return count
   }, [
-    stageFilter, subStatusIdFilter, closedActionFilter, heatFilter, assignedTo, tagsParam,
+    stageFilter, subStatusTypeFilter, subStatusIdFilter, closedActionFilter, assignedTo, tagsParam,
     appUniversityNameFilter, appCourseNameFilter, appSourceFilter, appStatusFilter,
     leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter,
   ])
@@ -380,8 +374,7 @@ export function LeadsDashboard({
             tenantStages={tenantStages}
             agents={agents}
             isAdmin={isAdmin}
-            heatFilter={heatFilter}
-            onHeatFilterChange={setHeatFilter}
+
             activeFilterCount={activeFilterCount}
           />
 
@@ -414,7 +407,7 @@ export function LeadsDashboard({
             </DropdownMenu>
           )}
 
-          {(isAdmin || canCreate) && <CreateLeadDialog tenantSlug={tenantSlug} showPaymentFields={role === 'ADMIN' || canEditPayments} />}
+          {(isAdmin || canCreate) && <CreateLeadDialog tenantSlug={tenantSlug} showPaymentFields={role === 'ADMIN' || canEditPayments} isAdmin={isAdmin} />}
         </div>
       </div>
 
@@ -424,6 +417,7 @@ export function LeadsDashboard({
           isAdmin={isAdmin}
           canDelete={canDelete}
           agents={agents}
+          tenantStages={tenantStages}
           bulkActionLoading={bulkActionLoading}
           onAssign={handleBulkAssign}
           onMoveStage={handleBulkStage}

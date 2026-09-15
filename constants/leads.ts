@@ -6,7 +6,6 @@ export const EMPTY_FILTERS: PendingFilters = {
   subStatusType: null,
   subStatusId: null,
   closedAction: null,
-  heat: 'all',
   assignedTo: null,
   appUniversityName: null,
   appCourseName: null,

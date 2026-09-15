@@ -34,8 +34,6 @@ export function FilterSheet({
   tenantStages,
   agents,
   isAdmin,
-  heatFilter,
-  onHeatFilterChange,
   activeFilterCount,
 }: FilterSheetProps) {
   const router = useRouter()
@@ -50,7 +48,6 @@ export function FilterSheet({
     subStatusType: searchParams.get('subStatusType') as SubStatusType | null,
     subStatusId: searchParams.get('subStatusId'),
     closedAction: searchParams.get('closedAction'),
-    heat: heatFilter,
     assignedTo: searchParams.get('assignedTo'),
     appUniversityName: searchParams.get('appUniversityName'),
     appCourseName: searchParams.get('appCourseName'),
@@ -62,7 +59,7 @@ export function FilterSheet({
     leadIntakeYear: searchParams.get('leadIntakeYear'),
     revIntakeMonth: searchParams.get('revIntakeMonth'),
     revIntakeYear: searchParams.get('revIntakeYear'),
-  }), [searchParams, heatFilter])
+  }), [searchParams])
 
   const [pendingFilters, setPendingFilters] = useState<PendingFilters>(buildInitialFilters)
 
@@ -137,14 +134,12 @@ export function FilterSheet({
     setOrDelete('revIntakeYear', pendingFilters.revIntakeYear)
 
     sp.delete('page')
-    onHeatFilterChange(pendingFilters.heat ?? 'all')
     router.push('?' + sp.toString())
     setIsOpen(false)
   }
 
   const handleClearAll = () => {
     setPendingFilters({ ...EMPTY_FILTERS })
-    onHeatFilterChange('all')
     const sp = new URLSearchParams(searchParams.toString())
     FILTER_URL_KEYS.forEach((k) => sp.delete(k))
     router.push(`?${sp.toString()}`)
@@ -192,8 +187,6 @@ export function FilterSheet({
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
           {/* Pipeline & Stage */}
           <div className="space-y-3.5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Pipeline & Stage</p>
-            
             <div className="space-y-1.5">
               <Label className={FIELD_LABEL_CLASS}>Pipeline Stage</Label>
               <Select
@@ -273,18 +266,7 @@ export function FilterSheet({
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <Label className={FIELD_LABEL_CLASS}>Heat</Label>
-              <Select value={pendingFilters.heat ?? 'all'} onValueChange={(val) => patch({ heat: val })}>
-                <SelectTrigger className={FIELD_TRIGGER_CLASS}><SelectValue placeholder="All" /></SelectTrigger>
-                <SelectContent className={DROPDOWN_SCROLL_CLASS}>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="cold">Cold</SelectItem>
-                  <SelectItem value="dead">Dead</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+
 
             {isAdmin && agents.length > 0 && (
               <div className="space-y-1.5">
@@ -427,4 +409,4 @@ export function FilterSheet({
       </SheetContent>
     </Sheet>
   )
-}
+}

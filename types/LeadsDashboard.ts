@@ -8,7 +8,6 @@ export type LeadRow = {
   lastContactedAt: string | null
   createdAt: string
   lastQualification: string | null
-  isDeadManual: boolean
   assignedTo: string | null
   tags: { id: string; name: string; color: string }[]
 }

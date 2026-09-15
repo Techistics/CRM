@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react'
 
 import { Checkbox } from '@/components/ui/checkbox'
 import { getStageInfo } from '@/constants/pipeline-stages'
-import { getHeatLevel, heatConfig } from '@/lib/leads/heat'
+
 import { cn } from '@/lib/utils'
 import { LeadRow } from '@/types/LeadsDashboard'
 import type { StageInfo, LeadsTableProps } from '@/types/leads'
@@ -27,11 +27,7 @@ const LeadTableRow = memo(function LeadTableRow({
   onToggleSelect: (id: string, checked: boolean) => void
   onRowClick: (id: string) => void
 }) {
-  const heat = getHeatLevel(
-    lead.lastContactedAt ? new Date(lead.lastContactedAt) : null,
-    new Date(lead.createdAt),
-    lead.isDeadManual,
-  )
+
 
   return (
     <tr
@@ -80,12 +76,7 @@ const LeadTableRow = memo(function LeadTableRow({
           {stageInfo.label}
         </span>
       </td>
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-1.5">
-          <span className={cn('h-2 w-2 rounded-full', heat === 'dead' && 'animate-pulse', heatConfig[heat].dot)} />
-          <span className={cn('text-xs font-medium', heatConfig[heat].color)}>{heatConfig[heat].label}</span>
-        </div>
-      </td>
+
       <td className="hidden px-4 py-3 sm:table-cell">
         {lead.assignedTo ? (
           <div className="flex items-center gap-2">
@@ -158,7 +149,7 @@ export function LeadsTable({
               <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 md:table-cell">City</th>
               <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 lg:table-cell">Qualification</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Stage</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Active</th>
+
               <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:table-cell">Assigned To</th>
             </tr>
           </thead>

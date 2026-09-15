@@ -12,12 +12,11 @@ import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { TagSelector } from '@/components/leads/TagSelector'
 import { CURRENCIES } from '@/constants/lead-options'
 import { LeadReminders } from '@/components/leads/LeadReminders'
+import { tenantPath } from '@/lib/tenant-path'
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 import type { ActivityRow, UserRow } from '@/types/leads'
-import { tenantPath } from '@/lib/tenant-path'
-import { getHeatLevel, heatConfig } from '@/lib/leads/heat'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LeadDocumentsPanel } from '@/components/leads/LeadDocumentsPanel'
@@ -95,11 +94,6 @@ export default function LeadDetailClient({
     () => normalizeFieldValues(lead.subStatusFieldValues),
   )
   const [savingSubStatus, setSavingSubStatus] = useState(false)
-  // NEW – dead‑status UI state
-  const [isDeadState, setIsDeadState] = useState<boolean>(lead.isDeadManual ?? false)
-  const [isDead, setIsDead] = useState<boolean>(lead.isDeadManual ?? false)
-  const [deadReason, setDeadReason] = useState<string>(lead.deadReason ?? '')
-  const [savingDead, setSavingDead] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
   const [profileForm, setProfileForm] = useState({
     fullName: lead.fullName ?? '',
@@ -168,11 +162,6 @@ export default function LeadDetailClient({
   }, [])
 
   useEffect(() => {
-    setIsDead(lead.isDeadManual ?? false)
-    setDeadReason(lead.deadReason ?? '')
-  }, [lead.isDeadManual, lead.deadReason])
-
-  useEffect(() => {
     setAssignedTo(lead.assignedTo ?? '')
     setSelectedAssignee(lead.assignedTo ?? '')
   }, [lead.assignedTo])
@@ -188,6 +177,7 @@ export default function LeadDetailClient({
   useEffect(() => { fetchSubStatuses(primaryStage) }, [primaryStage])
 
   const selectedSubStatus = subStatuses.find((ss) => ss.id === selectedSubStatusId)
+  const isDeadState = selectedSubStatus?.type === 'closed_lost'
   const activeCustomFields =
     selectedSubStatus?.customFieldsEnabled
       ? normalizeCustomFields(selectedSubStatus.customFields)
@@ -313,27 +303,7 @@ export default function LeadDetailClient({
     router.refresh()
   }
 
-  async function handleMarkDead() {
-    setSavingDead(true)
-    const payloadIsDead = isDeadState ? false : isDead;
-    const payloadReason = payloadIsDead ? deadReason : null;
 
-    const data = await apiCall(async () => {
-      const res = await fetch(`/api/leads/${lead.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isDeadManual: payloadIsDead, deadReason: payloadReason }),
-      })
-      return res.json()
-    }, { successMsg: payloadIsDead ? 'Lead marked as dead' : 'Lead reopened', errorMsg: 'Status update failed' })
-    setSavingDead(false)
-    if (data) {
-      setIsDeadState(payloadIsDead);
-      setIsDead(payloadIsDead);
-      if (!payloadIsDead) setDeadReason('');
-      router.refresh()
-    }
-  }
 
   const fetchLogs = async () => {
     setLogsLoading(true)
@@ -367,11 +337,7 @@ export default function LeadDetailClient({
 
   useEffect(() => { fetchLogs() }, [lead.id])
 
-  const heat = getHeatLevel(
-    lead.lastContactedAt ? new Date(lead.lastContactedAt) : null,
-    lead.createdAt ? new Date(lead.createdAt) : new Date(),
-    isDeadState
-  )
+
 
   return (<TooltipProvider>
     <div className="mx-auto w-full min-w-0 max-w-6xl">
@@ -431,51 +397,12 @@ export default function LeadDetailClient({
             <span className={`rounded-md border px-2 py-1 text-xs ${stageBadge.mutedClasses}`}>
               {stageBadge.label}
             </span>
-            {/* NEW – dead badge */}
-            {isDead && (
-              <span className="ml-2 rounded-md bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-1 text-xs">
-                Dead
-              </span>
-            )}
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full',
-                    'text-xs font-medium border',
-                    heatConfig[heat].bg,
-                    heatConfig[heat].color,
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'h-1.5 w-1.5 rounded-full',
-                      heat === 'dead' && 'animate-pulse',
-                      heatConfig[heat].dot,
-                    )}
-                  />
-                  {heatConfig[heat].label}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                {lead.lastContactedAt
-                  ? `Last contacted ${formatDistanceToNow(new Date(lead.lastContactedAt))} ago`
-                  : `No contact recorded yet — created ${formatDistanceToNow(
-                    lead.createdAt ? new Date(lead.createdAt) : new Date(),
-                  )} ago`}
-              </TooltipContent>
-            </Tooltip>
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
           </div>
         </div>
       </div>
 
-      {isDeadState && (
-        <div className="mb-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20 px-4 py-2 text-sm text-yellow-600 text-center">
-          This lead is marked as dead. Reopen it to make changes.
-        </div>
-      )}
+
       <Tabs value={activeTab} className="w-full">
         <TabsList className="mb-6 inline-flex w-auto sticky top-[60px] z-10 bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-700 pb-0">
           <TabsTrigger value="overview" onClick={() => setActiveTab('overview')}>Overview</TabsTrigger>
@@ -532,8 +459,7 @@ export default function LeadDetailClient({
                 </div>
               </div>
 
-              {/* Edit Lead Fields card */}
-              <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700 ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
+              <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700`}>
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">Edit Lead Fields</h2>
                 <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                   {(
@@ -642,7 +568,7 @@ export default function LeadDetailClient({
               </div>
 
               {/* Lead Revenue */}
-              <div className={isDeadState ? 'pointer-events-none opacity-50' : ''}>
+              <div>
                 <LeadRevenueCard leadId={lead.id} />
               </div>
             </div>
@@ -655,7 +581,7 @@ export default function LeadDetailClient({
                 <div className="flex flex-col gap-2">
                   <Select
                     value={selectedAssignee || 'unassigned'}
-                    disabled={isDeadState || savingAssignee}
+                    disabled={savingAssignee}
                     onValueChange={(val) => setSelectedAssignee(val === 'unassigned' ? '' : val)}
                   >
                     <SelectTrigger className="w-full h-9">
@@ -672,7 +598,7 @@ export default function LeadDetailClient({
                   </Select>
                   <button
                     onClick={handleSaveAssign}
-                    disabled={selectedAssignee === assignedTo || isDeadState || savingAssignee}
+                    disabled={selectedAssignee === assignedTo || savingAssignee}
                     className="w-full h-9 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center"
                   >
                     {savingAssignee ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
@@ -685,47 +611,7 @@ export default function LeadDetailClient({
                 </div>
               </div>
 
-              {/* Mark as Dead */}
-              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
-                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Mark as Dead</h2>
-                <label className="flex items-center gap-2 text-sm text-slate-900 dark:text-slate-100">
-                  <input
-                    type="checkbox"
-                    checked={isDead}
-                    disabled={isDeadState}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setIsDead(checked);
-                      if (!checked) setDeadReason('');
-                    }}
-                    className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-sky-500"
-                  />
-                  Mark Lead as Dead
-                </label>
-                {isDead && !isDeadState && (
-                  <textarea
-                    value={deadReason}
-                    onChange={(e) => setDeadReason(e.target.value)}
-                    placeholder="Reason for marking dead…"
-                    className="mt-2 w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
-                    rows={3}
-                  />
-                )}
-                {isDeadState && (
-                  <div className="mt-2 text-sm text-slate-500">
-                    <span className="font-medium text-gray-700 dark:text-slate-300">Reason:</span> {deadReason || 'No reason provided'}
-                  </div>
-                )}
-                {(isDead || isDeadState) && (
-                  <button
-                    onClick={handleMarkDead}
-                    disabled={savingDead || (isDead && !isDeadState && !deadReason.trim())}
-                    className="mt-3 w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center justify-center"
-                  >
-                    {savingDead ? <Loader2 className="h-4 w-4 animate-spin" /> : isDeadState ? 'Re‑open Lead' : 'Confirm Dead'}
-                  </button>
-                )}
-              </div>
+
 
               {/* Delete Lead */}
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
@@ -734,7 +620,6 @@ export default function LeadDetailClient({
                   leadId={lead.id}
                   leadName={lead.fullName}
                   redirectPath={tenantPath(tenantSlug, '/admin/leads')}
-                  disabled={isDeadState}
                 />
               </div>
 
@@ -932,12 +817,12 @@ export default function LeadDetailClient({
               onChange={(e) => setNote(e.target.value)}
               placeholder={`Add a ${noteType}...`}
               rows={3}
-              disabled={isDeadState}
+
               className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 resize-none focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
             />
             <button
               onClick={handleAddNote}
-              disabled={isDeadState || !note.trim() || addingNote}
+              disabled={!note.trim() || addingNote}
               className="mt-2 h-9 px-4 bg-brand hover:bg-brand-hover disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
             >
               {addingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
@@ -956,14 +841,14 @@ export default function LeadDetailClient({
 
         {/* ==== Reminders ==== */}
         <TabsContent value="reminders" className="outline-none">
-          <div className={isDeadState ? 'pointer-events-none opacity-50' : ''}>
+          <div>
             <LeadReminders leadId={lead.id} />
           </div>
         </TabsContent>
 
         {/* ==== WhatsApp ==== */}
         <TabsContent value="whatsapp" className="outline-none">
-          <div className={isDeadState ? 'pointer-events-none opacity-50' : ''}>
+          <div>
             <WhatsappLogger
               leadId={lead.id}
               tenantSlug={tenantSlug}

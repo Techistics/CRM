@@ -81,9 +81,11 @@ interface Agent {
 export function CreateLeadDialog({
   tenantSlug,
   showPaymentFields = false,
+  isAdmin = false,
 }: {
   tenantSlug: string
   showPaymentFields?: boolean
+  isAdmin?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [loadingAgents, setLoadingAgents] = useState(false)
@@ -364,38 +366,40 @@ export function CreateLeadDialog({
             />
 
             {/* Assigned To */}
-            <FormField
-              control={form.control}
-              name="assignedTo"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Assigned To</FormLabel>
-                  <Select 
-                    onValueChange={(val) => field.onChange(val === 'unassigned' ? null : val)} 
-                    defaultValue={field.value || 'unassigned'}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        {loadingAgents ? (
-                          <div className="flex items-center">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          </div>
-                        ) : (
-                          <SelectValue placeholder="Select counselor" />
-                        )}
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="unassigned">Unassigned</SelectItem>
-                      {agents.map(a => (
-                        <SelectItem key={a.userId} value={a.userId}>{a.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {isAdmin && (
+              <FormField
+                control={form.control}
+                name="assignedTo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Assigned To</FormLabel>
+                    <Select 
+                      onValueChange={(val) => field.onChange(val === 'unassigned' ? null : val)} 
+                      defaultValue={field.value || 'unassigned'}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          {loadingAgents ? (
+                            <div className="flex items-center">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            </div>
+                          ) : (
+                            <SelectValue placeholder="Select counselor" />
+                          )}
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {agents.map(a => (
+                          <SelectItem key={a.userId} value={a.userId}>{a.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {showPaymentFields && (
               <>

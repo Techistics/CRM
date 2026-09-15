@@ -74,7 +74,6 @@ export type PendingFilters = {
   subStatusType: SubStatusType | null
   subStatusId: string | null
   closedAction: string | null
-  heat: string
   assignedTo: string | null
   appUniversityName: string | null
   appCourseName: string | null
@@ -92,8 +91,6 @@ export type FilterSheetProps = {
   tenantStages: { key: string; label: string }[]
   agents: Agent[]
   isAdmin: boolean
-  heatFilter: string
-  onHeatFilterChange: (heat: string) => void
   activeFilterCount: number
 }
 
@@ -102,6 +99,7 @@ export type BulkActionsBarProps = {
   isAdmin: boolean
   canDelete: boolean
   agents: Agent[]
+  tenantStages: { key: string; label: string }[]
   bulkActionLoading: boolean
   onAssign: (agentId: string) => void
   onMoveStage: (stage: string) => void

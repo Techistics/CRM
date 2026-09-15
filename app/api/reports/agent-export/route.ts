@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     dateFilters.push(lte(leads.createdAt, toDate))
   }
 
-  const leadRows = await db
+    const leadRows = await db
     .select({
       counsellorName: users.name,
       counsellorEmail: users.email,
@@ -62,11 +62,12 @@ export async function GET(req: NextRequest) {
       stage: leads.primaryStage,
       subStatusId: leads.subStatusId,
       closedAction: leads.closedAction,
-      isDead: leads.isDeadManual,
+      subStatusType: pipelineSubStatuses.type,
       createdAt: leads.createdAt,
     })
     .from(leads)
     .innerJoin(users, eq(leads.assignedTo, users.id))
+    .leftJoin(pipelineSubStatuses, eq(leads.subStatusId, pipelineSubStatuses.id))
     .where(and(...dateFilters))
     .orderBy(users.name, leads.createdAt)
     .limit(pageSize)
@@ -96,7 +97,8 @@ export async function GET(req: NextRequest) {
     const first = rows[0]
     csvLines.push(`"Counsellor: ${first.counsellorName} <${first.counsellorEmail}>"`)
     csvLines.push(['Lead ID', 'Name', 'Last Contacted', 'Stage', 'Sub Status', 'Closed Action', 'Status'].join(','))
-    for (const r of rows) {
+        for (const r of rows) {
+      const isDead = r.subStatusType === 'closed_lost'
       csvLines.push([
         `"${r.leadId}"`,
         `"${String(r.fullName).replace(/"/g, '""')}"`,
@@ -104,7 +106,7 @@ export async function GET(req: NextRequest) {
         `"${stageLabelMap.get(String(r.stage)) ?? r.stage}"`,
         `"${r.subStatusId ? (subStatusLabelMap.get(r.subStatusId) ?? '') : ''}"`,
         `"${r.closedAction ?? ''}"`,
-        r.isDead ? 'Dead' : 'Active',
+        isDead ? 'Dead' : 'Active',
       ].join(','))
     }
     csvLines.push('')
@@ -112,7 +114,7 @@ export async function GET(req: NextRequest) {
 
   csvLines.push('')
   csvLines.push(`"Page: ${page}, Page size: ${pageSize}, Rows on page: ${leadRows.length}"`)
-  const deadCount = leadRows.filter((r) => r.isDead).length
+  const deadCount = leadRows.filter((r) => r.subStatusType === 'closed_lost').length
   csvLines.push(`"Active on page: ${leadRows.length - deadCount}, Dead on page: ${deadCount}"`)
 
   const csv = csvLines.join('\n')

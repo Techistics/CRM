@@ -36,6 +36,15 @@ export function LeadDistributionCard({
           onUnassignedClick={() =>
             router.push(`/t/${tenantSlug}/admin/leads?assignedTo=unassigned`)
           }
+          onCounselorClick={(agentId) =>
+            router.push(`/t/${tenantSlug}/admin/leads?assignedTo=${encodeURIComponent(agentId)}`)
+          }
+          onStageClick={(agentId, stageKey) => {
+            const params = new URLSearchParams()
+            params.set('assignedTo', agentId ?? 'unassigned')
+            params.set('stage', stageKey)
+            router.push(`/t/${tenantSlug}/admin/leads?${params.toString()}`)
+          }}
           centerValue={totalLeads.toLocaleString()}
         />
       </DashboardCardBody>

@@ -97,7 +97,6 @@ export async function GET(request: Request) {
         stage: leads.stage,
         primaryStage: leads.primaryStage,
         lastContactedAt: leads.lastContactedAt,
-        isDeadManual: leads.isDeadManual,
         createdAt: leads.createdAt,
       })
       .from(leads)
@@ -113,73 +112,7 @@ export async function GET(request: Request) {
       )
       .where(eq(leads.tenantId, tenant.id))
 
-    // Cold Leads
-    const coldLeads = await db
-      .select({
-        id: leads.id,
-        fullName: leads.fullName,
-        email: leads.email,
-        stage: leads.stage,
-        primaryStage: leads.primaryStage,
-        lastContactedAt: leads.lastContactedAt,
-        isDeadManual: leads.isDeadManual,
-        createdAt: leads.createdAt,
-      })
-      .from(leads)
-      .where(
-        and(
-          eq(leads.tenantId, tenant.id),
-          eq(leads.assignedTo, targetUserId),
-          eq(leads.isDeadManual, false),
-          or(
-            sql`${leads.lastContactedAt} < NOW() - INTERVAL '4 days'`,
-            isNull(leads.lastContactedAt)
-          )
-        )
-      )
 
-    // Dead Leads
-    const deadLeads = await db
-      .select({
-        id: leads.id,
-        fullName: leads.fullName,
-        email: leads.email,
-        stage: leads.stage,
-        primaryStage: leads.primaryStage,
-        lastContactedAt: leads.lastContactedAt,
-        isDeadManual: leads.isDeadManual,
-        createdAt: leads.createdAt,
-      })
-      .from(leads)
-      .where(
-        and(
-          eq(leads.tenantId, tenant.id),
-          eq(leads.assignedTo, targetUserId),
-          eq(leads.isDeadManual, true)
-        )
-      )
-
-    // Active Leads
-    const activeLeads = await db
-      .select({
-        id: leads.id,
-        fullName: leads.fullName,
-        email: leads.email,
-        stage: leads.stage,
-        primaryStage: leads.primaryStage,
-        lastContactedAt: leads.lastContactedAt,
-        isDeadManual: leads.isDeadManual,
-        createdAt: leads.createdAt,
-      })
-      .from(leads)
-      .where(
-        and(
-          eq(leads.tenantId, tenant.id),
-          eq(leads.assignedTo, targetUserId),
-          eq(leads.isDeadManual, false),
-          gte(leads.lastContactedAt, sql`NOW() - INTERVAL '4 days'`)
-        )
-      )
 
     // 4. 30-Day Line Graph
     const thirtyDaysAgo = new Date()
@@ -253,9 +186,6 @@ export async function GET(request: Request) {
       totalHours,
       leads: {
         touchedToday,
-        cold: coldLeads,
-        dead: deadLeads,
-        active: activeLeads,
       },
       activityGraph,
       leadActivities: leadActivitiesArray,

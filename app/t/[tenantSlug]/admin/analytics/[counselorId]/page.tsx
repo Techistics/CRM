@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { Loader2, User, Clock, TrendingUp, CheckCircle2, FileText } from 'lucide-react'
+import { Loader2, User, Clock, TrendingUp, CheckCircle2, FileText, Search } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 
@@ -35,6 +35,8 @@ type DrilldownPayload = {
   }>;
 };
 
+const ACTIVITY_PAGE_SIZE = 10
+
 export default function CounselorDrilldownPage() {
   const { toast } = useToast();
   const params = useParams()
@@ -56,6 +58,11 @@ export default function CounselorDrilldownPage() {
   const [localTo, setLocalTo] = useState(to)
 
   const [expandedActivityId, setExpandedActivityId] = useState<string | null>(null)
+
+  // --- Activity search + pagination ---
+  const [activitySearch, setActivitySearch] = useState('')
+  const [visibleActivityCount, setVisibleActivityCount] = useState(ACTIVITY_PAGE_SIZE)
+  const activitySentinelRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (!counselorId || !tenantSlug) return
@@ -116,6 +123,50 @@ export default function CounselorDrilldownPage() {
       return { x, y, date: g.date, count: g.count }
     })
   }, [drilldownData])
+
+  // Filter activity groups by search query (matches lead id, log/activity type, or note text)
+  const filteredActivities = useMemo(() => {
+    const groups = drilldownData?.leadActivities ?? []
+    const query = activitySearch.trim().toLowerCase()
+    if (!query) return groups
+
+    return groups.filter((group) => {
+      if (group.leadId.toLowerCase().includes(query)) return true
+      const allEntries = [...group.logs, ...group.otherActivities]
+      return allEntries.some((entry) => {
+        if (entry.type.toLowerCase().includes(query)) return true
+        if (entry.note && entry.note.toLowerCase().includes(query)) return true
+        return false
+      })
+    })
+  }, [drilldownData, activitySearch])
+
+  // Reset pagination whenever the search query changes
+  useEffect(() => {
+    setVisibleActivityCount(ACTIVITY_PAGE_SIZE)
+  }, [activitySearch])
+
+  const visibleActivities = filteredActivities.slice(0, visibleActivityCount)
+  const hasMoreActivities = visibleActivityCount < filteredActivities.length
+
+  // Infinite scroll: load 10 more when the sentinel div comes into view
+  useEffect(() => {
+    if (!hasMoreActivities) return
+    const sentinel = activitySentinelRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleActivityCount((prev) => prev + ACTIVITY_PAGE_SIZE)
+        }
+      },
+      { rootMargin: '150px' }
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMoreActivities, filteredActivities.length])
 
   return (
     <div className="flex-1 space-y-6 p-8 pt-6">
@@ -302,13 +353,26 @@ export default function CounselorDrilldownPage() {
 
               {/* Activity Section */}
               <div className="mt-8 border-t border-slate-200 dark:border-slate-700 pt-6">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-indigo-500" />
-                  Activity
-                </h3>
-                {(drilldownData?.leadActivities?.length ?? 0) > 0 ? (
-                  <div className="space-y-4">
-                    {drilldownData?.leadActivities?.map(group => (
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-indigo-500" />
+                    Activity
+                  </h3>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="h-4 w-4 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={activitySearch}
+                      onChange={(e) => setActivitySearch(e.target.value)}
+                      placeholder="Search activity (lead, type, note)..."
+                      className="w-full text-sm border border-slate-200 dark:border-slate-700 rounded-lg pl-8 pr-3 py-1.5 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    />
+                  </div>
+                </div>
+
+                {filteredActivities.length > 0 ? (
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
+                    {visibleActivities.map(group => (
                       <div key={group.leadId} className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
                         <div className="flex items-center justify-between mb-2">
                           <Link href={`/t/${tenantSlug}/admin/leads/${group.leadId}`} className="text-sm font-medium text-sky-600 hover:underline">
@@ -374,9 +438,18 @@ export default function CounselorDrilldownPage() {
                         )}
                       </div>
                     ))}
+
+                    {/* Sentinel for infinite scroll */}
+                    {hasMoreActivities && (
+                      <div ref={activitySentinelRef} className="flex justify-center py-4">
+                        <Loader2 className="h-5 w-5 animate-spin text-indigo-400" />
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No activity data available for this period.</p>
+                  <p className="text-sm text-muted-foreground">
+                    {activitySearch ? 'No activity matches your search.' : 'No activity data available for this period.'}
+                  </p>
                 )}
               </div>
             </>

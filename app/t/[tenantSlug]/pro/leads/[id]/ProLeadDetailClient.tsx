@@ -80,12 +80,6 @@ export default function ProLeadDetailClient({
   const [assignedTo, setAssignedTo] = useState(lead.assignedTo ?? '')
   const [selectedAssignee, setSelectedAssignee] = useState(lead.assignedTo ?? '')
   const [savingAssignee, setSavingAssignee] = useState(false)
-  const [isDeadState, setIsDeadState] = useState<boolean>(lead.isDeadManual ?? false)
-  // NEW – dead‑status UI state
-  
-  const [isDead, setIsDead] = useState<boolean>(lead.isDeadManual ?? false);
-  const [deadReason, setDeadReason] = useState<string>(lead.deadReason ?? '');
-  const [savingDead, setSavingDead] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [editingLead, setEditingLead] = useState(false);
 
@@ -139,12 +133,7 @@ export default function ProLeadDetailClient({
     })()
   }, [])
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => {
-    setIsDead(lead.isDeadManual ?? false);
-    setDeadReason(lead.deadReason ?? '');
-  }, [lead.isDeadManual, lead.deadReason]);
-  
+
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
@@ -190,6 +179,7 @@ export default function ProLeadDetailClient({
   useEffect(() => { fetchSubStatuses(stage) }, [stage])
 
   const selectedSubStatus = subStatuses.find((ss) => ss.id === selectedSubStatusId)
+  const isDeadState = selectedSubStatus?.type === 'closed_lost'
   const activeCustomFields =
     selectedSubStatus?.customFieldsEnabled
       ? normalizeCustomFields(selectedSubStatus.customFields)
@@ -369,37 +359,7 @@ export default function ProLeadDetailClient({
     router.refresh()
   }
   
-  const handleMarkDead = async () => {
-    setSavingDead(true)
-    const payloadIsDead = isDeadState ? false : isDead;
-    const payloadReason = payloadIsDead ? deadReason : null;
 
-    const payload = {
-      isDeadManual: payloadIsDead,
-      deadReason: payloadReason,
-    }
-    const data = await apiCall(
-      async () => {
-        const res = await fetch(`/api/leads/${lead.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-        return res.json()
-      },
-      {
-        successMsg: payloadIsDead ? 'Lead marked as dead' : 'Lead reopened',
-        errorMsg: 'Failed to update lead status',
-      },
-    )
-    setSavingDead(false)
-    if (!data) return
-    setIsDeadState(payloadIsDead);
-    setIsDead(payloadIsDead);
-    if (!payloadIsDead) setDeadReason('');
-    router.refresh()
-  }
-  
 
   const currentStageLabel = stageLabelByKey.get(stage) ?? stage
   const currentStageColor =
@@ -419,11 +379,7 @@ export default function ProLeadDetailClient({
           </Link>
           <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mt-3">{lead.fullName}</h1>
           <div className="flex items-center gap-3 mt-3">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{currentStageLabel}</span>{isDeadState && (
-              <span className="ml-2 rounded-md bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-1 text-xs">
-                Dead
-              </span>
-            )}
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{currentStageLabel}</span>
             {saving && <Loader2 className="h-3 w-3 animate-spin text-gray-400" />}
           </div>
         </div>
@@ -454,11 +410,7 @@ export default function ProLeadDetailClient({
             </button>
           </div>
 
-                {isDeadState && (
-            <div className="mb-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20 px-4 py-2 text-sm text-yellow-600 text-center">
-              This lead is marked as dead. Reopen it to make changes.
-            </div>
-          )}
+
           <Tabs value={activeTab} className="w-full">
         {/* Sticky tab list */}
         <TabsList className="mb-6 inline-flex w-auto sticky top-[60px] z-10 bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-700 pb-0">
@@ -483,7 +435,7 @@ export default function ProLeadDetailClient({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 space-y-6">
               {/* Contact Info */}
-              <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700 ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
+              <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700`}>
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
                   <span className="w-6 h-6 rounded-md bg-brand-light text-brand flex items-center justify-center">
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -518,7 +470,7 @@ export default function ProLeadDetailClient({
                 </div>
               </div>
               {/* Edit Lead Fields card */}
-              <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700 ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
+              <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700`}>
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
                   <span className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center">
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
@@ -588,7 +540,7 @@ export default function ProLeadDetailClient({
                       <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Currency</span>
                       <select
                         value={profileForm.dealCurrency}
-                        disabled={!canEditPayments || isDeadState}
+                        disabled={!canEditPayments}
                         onChange={(e) =>
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
                           setProfileForm((prev: any) => ({ ...prev, dealCurrency: e.target.value }))
@@ -610,7 +562,7 @@ export default function ProLeadDetailClient({
                         step="0.01"
                         placeholder="0.00"
                         value={profileForm.dealValue}
-                        disabled={!canEditPayments || isDeadState}
+                        disabled={!canEditPayments}
                         onChange={(e) =>
                           // eslint-disable-next-line @typescript-eslint/no-explicit-any
                           setProfileForm((prev: any) => ({ ...prev, dealValue: e.target.value }))
@@ -650,7 +602,7 @@ export default function ProLeadDetailClient({
               </div>
               
               {/* Lead Revenue */}
-              <div className={isDeadState ? 'pointer-events-none opacity-50' : ''}>
+              <div>
                 <LeadRevenueCard leadId={lead.id} />
               </div>
             </div>
@@ -663,7 +615,7 @@ export default function ProLeadDetailClient({
                 <div className="flex flex-col gap-2">
                   <select
                     value={selectedAssignee}
-                    disabled={isDeadState || savingAssignee}
+                    disabled={savingAssignee}
                     onChange={(e) => setSelectedAssignee(e.target.value)}
                     className="w-full h-9 bg-white border border-slate-200 rounded-lg px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
                   >
@@ -674,7 +626,7 @@ export default function ProLeadDetailClient({
                   </select>
                   <button
                     onClick={handleSaveAssign}
-                    disabled={selectedAssignee === assignedTo || isDeadState || savingAssignee}
+                    disabled={selectedAssignee === assignedTo || savingAssignee}
                     className="w-full h-9 bg-brand hover:bg-brand-hover text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center"
                   >
                     {savingAssignee ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
@@ -682,47 +634,7 @@ export default function ProLeadDetailClient({
                 </div>
               </div>
 
-              {/* Mark as Dead */}
-              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
-                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Mark as Dead</h2>
-                <label className="flex items-center gap-2 text-sm text-slate-900 dark:text-slate-100">
-                  <input
-                    type="checkbox"
-                    checked={isDead}
-                    disabled={isDeadState}
-                    onChange={(e) => {
-                      const checked = e.target.checked
-                      setIsDead(checked)
-                      if (!checked) setDeadReason('')
-                    }}
-                    className="h-4 w-4 rounded border-gray-300 bg-white text-blue-600 focus:ring-blue-500"
-                  />
-                  Mark Lead as Dead
-                </label>
-                {isDead && !isDeadState && (
-                  <textarea
-                    value={deadReason}
-                    onChange={(e) => setDeadReason(e.target.value)}
-                    placeholder="Reason for marking dead…"
-                    className="mt-2 w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
-                    rows={3}
-                  />
-                )}
-                {isDeadState && (
-                  <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                    <span className="font-medium text-gray-700 dark:text-slate-300">Reason:</span> {deadReason || 'No reason provided'}
-                  </div>
-                )}
-                {(isDead || isDeadState) && (
-                  <button
-                    onClick={handleMarkDead}
-                    disabled={savingDead || (isDead && !isDeadState && !deadReason.trim())}
-                    className="mt-3 w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center justify-center"
-                  >
-                    {savingDead ? <Loader2 className="h-4 w-4 animate-spin" /> : isDeadState ? 'Re‑open Lead' : 'Confirm Dead'}
-                  </button>
-                )}
-              </div>
+
 
               {/* Delete Lead */}
               {canDelete && (
@@ -732,8 +644,7 @@ export default function ProLeadDetailClient({
                     leadId={lead.id}
                     leadName={lead.fullName}
                     redirectPath={tenantPath(tenantSlug, '/pro/leads')}
-                    disabled={isDeadState}
-                  />
+                />
                 </div>
               )}
 
@@ -946,7 +857,7 @@ export default function ProLeadDetailClient({
             <div className="flex justify-end mt-3">
               <button
                 onClick={handleAddNote}
-                disabled={isDeadState || !note.trim() || addingNote}
+                disabled={!note.trim() || addingNote}
                 className="bg-gray-900 hover:bg-gray-800 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm transition-all"
               >
                 {addingNote ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save Activity'}
@@ -965,14 +876,14 @@ export default function ProLeadDetailClient({
 
         {/* ==== Reminders ==== */}
         <TabsContent value="reminders" className="outline-none">
-          <div className={isDeadState ? 'pointer-events-none opacity-50' : ''}>
+          <div>
             <LeadReminders leadId={lead.id} variant="light" />
           </div>
         </TabsContent>
 
         {/* ==== WhatsApp ==== */}
         <TabsContent value="whatsapp" className="outline-none">
-          <div className={isDeadState ? 'pointer-events-none opacity-50' : ''}>
+          <div>
             <WhatsappLogger
               leadId={lead.id}
               tenantSlug={tenantSlug}
@@ -987,7 +898,7 @@ export default function ProLeadDetailClient({
 
         {/* ==== Application ==== */}
         <TabsContent value="application" className="outline-none">
-          <div className={isDeadState ? 'pointer-events-none opacity-50' : ''}>
+          <div>
             <ApplicationTab leadId={lead.id} />
           </div>
         </TabsContent>

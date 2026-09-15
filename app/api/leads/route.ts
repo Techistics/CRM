@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
     const tagsParam = url.searchParams.get('tags')
     const assignedTo = url.searchParams.get('assignedTo')?.trim()
     const stage = url.searchParams.get('stage')?.trim()
+    const subStatusType = url.searchParams.get('subStatusType')?.trim()
     const subStatusId = url.searchParams.get('subStatusId')?.trim()
     const idsOnly = url.searchParams.get('idsOnly') === 'true'
 
@@ -96,6 +97,24 @@ export async function GET(req: NextRequest) {
 
     if (stage) {
       conditions.push(eq(leads.primaryStage, stage))
+    }
+
+    if (subStatusType === 'in_progress' || subStatusType === 'closed_lost' || subStatusType === 'defer') {
+      conditions.push(
+        inArray(
+          leads.subStatusId,
+          db
+            .select({ id: pipelineSubStatuses.id })
+            .from(pipelineSubStatuses)
+            .where(
+              and(
+                eq(pipelineSubStatuses.tenantId, ctx.tenant.id),
+                eq(pipelineSubStatuses.type, subStatusType),
+                ...(stage ? [eq(pipelineSubStatuses.stageKey, stage)] : []),
+              ),
+            ),
+        ),
+      )
     }
 
     if (subStatusId) {
@@ -232,7 +251,6 @@ export async function GET(req: NextRequest) {
       rawData: leads.rawData,
       stage: leads.primaryStage,
       lastContactedAt: leads.lastContactedAt,
-      isDeadManual: leads.isDeadManual,
       assignedTo: leads.assignedTo,
       createdBy: leads.createdBy,
       dealValue: leads.dealValue,
@@ -435,7 +453,7 @@ export async function POST(req: NextRequest) {
           lastQualification: data.notes || data.lastQualification?.trim() || null,
           grades: data.grades?.trim() || null,
           source: data.source?.trim() || 'manual',
-          assignedTo: data.assignedTo ?? null,
+          assignedTo: ctx.role !== 'ADMIN' ? ctx.dbUserId : (data.assignedTo ?? null),
           dealValue: canEditPayments(ctx.role, ctx.permissions)
             ? data.dealValue?.toString() ?? null
             : null,

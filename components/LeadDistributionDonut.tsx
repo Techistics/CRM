@@ -85,12 +85,16 @@ export function LeadDistributionDonut({
   breakdown,
   unassignedBreakdown,
   onUnassignedClick,
+  onCounselorClick,
+  onStageClick,
   centerValue,
 }: {
   unassignedCount: number
   breakdown: AgentBreakdown[]
   unassignedBreakdown: StageBreakdown[]
   onUnassignedClick: () => void
+  onCounselorClick?: (agentId: string) => void
+  onStageClick?: (agentId: string | null, stageKey: string) => void
   centerValue?: string
 }) {
   const { series: colors } = useChartPalette()
@@ -187,33 +191,30 @@ export function LeadDistributionDonut({
               onMouseEnter={() => setActiveIndex(i)}
               onMouseLeave={() => setActiveIndex(null)}
             >
-              <button
-                type="button"
-                onClick={() => {
-                  if (isUnassigned) {
-                    onUnassignedClick()
-                  } else if (agent?.stages.length) {
-                    setExpandedCounselor(isExpanded ? null : label)
-                  }
-                }}
+              <div
                 className={cn(
                   'flex w-full items-center justify-between p-2.5 text-left transition-colors sm:p-3',
-                  isUnassigned || agent?.stages.length
-                    ? 'cursor-pointer hover:bg-consulty-surface-subtle dark:hover:bg-consulty-surface-raised/50'
-                    : 'cursor-default',
+                  'hover:bg-consulty-surface-subtle dark:hover:bg-consulty-surface-raised/50',
                 )}
               >
-                <div className="flex min-w-0 items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isUnassigned) onUnassignedClick()
+                    else if (agent?.agentId) onCounselorClick?.(agent.agentId)
+                  }}
+                  className="flex min-w-0 items-center gap-2.5 cursor-pointer"
+                >
                   <span
                     className={cn(
                       'h-3 w-3 flex-shrink-0 rounded-full border border-consulty-border-subtle dark:border-consulty-border',
                       colorClass,
                     )}
                   />
-                  <span className="truncate text-crm-xs font-semibold text-consulty-text-secondary">
+                  <span className="truncate text-crm-xs font-semibold text-consulty-text-secondary hover:text-consulty-text-primary hover:underline">
                     {label}
                   </span>
-                </div>
+                </button>
                 <div className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
                   <span className="text-crm-xs font-bold tabular-nums text-consulty-text-primary">
                     {val}
@@ -221,18 +222,25 @@ export function LeadDistributionDonut({
                   <span className="w-10 rounded-consulty-sm bg-consulty-surface-subtle py-0.5 text-center text-crm-xs font-semibold tabular-nums text-consulty-text-muted dark:bg-consulty-surface-subtle/50">
                     {pct}%
                   </span>
-                  {!isUnassigned && agent?.stages?.length ? (
-                    <ChevronDown
-                      className={cn(
-                        'h-3.5 w-3.5 text-consulty-text-muted transition-transform duration-200',
-                        isExpanded && 'rotate-180',
-                      )}
-                    />
+                  {stages.length > 0 ? (
+                    <button
+                      type="button"
+                      aria-label={isExpanded ? 'Collapse stages' : 'Expand stages'}
+                      onClick={() => setExpandedCounselor(isExpanded ? null : label)}
+                      className="cursor-pointer p-0.5"
+                    >
+                      <ChevronDown
+                        className={cn(
+                          'h-3.5 w-3.5 text-consulty-text-muted transition-transform duration-200',
+                          isExpanded && 'rotate-180',
+                        )}
+                      />
+                    </button>
                   ) : (
                     <div className="w-3.5" />
                   )}
                 </div>
-              </button>
+              </div>
 
               {isExpanded && stages.length > 0 && (
                 <div className="border-t border-consulty-border-subtle bg-consulty-surface-subtle px-3 py-2.5 dark:border-consulty-border dark:bg-consulty-surface-subtle/40">
@@ -241,9 +249,13 @@ export function LeadDistributionDonut({
                       const stagePct = stageBase > 0 ? Math.round((stage.count / stageBase) * 100) : 0
                       return (
                         <div key={stage.key} className="flex items-center gap-2">
-                          <span className="w-24 truncate text-crm-xs text-consulty-text-secondary">
+                          <button
+                            type="button"
+                            onClick={() => onStageClick?.(agent?.agentId ?? null, stage.key)}
+                            className="w-24 truncate text-left text-crm-xs text-consulty-text-secondary hover:text-consulty-text-primary hover:underline cursor-pointer"
+                          >
                             {stage.label}
-                          </span>
+                          </button>
                           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-consulty-border-subtle dark:bg-consulty-border">
                             <div
                               className="h-full rounded-full"

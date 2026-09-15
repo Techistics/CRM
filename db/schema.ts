@@ -190,7 +190,6 @@ export const leads = pgTable('leads', {
   destinationCountry: text('destination_country'), // nullable
   programOfInterest: text('program_of_interest'), // nullable
   deadReason: text('dead_reason'), // nullable
-  isDeadManual: boolean('is_dead_manual').default(false), // defaults to false
   reassignedFrom: uuid('reassigned_from').references(() => users.id, { onDelete: 'set null' }),
   csvImportId: uuid('csv_import_id').references(() => csvImports.id, { onDelete: 'set null' }),
   subStatusId: uuid('sub_status_id').references(() => pipelineSubStatuses.id, { onDelete: 'set null' }),

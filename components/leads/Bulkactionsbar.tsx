@@ -8,7 +8,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from '@/lib/utils'
 import { Agent } from '@/types/LeadsDashboard'
 import type { BulkActionsBarProps } from '@/types/leads'
-import { MOVE_STAGE_OPTIONS } from '@/constants/pipeline-stages'
 
 export type { BulkActionsBarProps }
 
@@ -17,6 +16,7 @@ export function BulkActionsBar({
   isAdmin,
   canDelete,
   agents,
+  tenantStages,
   bulkActionLoading,
   onAssign,
   onMoveStage,
@@ -71,9 +71,9 @@ export function BulkActionsBar({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          {MOVE_STAGE_OPTIONS.map((stage) => (
-            <DropdownMenuItem key={stage} onSelect={() => onMoveStage(stage)}>
-              {stage.replace(/_/g, ' ')}
+          {tenantStages.map((stage) => (
+            <DropdownMenuItem key={stage.key} onSelect={() => onMoveStage(stage.key)}>
+              {stage.label}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>

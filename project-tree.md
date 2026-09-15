@@ -115,7 +115,6 @@ Last updated: 2026-04-25
 - `lib/tenant-api.ts`: API auth helpers (tenant member/admin)
 - `lib/tenant-server.ts`: server auth helpers (tenant sessions)
 - `lib/mail.ts`: Resend email sender helpers
-- `lib/leads/heat.ts`: lead heat indicator calculation + UI config
 - `constants/pipeline-stages.ts`: allowed lead stages + UI labels
 - `components/admin/admin-sidebar.tsx`: admin navigation
 - `components/pro/pro-sidebar.tsx`: pro navigation
@@ -151,7 +150,6 @@ Last updated: 2026-04-25
 - [x] Import/export + bulk actions
 - [x] Notifications
 - [x] Admin analytics overview
-- [x] Lead heat indicator system (computed from `lastContactedAt`)
 - [x] WhatsApp message logger (manual logs)
 - [x] Quick follow-up templates (seed + CRUD + UI)
 - [x] Agent accountability dashboard (team performance table)
@@ -164,7 +162,7 @@ Last updated: 2026-04-25
 - `NEXT_PUBLIC_APP_URL`
 
 ## Current Phase
-- Lead heat indicators + WhatsApp logger + templates + accountability + student journey timeline (implemented)
+WhatsApp logger + templates + accountability + student journey timeline (implemented)
 
 ## Known Issues
 - Some API/email flows still use `console.error`; should be centralized/handled consistently.

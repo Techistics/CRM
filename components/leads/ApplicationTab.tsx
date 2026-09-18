@@ -428,7 +428,7 @@ export function ApplicationTab({ leadId }: { leadId: string }) {
             id="app-save-button"
             onClick={handleSave}
             disabled={saving || (hasErrors && touched.size > 0)}
-            className="h-9 px-5 bg-white hover:bg-brand-hover dark:text-blue-900 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center gap-1.5"
+            className="h-9 px-5 dark:bg-brand dark:text-blue-900 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors flex items-center gap-1.5"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : isEditMode ? 'Update Application' : 'Save Application'}
           </Button>

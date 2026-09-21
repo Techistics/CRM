@@ -3,7 +3,7 @@ import { and, count, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-o
 
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'
-import { leads, leadTagAssignments, leadTags, leadStageAssignments, applications, leadRevenues, pipelineSubStatuses } from '@/db/schema'
+import { leads, leadTagAssignments, leadTags, leadStageAssignments, leadRevenues, pipelineSubStatuses } from '@/db/schema'
 import { leadsVisibleWhere } from '@/lib/leads-scope'
 import { toMemberScope } from '@/lib/member-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
@@ -126,28 +126,33 @@ export async function GET(req: NextRequest) {
       conditions.push(eq(leads.closedAction, closedActionFilter))
     }
 
-    // ── Application filter conditions (only added when join is active) ─
+    // ── Application filter conditions — uses EXISTS so lead shows once ─
     if (needsAppJoin) {
-      // Leads must HAVE an application when any app filter is active
-      conditions.push(sql`${applications.leadId} IS NOT NULL`)
-      if (appUniversityName) {
-        conditions.push(ilike(applications.universityName, `%${appUniversityName}%`))
-      }
-      if (appCourseName) {
-        conditions.push(ilike(applications.courseName, `%${appCourseName}%`))
-      }
-      if (appSource) {
-        conditions.push(eq(applications.source, appSource))
-      }
-      if (appStatus) {
-        conditions.push(eq(applications.applicationStatus, appStatus))
-      }
-      if (appIntakeMonth) {
-        conditions.push(eq(applications.intakeMonth, appIntakeMonth))
-      }
-      if (appIntakeYear) {
-        conditions.push(eq(applications.intakeYear, appIntakeYear))
-      }
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM applications a
+          WHERE a.lead_id = ${leads.id}
+            AND a.tenant_id = ${ctx.tenant.id}
+            ${
+              appUniversityName ? sql`AND a.university_name ILIKE ${'%' + appUniversityName + '%'}` : sql``
+            }
+            ${
+              appCourseName ? sql`AND a.course_name ILIKE ${'%' + appCourseName + '%'}` : sql``
+            }
+            ${
+              appSource ? sql`AND a.source = ${appSource}` : sql``
+            }
+            ${
+              appStatus ? sql`AND a.application_status = ${appStatus}` : sql``
+            }
+            ${
+              appIntakeMonth ? sql`AND a.intake_month = ${appIntakeMonth}` : sql``
+            }
+            ${
+              appIntakeYear ? sql`AND a.intake_year = ${appIntakeYear}` : sql``
+            }
+        )`
+      )
     }
 
     // ── Lead intake filter conditions ──────────────────────────
@@ -207,25 +212,11 @@ export async function GET(req: NextRequest) {
     }
 
     if (idsOnly) {
-      const baseQuery = needsAppJoin
-        ? db
-            .select({ id: leads.id })
-            .from(leads)
-            .leftJoin(
-              applications,
-              and(
-                eq(applications.leadId, leads.id),
-                eq(applications.tenantId, ctx.tenant.id),
-              ),
-            )
-            .where(where)
-            .orderBy(desc(leads.updatedAt))
-        : db
-            .select({ id: leads.id })
-            .from(leads)
-            .where(where)
-            .orderBy(desc(leads.updatedAt))
-      const rows = await baseQuery
+      const rows = await db
+        .select({ id: leads.id })
+        .from(leads)
+        .where(where)
+        .orderBy(desc(leads.updatedAt))
       return successResponse({ leadIds: rows.map((row) => row.id) })
     }
 
@@ -257,35 +248,18 @@ export async function GET(req: NextRequest) {
       dealCurrency: leads.dealCurrency,
       createdAt: leads.createdAt,
       updatedAt: leads.updatedAt,
-      // Application badge fields (null when no application exists)
-      appUniversityName: applications.universityName,
-      appStatus: applications.applicationStatus,
     }
 
     if (paginate) {
-      // Count query
-      const countBase = needsAppJoin
-        ? db.select({ c: count() }).from(leads)
-            .leftJoin(applications, and(eq(applications.leadId, leads.id), eq(applications.tenantId, ctx.tenant.id)))
-            .where(where)
-        : db.select({ c: count() }).from(leads).where(where)
-      const [totalRow] = await countBase
+      // Count query — no join needed (filter is EXISTS-based)
+      const [totalRow] = await db.select({ c: count() }).from(leads).where(where)
 
-      // Data query
-      const dataBase = needsAppJoin
-        ? db.select(leadSelectShape).from(leads)
-            .leftJoin(applications, and(eq(applications.leadId, leads.id), eq(applications.tenantId, ctx.tenant.id)))
-            .where(where)
-            .orderBy(desc(leads.updatedAt))
-            .limit(pageSize)
-            .offset(offset)
-        : db.select(leadSelectShape).from(leads)
-            .leftJoin(applications, and(eq(applications.leadId, leads.id), eq(applications.tenantId, ctx.tenant.id)))
-            .where(where)
-            .orderBy(desc(leads.updatedAt))
-            .limit(pageSize)
-            .offset(offset)
-      const rows = await dataBase
+      // Data query — no join; filter is EXISTS-based, lead always appears once
+      const rows = await db.select(leadSelectShape).from(leads)
+        .where(where)
+        .orderBy(desc(leads.updatedAt))
+        .limit(pageSize)
+        .offset(offset)
 
       const rowsWithTags = stripDealFieldsFromList(
         await attachTagsToLeads(rows),
@@ -304,13 +278,6 @@ export async function GET(req: NextRequest) {
     const rows = await db
       .select(leadSelectShape)
       .from(leads)
-      .leftJoin(
-        applications,
-        and(
-          eq(applications.leadId, leads.id),
-          eq(applications.tenantId, ctx.tenant.id),
-        ),
-      )
       .where(where)
       .orderBy(desc(leads.updatedAt))
     const rowsWithTags = stripDealFieldsFromList(

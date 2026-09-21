@@ -466,15 +466,14 @@ export const leadTagAssignments = pgTable(
   }),
 )
 
-// ─── Applications (one per lead) ─────────────────────────────
+// ─── Applications (many per lead) ─────────────────────────────
 export const applications = pgTable(
   'applications',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     leadId: uuid('lead_id')
       .references(() => leads.id, { onDelete: 'cascade' })
-      .notNull()
-      .unique(), // one application per lead
+      .notNull(),
     tenantId: uuid('tenant_id')
       .references(() => tenants.id, { onDelete: 'cascade' })
       .notNull(),
@@ -497,13 +496,10 @@ export const applications = pgTable(
 )
 
 // ─── Relations (cont.) ────────────────────────────────────────
-export const leadRelations = relations(leads, ({ many, one }) => ({
+export const leadRelations = relations(leads, ({ many }) => ({
   tagAssignments: many(leadTagAssignments),
   revenues: many(leadRevenues),
-  application: one(applications, {
-    fields: [leads.id],
-    references: [applications.leadId],
-  }),
+  applications: many(applications),
 }))
 
 export const applicationRelations = relations(applications, ({ one }) => ({

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, asc } from 'drizzle-orm'
 
 import { db } from '@/db'
 import { applications } from '@/db/schema'
@@ -10,7 +10,7 @@ import { applicationUpsertBodySchema } from '@/lib/validators/application'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
 // ─── GET /api/leads/[id]/application ─────────────────────────
-// Returns the existing application for a lead, or null if none exists yet.
+// Returns ALL applications for a lead (array).
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -26,7 +26,7 @@ export async function GET(
       return errorResponse('Lead not found', 'NOT_FOUND', 404)
     }
 
-    const [application] = await db
+    const rows = await db
       .select()
       .from(applications)
       .where(
@@ -35,16 +35,15 @@ export async function GET(
           eq(applications.tenantId, ctx.tenant.id),
         ),
       )
-      .limit(1)
+      .orderBy(asc(applications.createdAt))
 
-    return successResponse({ application: application ?? null })
+    return successResponse({ applications: rows })
   })
 }
 
-// ─── PUT /api/leads/[id]/application ─────────────────────────
-// Upsert — creates the application if it doesn't exist, updates it if it does.
-// One application per lead enforced via unique constraint on lead_id.
-export async function PUT(
+// ─── POST /api/leads/[id]/application ────────────────────────
+// Creates a NEW application for a lead (multiple allowed).
+export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -92,30 +91,15 @@ export async function PUT(
         universityName,
         courseName,
         source,
-        // Clear partner portal name when source is direct_uni
         partnerPortalName: source === 'partner_portal' ? (partnerPortalName ?? null) : null,
         applicationStatus,
-        // Clear intake fields when status is not intake
         intakeMonth: applicationStatus === 'intake' ? (intakeMonth ?? null) : null,
         intakeYear: applicationStatus === 'intake' ? (intakeYear ?? null) : null,
         createdAt: now,
         updatedAt: now,
       })
-      .onConflictDoUpdate({
-        target: applications.leadId,
-        set: {
-          universityName,
-          courseName,
-          source,
-          partnerPortalName: source === 'partner_portal' ? (partnerPortalName ?? null) : null,
-          applicationStatus,
-          intakeMonth: applicationStatus === 'intake' ? (intakeMonth ?? null) : null,
-          intakeYear: applicationStatus === 'intake' ? (intakeYear ?? null) : null,
-          updatedAt: now,
-        },
-      })
       .returning()
 
-    return successResponse({ application })
+    return successResponse({ application }, 201)
   })
 }

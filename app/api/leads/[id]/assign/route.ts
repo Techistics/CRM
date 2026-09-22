@@ -67,10 +67,8 @@ export async function PATCH(
       }
     }
 
-    const isProReassigning = ctx.role === 'PRO' && !can(ctx.permissions, 'leads.assign')
-
     let reassignedFrom: string | null = null
-    if (isProReassigning && assignedTo) {
+    if (ctx.role === 'PRO' && assignedTo) {
       reassignedFrom = ctx.dbUserId
     } else if (ctx.role === 'ADMIN' && assignedTo) {
       const targetMember = await getTenantMembershipWithPermissions(assignedTo, ctx.tenant.id)

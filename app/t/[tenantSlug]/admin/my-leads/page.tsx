@@ -2,10 +2,14 @@ import { eq, and, isNotNull, isNull } from 'drizzle-orm'
 import { db } from '@/db'
 import { leads, users } from '@/db/schema'
 import { requireTenantAdminSession } from '@/lib/tenant-server'
+import { getTenantPipeline } from '@/lib/pipeline/config'
 import AdminMyLeadsClient from './AdminMyLeadsClient'
 
 export default async function AdminMyLeadsPage() {
   const { tenant, dbUserId } = await requireTenantAdminSession()
+
+  const pipeline = await getTenantPipeline(tenant.id)
+  const stageLabels = Object.fromEntries(pipeline.stages.map(s => [s.key, s.label]))
 
   const myLeads = await db
     .select({
@@ -31,5 +35,5 @@ export default async function AdminMyLeadsPage() {
       isNull(leads.deletedAt),
     ))
 
-  return <AdminMyLeadsClient leads={myLeads} tenantSlug={tenant.slug} />
+  return <AdminMyLeadsClient leads={myLeads} tenantSlug={tenant.slug} stageLabels={stageLabels} />
 }

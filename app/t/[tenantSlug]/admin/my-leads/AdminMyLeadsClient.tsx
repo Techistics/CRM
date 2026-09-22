@@ -17,9 +17,11 @@ type MyLead = {
 export default function AdminMyLeadsClient({
   leads,
   tenantSlug,
+  stageLabels,
 }: {
   leads: MyLead[]
   tenantSlug: string
+  stageLabels: Record<string, string>
 }) {
   return (
     <div className="w-full">
@@ -48,7 +50,7 @@ export default function AdminMyLeadsClient({
                 <td className="px-4 py-3 text-slate-500">{lead.city ?? '—'}</td>
                 <td className="px-4 py-3">
                   <span className="rounded-md bg-slate-100 dark:bg-slate-700 px-2 py-1 text-xs font-medium text-slate-700 dark:text-slate-300">
-                    {lead.stage}
+                    {stageLabels[lead.stage] || lead.stage}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-slate-500">{lead.reassignedByName ?? lead.reassignedByEmail ?? '—'}</td>

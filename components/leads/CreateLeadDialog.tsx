@@ -332,6 +332,7 @@ export function CreateLeadDialog({
                     {SOURCES.map(s => (
                         <SelectItem key={s} value={s}>{s}</SelectItem>
                       ))}
+                      <SelectItem value="Compaign">Compaign</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

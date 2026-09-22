@@ -16,6 +16,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { ImportBatchHistory } from '@/components/leads/ImportBatchHistory'
 import { ImportColumnMapper } from '@/components/leads/ImportColumnMapper'
@@ -101,6 +107,16 @@ export default function ImportPage({
   const [columnMapping, setColumnMapping] = useState<Record<string, ImportFieldKey>>({})
   const [fileDataBase64, setFileDataBase64] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const [modalType, setModalType] = useState<'valid' | 'duplicates' | 'errors' | null>(null)
+  const [visibleCount, setVisibleCount] = useState(10)
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
+    if (scrollHeight - scrollTop <= clientHeight + 50) {
+      setVisibleCount((prev) => prev + 10)
+    }
+  }
 
   const hasFullNameMapping = useMemo(
     () => Object.values(columnMapping).includes('fullName'),
@@ -401,10 +417,31 @@ export default function ImportPage({
         <div className="space-y-6">
           <Card className="p-4">
             <div className="grid grid-cols-4 gap-3">
-              <div className="rounded border p-3"><p className="text-xs text-muted-foreground">Total Rows</p><p className="font-semibold">{parseResult.totalRows}</p></div>
-              <div className="rounded border p-3 bg-emerald-50"><p className="text-xs text-emerald-700">Valid Leads</p><p className="font-semibold text-emerald-700">{parseResult.validRows}</p></div>
-              <div className="rounded border p-3 bg-amber-50"><p className="text-xs text-amber-700">Duplicates</p><p className="font-semibold text-amber-700">{parseResult.duplicateRows}</p></div>
-              <div className="rounded border p-3 bg-red-50"><p className="text-xs text-red-700">Errors</p><p className="font-semibold text-red-700">{parseResult.errorRows}</p></div>
+              <div className="rounded border p-3">
+                <p className="text-xs text-muted-foreground">Total Rows</p>
+                <p className="font-semibold">{parseResult.totalRows}</p>
+              </div>
+              <div 
+                className="rounded border p-3 bg-emerald-50 cursor-pointer hover:bg-emerald-100 transition-colors"
+                onClick={() => { setModalType('valid'); setVisibleCount(10); }}
+              >
+                <p className="text-xs text-emerald-700">Valid Leads</p>
+                <p className="font-semibold text-emerald-700">{parseResult.validRows}</p>
+              </div>
+              <div 
+                className="rounded border p-3 bg-amber-50 cursor-pointer hover:bg-amber-100 transition-colors"
+                onClick={() => { setModalType('duplicates'); setVisibleCount(10); }}
+              >
+                <p className="text-xs text-amber-700">Duplicates</p>
+                <p className="font-semibold text-amber-700">{parseResult.duplicateRows}</p>
+              </div>
+              <div 
+                className="rounded border p-3 bg-red-50 cursor-pointer hover:bg-red-100 transition-colors"
+                onClick={() => { setModalType('errors'); setVisibleCount(10); }}
+              >
+                <p className="text-xs text-red-700">Errors</p>
+                <p className="font-semibold text-red-700">{parseResult.errorRows}</p>
+              </div>
             </div>
           </Card>
 
@@ -557,6 +594,66 @@ export default function ImportPage({
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <ImportBatchHistory canDelete={canDeleteBatches} />
+
+      <Dialog open={modalType !== null} onOpenChange={(open) => { if (!open) setModalType(null) }}>
+        <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {modalType === 'valid' && 'Valid Leads'}
+              {modalType === 'duplicates' && 'Duplicates'}
+              {modalType === 'errors' && 'Errors'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 mt-4 pr-2" onScroll={handleScroll}>
+            {modalType === 'valid' && parseResult && (
+              <div className="overflow-x-auto pb-4">
+                <table className="w-full text-sm whitespace-nowrap">
+                  <thead className="text-left border-b sticky top-0 bg-background/95 backdrop-blur z-10">
+                    <tr>
+                      <th className="py-2 px-3 font-medium text-muted-foreground">Name</th>
+                      <th className="py-2 px-3 font-medium text-muted-foreground">Contact</th>
+                      <th className="py-2 px-3 font-medium text-muted-foreground">Email</th>
+                      <th className="py-2 px-3 font-medium text-muted-foreground">City</th>
+                      <th className="py-2 px-3 font-medium text-muted-foreground">Country</th>
+                      <th className="py-2 px-3 font-medium text-muted-foreground">Stage</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parseResult.parsedData.slice(0, visibleCount).map((row, idx) => (
+                      <tr key={idx} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                        <td className="py-3 px-3">{row.fullName}</td>
+                        <td className="py-3 px-3">{row.contactNumber}</td>
+                        <td className="py-3 px-3">{row.email ?? '—'}</td>
+                        <td className="py-3 px-3">{row.city ?? '—'}</td>
+                        <td className="py-3 px-3">{row.country ?? '—'}</td>
+                        <td className="py-3 px-3">{row.stage}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {modalType === 'duplicates' && parseResult && (
+              <div className="space-y-3 pb-4">
+                {parseResult.duplicates.slice(0, visibleCount).map((item, idx) => (
+                  <div key={idx} className="p-3 border border-amber-200 rounded-md text-sm text-amber-800 bg-amber-50">
+                    <span className="font-medium">Row {item.row}:</span> {item.name} matched on <span className="font-semibold">{item.matchedOn}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {modalType === 'errors' && parseResult && (
+              <div className="space-y-3 pb-4">
+                {parseResult.errors.slice(0, visibleCount).map((item, idx) => (
+                  <div key={idx} className="p-3 border border-red-200 rounded-md text-sm text-red-800 bg-red-50">
+                    <span className="font-medium">Row {item.row}:</span> {item.field} - {item.message}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

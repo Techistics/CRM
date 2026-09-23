@@ -70,7 +70,23 @@ const LeadTableRow = memo(function LeadTableRow({
       </td>
       <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{lead.contactNumber ?? '—'}</td>
       <td className="hidden px-4 py-3 text-sm text-slate-600 dark:text-slate-400 md:table-cell">{lead.city ?? '—'}</td>
-      <td className="hidden px-4 py-3 text-sm text-slate-600 dark:text-slate-400 lg:table-cell">{lead.lastQualification ?? '—'}</td>
+      <td className="hidden px-4 py-3 text-sm text-slate-600 dark:text-slate-400 lg:table-cell">
+        <div className="max-w-[200px] truncate" title={lead.latestLog ?? ''}>
+          {lead.latestLog ?? '—'}
+        </div>
+      </td>
+      <td className="hidden px-4 py-3 text-sm text-slate-600 dark:text-slate-400 lg:table-cell">
+        {lead.updatedAt ? new Date(lead.updatedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}
+      </td>
+      <td className="px-4 py-3 text-center text-sm font-semibold text-slate-700 dark:text-slate-300">
+        {lead.applicationCount && lead.applicationCount > 0 ? (
+          <div className="inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50">
+            {lead.applicationCount}
+          </div>
+        ) : (
+          <span className="text-slate-400 font-normal">—</span>
+        )}
+      </td>
       <td className="px-4 py-3">
         <span className={`text-xs px-2.5 py-1 rounded-full border ${stageInfo.badgeClasses} font-medium tracking-wide`}>
           {stageInfo.label}
@@ -147,7 +163,9 @@ export function LeadsTable({
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Name</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</th>
               <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 md:table-cell">City</th>
-              <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 lg:table-cell">Qualification</th>
+              <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 lg:table-cell">Note/Logs</th>
+              <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 lg:table-cell">Last Activity</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">Apps</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Stage</th>
 
               <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:table-cell">Assigned To</th>

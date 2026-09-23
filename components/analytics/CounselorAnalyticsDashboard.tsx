@@ -175,18 +175,16 @@ export default function CounselorAnalyticsDashboard({
     doc.text(`Generated: ${now.toLocaleString()}`, pageW - 14, 18, { align: 'right' })
     doc.text(`Period Range: ${exportFrom}  to  ${exportTo}`, pageW - 14, 25, { align: 'right' })
 
-    // ── Content Core Section Section Titles ──────────────────────────────────────────
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
-    doc.setTextColor(15, 23, 42) // slate-900
+    doc.setTextColor(15, 23, 42) 
     doc.text(`Analytics Profile Focus: ${targetCounselorName}`, 14, 60)
 
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8.5)
-    doc.setTextColor(100, 116, 139) // slate-500
+    doc.setTextColor(100, 116, 139) 
     doc.text('The summary data vector array block below breaks down tracked operational metrics over the targeted chronological parameters.', 14, 66)
 
-    // ── Filtered active operational data sets ───────────────────────────────────────
     const dataRows = exportCounselorId
       ? summaryData.filter((c) => c.userId === exportCounselorId)
       : summaryData
@@ -197,19 +195,17 @@ export default function CounselorAnalyticsDashboard({
       c.name,
       c.email,
       String(c.totalLeads ?? 0),
-      String(c.activeLeads ?? 0),
-      String(c.coldLeads ?? 0),
-      String(c.deadLeads ?? 0),
       `${c.todayHours ?? 0}h`,
+      String(c.periodEdits ?? 0),
     ])
 
     autoTable(doc, {
       startY: 72,
-      head: [['#', 'User Unique ID', 'Consultant Name', 'Corporate Email Address', 'Total', 'Active', 'Cold', 'Dead', 'Logged Time']],
+      head: [['#', 'User Unique ID', 'Consultant Name', 'Corporate Email Address', 'Total Leads', 'Logged Time', 'Leads Edited']],
       body: tableBody,
       styles: { font: 'helvetica', fontSize: 7.5, cellPadding: 3.5, textColor: [15, 23, 42] },
       headStyles: {
-        fillColor: [15, 23, 42], // Slate-900 Base Corporate Head
+        fillColor: [15, 23, 42], 
         textColor: [255, 255, 255],
         fontStyle: 'bold',
         fontSize: 8,
@@ -217,14 +213,12 @@ export default function CounselorAnalyticsDashboard({
       alternateRowStyles: { fillColor: [248, 250, 252] }, // Slate-50 minimal tracking alternate row
       columnStyles: {
         0: { cellWidth: 8, halign: 'center' },
-        1: { cellWidth: 42, fontSize: 6.5, font: 'courier' },
-        2: { cellWidth: 32, fontStyle: 'bold' },
-        3: { cellWidth: 42 },
-        4: { cellWidth: 12, halign: 'center' },
-        5: { cellWidth: 12, halign: 'center' },
-        6: { cellWidth: 12, halign: 'center' },
-        7: { cellWidth: 12, halign: 'center' },
-        8: { cellWidth: 18, halign: 'center' },
+        1: { cellWidth: 45, fontSize: 6.5, font: 'courier' },
+        2: { cellWidth: 35, fontStyle: 'bold' },
+        3: { cellWidth: 45 },
+        4: { cellWidth: 15, halign: 'center' },
+        5: { cellWidth: 16, halign: 'center' },
+        6: { cellWidth: 16, halign: 'center' },
       },
       margin: { left: 14, right: 14 },
       tableLineColor: [226, 232, 240], // slate-200
@@ -289,7 +283,7 @@ export default function CounselorAnalyticsDashboard({
             Counselor Performance Summary
           </CardTitle>
           <CardDescription className="text-slate-500 dark:text-slate-400">
-            Click a row to drill down into detailed activity logs. Click counter badges to isolate visual target arrays.
+            Click a row to drill down into detailed activity logs.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -307,11 +301,8 @@ export default function CounselorAnalyticsDashboard({
                 <TableRow className="hover:bg-transparent border-b border-slate-200 dark:border-slate-800">
                   <TableHead className="font-semibold text-slate-700 dark:text-slate-300 pl-6">Counselor Name</TableHead>
                   <TableHead className="font-semibold text-slate-700 dark:text-slate-300 text-center">Total Leads</TableHead>
-                  <TableHead className="font-semibold text-slate-700 dark:text-slate-300 text-center">Active Leads</TableHead>
-                  <TableHead className="font-semibold text-slate-700 dark:text-slate-300 text-center">Cold Leads</TableHead>
-                  <TableHead className="font-semibold text-slate-700 dark:text-slate-300 text-center">Dead Leads</TableHead>
                   <TableHead className="font-semibold text-slate-700 dark:text-slate-300 text-center">Clocked Hours Today</TableHead>
-                  <TableHead className="font-semibold text-slate-700 dark:text-slate-300 text-center">Edits Today</TableHead>
+                  <TableHead className="font-semibold text-slate-700 dark:text-slate-300 text-center">Leads Edited (Selected Duration)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -336,52 +327,13 @@ export default function CounselorAnalyticsDashboard({
                       </div>
                     </TableCell>
                     <TableCell className="text-center font-medium text-slate-700 dark:text-slate-300">{c.totalLeads}</TableCell>
-                    <TableCell className="text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 font-bold"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleOpenLeadsDialog(c.userId, c.name, 'active')
-                        }}
-                      >
-                        {c.activeLeads}
-                      </Button>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-amber-600 dark:text-amber-400 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20 font-bold"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleOpenLeadsDialog(c.userId, c.name, 'cold')
-                        }}
-                      >
-                        {c.coldLeads}
-                      </Button>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-slate-500 dark:text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-900/60 font-bold"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleOpenLeadsDialog(c.userId, c.name, 'dead')
-                        }}
-                      >
-                        {c.deadLeads}
-                      </Button>
-                    </TableCell>
                     <TableCell className="text-center font-medium">
                       <Badge variant="outline" className="px-2.5 py-0.5 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-semibold bg-slate-50 dark:bg-slate-900">
                         {c.todayHours}h
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center font-bold text-indigo-600 dark:text-indigo-400">
-                      {c.todayEdits}
+                      {c.periodEdits}
                     </TableCell>
                   </TableRow>
                 ))}

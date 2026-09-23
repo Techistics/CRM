@@ -59,6 +59,7 @@ export function FilterSheet({
     leadIntakeYear: searchParams.get('leadIntakeYear'),
     revIntakeMonth: searchParams.get('revIntakeMonth'),
     revIntakeYear: searchParams.get('revIntakeYear'),
+    hasApplications: searchParams.get('hasApplications'),
   }), [searchParams])
 
   const [pendingFilters, setPendingFilters] = useState<PendingFilters>(buildInitialFilters)
@@ -132,6 +133,7 @@ export function FilterSheet({
     setOrDelete('leadIntakeYear', pendingFilters.leadIntakeYear)
     setOrDelete('revIntakeMonth', pendingFilters.revIntakeMonth)
     setOrDelete('revIntakeYear', pendingFilters.revIntakeYear)
+    setOrDelete('hasApplications', pendingFilters.hasApplications && pendingFilters.hasApplications !== 'all' ? pendingFilters.hasApplications : null)
 
     sp.delete('page')
     router.push('?' + sp.toString())
@@ -335,6 +337,21 @@ export function FilterSheet({
           {/* Application Details & Tags */}
           <div className="space-y-3.5">
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Application & Tags</p>
+
+            <div className="space-y-1.5">
+              <Label className={FIELD_LABEL_CLASS}>Number of Applications</Label>
+              <Select
+                value={pendingFilters.hasApplications ?? 'all'}
+                onValueChange={(val) => patch({ hasApplications: val === 'all' ? null : val })}
+              >
+                <SelectTrigger className={FIELD_TRIGGER_CLASS}><SelectValue placeholder="Any" /></SelectTrigger>
+                <SelectContent className={DROPDOWN_SCROLL_CLASS}>
+                  <SelectItem value="all">Any</SelectItem>
+                  <SelectItem value="yes">Has Applications</SelectItem>
+                  <SelectItem value="no">No Applications</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <div className="space-y-1.5">
               <Label className={FIELD_LABEL_CLASS}>University Name</Label>

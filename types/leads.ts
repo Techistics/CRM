@@ -85,6 +85,7 @@ export type PendingFilters = {
   leadIntakeYear: string | null
   revIntakeMonth: string | null
   revIntakeYear: string | null
+  hasApplications: string | null
 }
 
 export type FilterSheetProps = {

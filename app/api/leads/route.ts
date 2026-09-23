@@ -3,7 +3,7 @@ import { and, count, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-o
 
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'
-import { leads, leadTagAssignments, leadTags, leadStageAssignments, leadRevenues, pipelineSubStatuses } from '@/db/schema'
+import { leads, leadTagAssignments, leadTags, leadStageAssignments, leadRevenues, pipelineSubStatuses, applications } from '@/db/schema'
 import { leadsVisibleWhere } from '@/lib/leads-scope'
 import { toMemberScope } from '@/lib/member-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
     const appIntakeYearRaw = url.searchParams.get('appIntakeYear')?.trim()
     const appIntakeMonth = appIntakeMonthRaw ? parseInt(appIntakeMonthRaw, 10) : null
     const appIntakeYear = appIntakeYearRaw ? parseInt(appIntakeYearRaw, 10) : null
+    const hasApplications = url.searchParams.get('hasApplications')?.trim()
 
     // ── Lead intake filters ────────────────────────────────────
     const leadIntakeMonthRaw = url.searchParams.get('leadIntakeMonth')?.trim()
@@ -155,6 +156,25 @@ export async function GET(req: NextRequest) {
       )
     }
 
+    // ── Application count filters ──────────────────────────────
+    if (hasApplications === 'yes') {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM applications a
+          WHERE a.lead_id = leads.id
+            AND a.tenant_id = ${ctx.tenant.id}
+        )`
+      )
+    } else if (hasApplications === 'no') {
+      conditions.push(
+        sql`NOT EXISTS (
+          SELECT 1 FROM applications a
+          WHERE a.lead_id = leads.id
+            AND a.tenant_id = ${ctx.tenant.id}
+        )`
+      )
+    }
+
     // ── Lead intake filter conditions ──────────────────────────
     if (leadIntakeMonth) {
       conditions.push(eq(leads.intakeMonth, leadIntakeMonth))
@@ -248,6 +268,15 @@ export async function GET(req: NextRequest) {
       dealCurrency: leads.dealCurrency,
       createdAt: leads.createdAt,
       updatedAt: leads.updatedAt,
+      latestLog: sql<string | null>`(
+        SELECT body FROM consultant_logs
+        WHERE consultant_logs.lead_id = leads.id
+        ORDER BY created_at DESC LIMIT 1
+      )`.as('latest_log'),
+      applicationCount: sql<number>`(
+        SELECT count(*)::int FROM applications
+        WHERE applications.lead_id = leads.id
+      )`.as('application_count'),
     }
 
     if (paginate) {

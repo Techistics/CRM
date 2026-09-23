@@ -34,12 +34,30 @@ function TimesheetPunchBar() {
   useEffect(() => {
   if (!activeSession) return
 
+  let lastActivity = Date.now()
+  const updateActivity = () => { lastActivity = Date.now() }
+  
+  window.addEventListener('mousemove', updateActivity)
+  window.addEventListener('keydown', updateActivity)
+  window.addEventListener('click', updateActivity)
+  window.addEventListener('scroll', updateActivity)
+
   const sendHeartbeat = () => {
     navigator.sendBeacon('/api/timesheets/heartbeat')
   }
 
   sendHeartbeat()
-  const interval = setInterval(sendHeartbeat, 30000)
+  
+  const interval = setInterval(() => {
+    if (Date.now() - lastActivity > 15 * 60 * 1000) {
+      // Inactive for 15 minutes, auto punch out
+      fetch('/api/timesheets/punch-out', { method: 'POST' }).then(() => {
+        fetchStatus()
+      })
+    } else {
+      sendHeartbeat()
+    }
+  }, 30000)
 
   const handleVisibilityChange = () => {
     if (document.visibilityState === 'hidden') {
@@ -51,6 +69,10 @@ function TimesheetPunchBar() {
   return () => {
     clearInterval(interval)
     document.removeEventListener('visibilitychange', handleVisibilityChange)
+    window.removeEventListener('mousemove', updateActivity)
+    window.removeEventListener('keydown', updateActivity)
+    window.removeEventListener('click', updateActivity)
+    window.removeEventListener('scroll', updateActivity)
   }
 }, [activeSession])
 

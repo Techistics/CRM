@@ -7,9 +7,12 @@ export type LeadRow = {
   stage: string | null
   lastContactedAt: string | null
   createdAt: string
+  updatedAt: string
   lastQualification: string | null
+  latestLog: string | null
   assignedTo: string | null
   tags: { id: string; name: string; color: string }[]
+  applicationCount?: number
 }
 
 export type Agent = {

@@ -8,7 +8,6 @@ import { DashboardShell } from '@/components/consulty-dashboard/ui/dashboard-she
 import { OverviewHeader } from '@/components/consulty-dashboard/overview-header'
 import { MetricCardsGrid, type MetricCardData } from '@/components/consulty-dashboard/metric-card'
 import { LeadDistributionCard } from '@/components/consulty-dashboard/lead-distribution-card'
-import { LeadStatusChart } from '@/components/consulty-dashboard/lead-status-chart'
 import { TeamPerformanceTable } from '@/components/consulty-dashboard/team-performance-table'
 import { TeamSnapshot } from '@/components/consulty-dashboard/team-snapshot'
 import type { AgentStat, ChartWindow, PipelineChartSnapshot } from '@/types/analytics'
@@ -216,11 +215,8 @@ export default function AnalyticsOverviewClient({
           unassignedBreakdown={unassignedBreakdown}
           totalLeads={donutTotalLeads}
           tenantSlug={tenantSlug}
-          className="lg:col-span-7"
+          className="lg:col-span-10"
         />
-        <div className="lg:col-span-3">
-          <LeadStatusChart active={activeLeads} cold={cold} dead={dead} />
-        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">

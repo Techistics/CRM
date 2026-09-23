@@ -107,6 +107,7 @@ export function LeadsDashboard({
   const leadIntakeYearFilter = searchParams.get('leadIntakeYear') ?? undefined
   const revIntakeMonthFilter = searchParams.get('revIntakeMonth') ?? undefined
   const revIntakeYearFilter = searchParams.get('revIntakeYear') ?? undefined
+  const hasApplicationsFilter = searchParams.get('hasApplications') ?? undefined
 
   const currentPage = Math.max(1, Number(page) || 1)
   const pageSize = Number(pageSizeParam) || 10
@@ -146,6 +147,7 @@ export function LeadsDashboard({
       if (leadIntakeYearFilter) params.set('leadIntakeYear', leadIntakeYearFilter)
       if (revIntakeMonthFilter) params.set('revIntakeMonth', revIntakeMonthFilter)
       if (revIntakeYearFilter) params.set('revIntakeYear', revIntakeYearFilter)
+      if (hasApplicationsFilter) params.set('hasApplications', hasApplicationsFilter)
       params.set('_t', Date.now().toString())
 
       const [leadsRes, agentsRes] = await Promise.all([
@@ -170,7 +172,7 @@ export function LeadsDashboard({
   }, [
     assignedTo, currentPage, pageSize, q, stageFilter, subStatusTypeFilter, subStatusIdFilter, closedActionFilter, tagsParam,
     appUniversityNameFilter, appCourseNameFilter, appSourceFilter, appStatusFilter, appIntakeMonthFilter, appIntakeYearFilter,
-    leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter,
+    leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter, hasApplicationsFilter
   ])
 
   useEffect(() => {
@@ -215,11 +217,12 @@ export function LeadsDashboard({
     if (appUniversityNameFilter || appCourseNameFilter || appSourceFilter || appStatusFilter) count++
     if (leadIntakeMonthFilter || leadIntakeYearFilter) count++
     if (revIntakeMonthFilter || revIntakeYearFilter) count++
+    if (hasApplicationsFilter) count++
     return count
   }, [
     stageFilter, subStatusTypeFilter, subStatusIdFilter, closedActionFilter, assignedTo, tagsParam,
     appUniversityNameFilter, appCourseNameFilter, appSourceFilter, appStatusFilter,
-    leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter,
+    leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter, hasApplicationsFilter
   ])
 
   const handleToggleSelect = useCallback((id: string, checked: boolean) => {

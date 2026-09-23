@@ -102,14 +102,17 @@ export async function GET(request: Request) {
   .where(and(...timesheetWhere))
   .groupBy(tenantTimesheets.userId)
 
-    // Query today's edits count (lead activities today)
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
-
+    // Query edits count in the selected duration
     const activitiesWhere = [
       eq(leadActivities.tenantId, tenant.id),
-      gte(leadActivities.createdAt, todayStart),
     ]
+    if (startDate) {
+      activitiesWhere.push(gte(leadActivities.createdAt, startDate))
+    }
+    if (endDate) {
+      activitiesWhere.push(lte(leadActivities.createdAt, endDate))
+    }
+    
     if (!viewAll) {
       activitiesWhere.push(eq(leadActivities.userId, dbUserId))
     }
@@ -137,7 +140,7 @@ export async function GET(request: Request) {
     const payload = userStats.map((u) => {
       const totalMinutes = timesheetMap.get(u.userId) || 0
       const todayHours = Number((totalMinutes / 60).toFixed(2))
-      const todayEdits = editsMap.get(u.userId) || 0
+      const periodEdits = editsMap.get(u.userId) || 0
 
       return {
         userId: u.userId,
@@ -147,7 +150,7 @@ export async function GET(request: Request) {
         totalLeads: u.totalLeads,
 
         todayHours,
-        todayEdits,
+        periodEdits,
       }
     })
 

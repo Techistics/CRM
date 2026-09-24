@@ -141,6 +141,7 @@ export const tenantMemberRelations = relations(tenantMembers, ({ one }) => ({
 // ─── Leads ───────────────────────────────────────────────────
 export const leads = pgTable('leads', {
   id: uuid('id').primaryKey().defaultRandom(),
+  displayId: varchar('display_id', { length: 6 }),
   tenantId: uuid('tenant_id')
     .references(() => tenants.id, { onDelete: 'cascade' })
     .notNull(),
@@ -421,6 +422,7 @@ export const csvImports = pgTable('csv_imports', {
     .notNull(),
   importedBy: uuid('imported_by').references(() => users.id),
   fileName: text('file_name'),
+  campaignName: text('campaign_name'),
   totalRows: integer('total_rows'),
   importedRows: integer('imported_rows'),
   skippedRows: integer('skipped_rows'),

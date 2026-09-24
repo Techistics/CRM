@@ -110,6 +110,7 @@ export default function ImportPage({
 
   const [modalType, setModalType] = useState<'valid' | 'duplicates' | 'errors' | null>(null)
   const [visibleCount, setVisibleCount] = useState(10)
+  const [campaignName, setCampaignName] = useState('')
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
@@ -296,6 +297,7 @@ export default function ImportPage({
           agentAssignments,
           tenantSlug,
           fileName: parseResult.fileName,
+          campaignName: campaignName.trim() || null,
           totalRows: parseResult.totalRows,
           duplicateRows: parseResult.duplicateRows,
           errorRows: parseResult.errorRows,
@@ -476,6 +478,18 @@ export default function ImportPage({
                   Clear
                 </Button>
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Campaign Name <span className="text-slate-400 font-normal normal-case">(optional)</span></label>
+              <Input
+                type="text"
+                placeholder="e.g. UK Lead, Dubai, Pakistan 2026..."
+                value={campaignName}
+                onChange={(e) => setCampaignName(e.target.value)}
+                className="h-9 text-sm"
+              />
+              <p className="text-xs text-muted-foreground">This label will appear as a badge on each imported lead and can be used to filter leads later.</p>
             </div>
 
             {agents.map((agent) => (

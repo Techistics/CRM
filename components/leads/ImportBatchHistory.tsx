@@ -20,6 +20,7 @@ import { apiCall } from '@/lib/utils/api-handler'
 type ImportBatch = {
   id: string
   fileName: string | null
+  campaignName: string | null
   totalRows: number | null
   importedRows: number | null
   skippedRows: number | null
@@ -110,6 +111,7 @@ export function ImportBatchHistory({ canDelete }: { canDelete: boolean }) {
             <tr>
               {canDelete && <th className="p-2 w-10" />}
               <th className="p-2 text-left">File</th>
+              <th className="p-2 text-left">Campaign</th>
               <th className="p-2 text-left">Imported</th>
               <th className="p-2 text-left">Skipped</th>
               <th className="p-2 text-left">By</th>
@@ -136,6 +138,15 @@ export function ImportBatchHistory({ canDelete }: { canDelete: boolean }) {
                   </td>
                 )}
                 <td className="p-2">{batch.fileName ?? 'Import'}</td>
+                <td className="p-2">
+                  {batch.campaignName ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+                      {batch.campaignName}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground text-xs">—</span>
+                  )}
+                </td>
                 <td className="p-2">{batch.importedRows ?? 0}</td>
                 <td className="p-2">{batch.skippedRows ?? 0}</td>
                 <td className="p-2">{batch.importedByName ?? '—'}</td>

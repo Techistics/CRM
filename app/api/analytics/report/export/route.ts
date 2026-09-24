@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { leads, leadActivities } from '@/db/schema'
-import { eq, and, gte, lte } from 'drizzle-orm'
+import { eq, and, gte, lte, sql } from 'drizzle-orm'
 import { requirePermissionSession } from '@/lib/tenant-server'
 import { canViewAllAnalytics, toMemberScope } from '@/lib/member-scope'
 
@@ -58,10 +58,11 @@ export async function GET(request: Request) {
     const results = await db
       .select({
         leadId: leads.id,
+        displayId: leads.displayId,
         leadName: leads.fullName,
         leadEmail: leads.email,
         stage: leads.stage,
-        dateTouched: leadActivities.createdAt,
+        dateTouched: sql<Date>`MAX(${leadActivities.createdAt})`,
       })
       .from(leads)
       .innerJoin(
@@ -69,17 +70,18 @@ export async function GET(request: Request) {
         and(eq(leads.id, leadActivities.leadId), ...activityConditions),
       )
       .where(eq(leads.tenantId, ctx.tenant.id))
-      .orderBy(leadActivities.createdAt)
+      .groupBy(leads.id, leads.displayId, leads.fullName, leads.email, leads.stage)
+      .orderBy(sql`MAX(${leadActivities.createdAt}) DESC`)
 
-    const csvRows = ['ID,Name,Email,Stage,Date Touched']
+    const csvRows = ['Lead ID,Name,Email,Stage,Last Touched Date']
     for (const r of results) {
       csvRows.push(
         [
-          escapeCsv(r.leadId),
+          escapeCsv(r.displayId ?? r.leadId.slice(0, 6).toUpperCase()),
           escapeCsv(r.leadName),
           escapeCsv(r.leadEmail),
           escapeCsv(r.stage),
-          escapeCsv(r.dateTouched ? r.dateTouched.toISOString() : ''),
+          escapeCsv(r.dateTouched ? new Date(r.dateTouched).toISOString() : ''),
         ].join(','),
       )
     }

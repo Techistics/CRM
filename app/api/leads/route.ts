@@ -3,7 +3,7 @@ import { and, count, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-o
 
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'
-import { leads, leadTagAssignments, leadTags, leadStageAssignments, leadRevenues, pipelineSubStatuses, applications } from '@/db/schema'
+import { leads, leadTagAssignments, leadTags, leadStageAssignments, leadRevenues, pipelineSubStatuses, applications, csvImports } from '@/db/schema'
 import { leadsVisibleWhere } from '@/lib/leads-scope'
 import { toMemberScope } from '@/lib/member-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
@@ -56,6 +56,9 @@ export async function GET(req: NextRequest) {
     const revIntakeYearRaw = url.searchParams.get('revIntakeYear')?.trim()
     const revIntakeMonth = revIntakeMonthRaw ? parseInt(revIntakeMonthRaw, 10) : null
     const revIntakeYear = revIntakeYearRaw ? parseInt(revIntakeYearRaw, 10) : null
+
+    // ── Campaign filter ────────────────────────────────────────
+    const campaignName = url.searchParams.get('campaignName')?.trim()
 
     // Whether we need to join applications
     const needsAppJoin = !!(appUniversityName || appCourseName || appSource || appStatus || appIntakeMonth || appIntakeYear)
@@ -193,6 +196,17 @@ export async function GET(req: NextRequest) {
       )
     }
 
+    // ── Campaign name filter ───────────────────────────────────
+    if (campaignName) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM csv_imports ci
+          WHERE ci.id = ${leads.csvImportId}
+            AND ci.campaign_name ILIKE ${'%' + campaignName + '%'}
+        )`
+      )
+    }
+
     const where = and(...conditions)
 
     const attachTagsToLeads = async <
@@ -250,6 +264,7 @@ export async function GET(req: NextRequest) {
     // Common select shape — includes application badge fields
     const leadSelectShape = {
       id: leads.id,
+      displayId: leads.displayId,
       tenantId: leads.tenantId,
       fullName: leads.fullName,
       contactNumber: leads.contactNumber,
@@ -268,6 +283,16 @@ export async function GET(req: NextRequest) {
       dealCurrency: leads.dealCurrency,
       createdAt: leads.createdAt,
       updatedAt: leads.updatedAt,
+      subStatusType: sql<string | null>`(
+        SELECT type FROM pipeline_sub_statuses
+        WHERE pipeline_sub_statuses.id = ${leads.subStatusId}
+        LIMIT 1
+      )`.as('sub_status_type'),
+      campaignName: sql<string | null>`(
+        SELECT ci.campaign_name FROM csv_imports ci
+        WHERE ci.id = ${leads.csvImportId}
+        LIMIT 1
+      )`.as('campaign_name'),
       latestLog: sql<string | null>`(
         SELECT body FROM consultant_logs
         WHERE consultant_logs.lead_id = leads.id
@@ -436,10 +461,17 @@ export async function POST(req: NextRequest) {
     const defaultSubStatusId = firstSubStatus?.id ?? null
     const defaultClosedAction = (firstSubStatus?.closedActions as string[])?.[0] ?? null
 
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    const nums = '0123456789'
+    let shortId = ''
+    for (let i = 0; i < 2; i++) shortId += chars.charAt(Math.floor(Math.random() * chars.length))
+    for (let i = 0; i < 4; i++) shortId += nums.charAt(Math.floor(Math.random() * nums.length))
+
     const created = await db.transaction(async (tx) => {
       const [row] = await tx
         .insert(leads)
         .values({
+          displayId: shortId,
           tenantId: ctx.tenant.id,
           fullName: data.fullName,
           contactNumber: data.contactNumber?.trim() || null,

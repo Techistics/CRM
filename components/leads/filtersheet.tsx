@@ -49,6 +49,7 @@ export function FilterSheet({
     subStatusId: searchParams.get('subStatusId'),
     closedAction: searchParams.get('closedAction'),
     assignedTo: searchParams.get('assignedTo'),
+    campaignName: searchParams.get('campaignName'),
     appUniversityName: searchParams.get('appUniversityName'),
     appCourseName: searchParams.get('appCourseName'),
     appSource: searchParams.get('appSource'),
@@ -117,6 +118,7 @@ export function FilterSheet({
     setOrDelete('subStatusId', pendingFilters.stage && pendingFilters.subStatusType ? pendingFilters.subStatusId : null)
     setOrDelete('closedAction', pendingFilters.closedAction)
     setOrDelete('assignedTo', pendingFilters.assignedTo && pendingFilters.assignedTo !== 'all' ? pendingFilters.assignedTo : null)
+    setOrDelete('campaignName', pendingFilters.campaignName)
     setOrDelete('appUniversityName', pendingFilters.appUniversityName)
     setOrDelete('appCourseName', pendingFilters.appCourseName)
     setOrDelete('appSource', pendingFilters.appSource && pendingFilters.appSource !== 'all' ? pendingFilters.appSource : null)
@@ -407,6 +409,16 @@ export function FilterSheet({
             <div className="space-y-1.5">
               <Label className={FIELD_LABEL_CLASS}>Tags</Label>
               <TagFilter value={pendingFilters.tags} onChange={(tags) => patch({ tags })} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className={FIELD_LABEL_CLASS}>Campaign</Label>
+              <input
+                value={pendingFilters.campaignName ?? ''}
+                onChange={(e) => patch({ campaignName: e.target.value || null })}
+                placeholder="e.g. UK Lead, Dubai..."
+                className={FIELD_INPUT_CLASS}
+              />
             </div>
           </div>
         </div>

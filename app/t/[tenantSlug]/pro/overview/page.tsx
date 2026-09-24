@@ -1,5 +1,5 @@
 import { db } from '@/db'
-import { leads, users } from '@/db/schema'
+import { leads, users, pipelineSubStatuses } from '@/db/schema'
 import { sql, and, eq, gte, lte } from 'drizzle-orm'
 import Link from 'next/link'
 import { requireTenantSession } from '@/lib/tenant-server'
@@ -81,10 +81,13 @@ export default async function ProOverviewPage() {
       createdAt: leads.createdAt,
     })
     .from(leads)
+    .leftJoin(pipelineSubStatuses, eq(leads.subStatusId, pipelineSubStatuses.id))
     .where(
       and(
         eq(leads.tenantId, tenant.id),
         eq(leads.assignedTo, dbUserId),
+        sql`${leads.stage} NOT IN ('paid', 'cancelled')`,
+        sql`COALESCE(${pipelineSubStatuses.type}, 'in_progress') != 'closed_lost'`
       ),
     )
 
@@ -92,8 +95,6 @@ export default async function ProOverviewPage() {
   const total = myLeads.length
   const activeLeads = myLeads.filter((l) => STAGE_BUCKET(l.stage) === 'active')
   const followUps = myLeads.filter((l) => l.stage === 'follow_up')
-  const wonLeads = myLeads.filter((l) => l.stage === 'paid')
-  const cancelledLeads = myLeads.filter((l) => l.stage === 'cancelled')
   const newLeads = myLeads.filter((l) => l.stage === 'new_lead')
 
   // ── Recent leads (5 most recent) ─────────────────────────────────────────
@@ -116,28 +117,40 @@ export default async function ProOverviewPage() {
   const [currStats] = await db
     .select({
       total: sql<number>`COUNT(*)::int`,
-      active: sql<number>`COUNT(*) FILTER (WHERE stage NOT IN ('paid','cancelled'))::int`,
-      won: sql<number>`COUNT(*) FILTER (WHERE stage = 'paid')::int`,
-      followUp: sql<number>`COUNT(*) FILTER (WHERE stage = 'follow_up')::int`,
+      active: sql<number>`COUNT(*) FILTER (WHERE ${leads.stage} NOT IN ('paid','cancelled'))::int`,
+      followUp: sql<number>`COUNT(*) FILTER (WHERE ${leads.stage} = 'follow_up')::int`,
     })
     .from(leads)
-    .where(and(eq(leads.tenantId, tenant.id), eq(leads.assignedTo, dbUserId), gte(leads.createdAt, curr30Start)))
+    .leftJoin(pipelineSubStatuses, eq(leads.subStatusId, pipelineSubStatuses.id))
+    .where(and(
+      eq(leads.tenantId, tenant.id), 
+      eq(leads.assignedTo, dbUserId), 
+      gte(leads.createdAt, curr30Start), 
+      sql`${leads.stage} NOT IN ('paid', 'cancelled')`,
+      sql`COALESCE(${pipelineSubStatuses.type}, 'in_progress') != 'closed_lost'`
+    ))
 
   const [prevStats] = await db
     .select({
       total: sql<number>`COUNT(*)::int`,
-      active: sql<number>`COUNT(*) FILTER (WHERE stage NOT IN ('paid','cancelled'))::int`,
-      won: sql<number>`COUNT(*) FILTER (WHERE stage = 'paid')::int`,
-      followUp: sql<number>`COUNT(*) FILTER (WHERE stage = 'follow_up')::int`,
+      active: sql<number>`COUNT(*) FILTER (WHERE ${leads.stage} NOT IN ('paid','cancelled'))::int`,
+      followUp: sql<number>`COUNT(*) FILTER (WHERE ${leads.stage} = 'follow_up')::int`,
     })
     .from(leads)
-    .where(and(eq(leads.tenantId, tenant.id), eq(leads.assignedTo, dbUserId), gte(leads.createdAt, prev30Start), lte(leads.createdAt, prev30End)))
+    .leftJoin(pipelineSubStatuses, eq(leads.subStatusId, pipelineSubStatuses.id))
+    .where(and(
+      eq(leads.tenantId, tenant.id), 
+      eq(leads.assignedTo, dbUserId), 
+      gte(leads.createdAt, prev30Start), 
+      lte(leads.createdAt, prev30End), 
+      sql`${leads.stage} NOT IN ('paid', 'cancelled')`,
+      sql`COALESCE(${pipelineSubStatuses.type}, 'in_progress') != 'closed_lost'`
+    ))
 
   const trends = {
     total: calcTrend(Number(currStats?.total ?? 0), Number(prevStats?.total ?? 0)),
     active: calcTrend(Number(currStats?.active ?? 0), Number(prevStats?.active ?? 0)),
     followUp: calcTrend(Number(currStats?.followUp ?? 0), Number(prevStats?.followUp ?? 0)),
-    won: calcTrend(Number(currStats?.won ?? 0), Number(prevStats?.won ?? 0)),
   }
 
   // ── KPI cards config ──────────────────────────────────────────────────────
@@ -174,17 +187,6 @@ export default async function ProOverviewPage() {
       barColor: 'bg-orange-500',
       trendColor: 'text-orange-600 dark:text-orange-400',
       Icon: Clock,
-    },
-    {
-      label: 'WON',
-      value: wonLeads.length,
-      trend: trends.won,
-      progressPct: total > 0 ? Math.round((wonLeads.length / total) * 100) : 0,
-      iconBg: 'bg-violet-50 dark:bg-violet-500/10',
-      iconColor: 'text-violet-600 dark:text-violet-400',
-      barColor: 'bg-violet-500',
-      trendColor: 'text-violet-600 dark:text-violet-400',
-      Icon: Trophy,
     },
   ]
 
@@ -227,16 +229,15 @@ export default async function ProOverviewPage() {
       (seg) =>
         seg.count > 0 ||
         (pipeline.stages.length === 0 &&
-          (['new_lead', 'follow_up', 'paid', 'cancelled'] as string[]).includes(seg.key)),
+          (['new_lead', 'follow_up'] as string[]).includes(seg.key)) &&
+        !['paid', 'cancelled'].includes(seg.key)
     )
 
   // ── Performance metrics ───────────────────────────────────────────────────
-  const conversionRate = total > 0 ? Math.round((wonLeads.length / total) * 100) : 0
   const activeRate = total > 0 ? Math.round((activeLeads.length / total) * 100) : 0
   const followUpRate = total > 0 ? Math.round((followUps.length / total) * 100) : 0
 
   const performanceMetrics = [
-    { label: 'Conversion Rate', value: conversionRate, barClass: 'bg-blue-500',    trackClass: 'bg-blue-500' },
     { label: 'Active Rate',     value: activeRate,     barClass: 'bg-emerald-500', trackClass: 'bg-emerald-500' },
     { label: 'Follow-up Rate',  value: followUpRate,   barClass: 'bg-orange-500',  trackClass: 'bg-orange-500' },
   ]
@@ -246,8 +247,6 @@ export default async function ProOverviewPage() {
     { label: 'Total Assigned',   value: total,                    dotClass: 'bg-blue-500',    Icon: ClipboardList },
     { label: 'In Progress',      value: activeLeads.length,       dotClass: 'bg-emerald-500', Icon: TrendingUp },
     { label: 'Need Follow-up',   value: followUps.length,         dotClass: 'bg-orange-500',  Icon: Clock },
-    { label: 'Successfully Won', value: wonLeads.length,          dotClass: 'bg-violet-500',  Icon: CheckCircle },
-    { label: 'Cancelled',        value: cancelledLeads.length,    dotClass: 'bg-red-500',     Icon: XCircle },
   ]
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -280,7 +279,7 @@ export default async function ProOverviewPage() {
       {/* ══════════════════════════════════════════════════════════════════
           2. KPI CARDS
       ══════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
         {kpiCards.map((card) => {
           const { Icon } = card
           return (

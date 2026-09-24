@@ -7,6 +7,7 @@ export const EMPTY_FILTERS: PendingFilters = {
   subStatusId: null,
   closedAction: null,
   assignedTo: null,
+  campaignName: null,
   appUniversityName: null,
   appCourseName: null,
   appSource: null,
@@ -22,6 +23,7 @@ export const EMPTY_FILTERS: PendingFilters = {
 
 export const FILTER_URL_KEYS = [
   'stage', 'subStatusType', 'subStatusId', 'closedAction', 'assignedTo', 'tags', 'page',
+  'campaignName',
   'appUniversityName', 'appCourseName', 'appSource', 'appStatus', 'appIntakeMonth', 'appIntakeYear',
   'leadIntakeMonth', 'leadIntakeYear', 'revIntakeMonth', 'revIntakeYear', 'hasApplications',
 ] as const

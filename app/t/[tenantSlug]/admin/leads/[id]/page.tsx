@@ -17,6 +17,16 @@ export default async function LeadDetailPage({
   const lead = await getLeadInTenant(id, tenant.id)
   if (!lead) notFound()
 
+  // Fetch campaign name if lead belongs to an import batch
+  let campaignName = null
+  if (lead.csvImportId) {
+    const importBatch = await db.query.csvImports.findFirst({
+      where: (csvImports, { eq }) => eq(csvImports.id, lead.csvImportId!),
+      columns: { campaignName: true },
+    })
+    campaignName = importBatch?.campaignName ?? null
+  }
+
   const activities = await db
     .select({
       id: leadActivities.id,
@@ -73,6 +83,7 @@ export default async function LeadDetailPage({
   return (
     <LeadDetailClient 
       lead={lead} 
+      campaignName={campaignName}
       activities={activities} 
       allUsers={allUsers} 
       tags={tags} 

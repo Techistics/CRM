@@ -50,8 +50,6 @@ export default function AnalyticsOverviewClient({
     email: string
     total_leads: number
     won: number
-    cold_leads: number
-    dead_leads: number
     conversion_rate: number | null
     last_activity: string | null
   }>
@@ -188,13 +186,6 @@ export default function AnalyticsOverviewClient({
     },
   ]
 
-  const totalLeadsAssigned = teamPerformance.reduce((sum, r) => sum + Number(r.total_leads || 0), 0)
-  const totalDead = teamPerformance.reduce((sum, r) => sum + Number(r.dead_leads || 0), 0)
-  const totalColdRaw = teamPerformance.reduce((sum, r) => sum + Number(r.cold_leads || 0), 0)
-
-  const dead = totalDead
-  const cold = Math.max(0, totalColdRaw - totalDead)
-  const activeLeads = Math.max(0, totalLeadsAssigned - totalColdRaw)
 
   return (
     <DashboardShell>

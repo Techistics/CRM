@@ -30,6 +30,8 @@ type DrilldownPayload = {
   activityGraph: Array<{ date: string; count: number }>;
   leadActivities: Array<{
     leadId: string;
+    leadName: string | null;
+    displayId: string | null;
     logs: Array<{ type: string; note: string | null; createdAt: string }>;
     otherActivities: Array<{ type: string; note: string | null; createdAt: string }>;
   }>;
@@ -131,7 +133,8 @@ export default function CounselorDrilldownPage() {
     if (!query) return groups
 
     return groups.filter((group) => {
-      if (group.leadId.toLowerCase().includes(query)) return true
+      if (group.leadName && group.leadName.toLowerCase().includes(query)) return true
+      if (group.displayId && group.displayId.toLowerCase().includes(query)) return true
       const allEntries = [...group.logs, ...group.otherActivities]
       return allEntries.some((entry) => {
         if (entry.type.toLowerCase().includes(query)) return true
@@ -266,7 +269,7 @@ export default function CounselorDrilldownPage() {
                       {drilldownData?.leads?.touchedToday?.map((l) => (
                         <div key={l.id} className="flex justify-between items-center bg-muted/20 p-2.5 rounded-lg border border-border/40 hover:bg-muted/40 transition-colors">
                           <Link
-                            href={`/t/${tenantSlug}/admin/leads/${l.id}`}
+                            href={`/t/${tenantSlug}/admin/leads/${l.id}?tab=activity`}
                             className="text-xs text-indigo-600 hover:underline font-semibold"
                           >
                             {l.fullName}
@@ -375,8 +378,8 @@ export default function CounselorDrilldownPage() {
                     {visibleActivities.map(group => (
                       <div key={group.leadId} className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
                         <div className="flex items-center justify-between mb-2">
-                          <Link href={`/t/${tenantSlug}/admin/leads/${group.leadId}`} className="text-sm font-medium text-sky-600 hover:underline">
-                            Lead {group.leadId}
+                          <Link href={`/t/${tenantSlug}/admin/leads/${group.leadId}?tab=activity`} className="text-sm font-medium text-sky-600 hover:underline">
+                            {group.leadName || 'Unknown Lead'} <span className="text-xs text-muted-foreground ml-1">({group.displayId || group.leadId.slice(0, 6).toUpperCase()})</span>
                           </Link>
                           {/* Last activity timestamp */}
                           <span className="text-xs text-muted-foreground">

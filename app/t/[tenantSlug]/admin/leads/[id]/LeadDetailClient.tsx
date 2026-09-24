@@ -51,12 +51,14 @@ export default function LeadDetailClient({
   allUsers,
   tags,
   activeStages: activeStagesProp,
+  campaignName,
 }: {
   lead: Lead
   activities: ActivityRow[]
   allUsers: UserRow[]
   tags: { id: string; name: string; color: string }[]
   activeStages: string[]
+  campaignName?: string | null
 }) {
   const router = useRouter()
   const params = useParams()
@@ -366,18 +368,19 @@ export default function LeadDetailClient({
 
           {/* NEW – Student ID */}
           <div className="mt-1 flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Student ID:</span>
-            <span className="text-xs font-mono text-muted-foreground" title={lead.id}>
-              {lead.id.slice(0, 7)}...
+            <span className="text-xs text-muted-foreground">Lead ID:</span>
+            <span className="text-xs font-mono font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded" title={lead.id}>
+              {lead.displayId ?? lead.id.slice(0, 6).toUpperCase()}
             </span>
             <button
               onClick={() => {
-                navigator.clipboard.writeText(lead.id)
+                const idToCopy = lead.displayId ?? lead.id
+                navigator.clipboard.writeText(idToCopy)
                 setCopiedId(true)
                 setTimeout(() => setCopiedId(false), 2000)
               }}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-              title="Copy full Student ID"
+              title="Copy Lead ID"
             >
               {copiedId ? (
                 <span className="flex items-center text-green-500">
@@ -397,6 +400,12 @@ export default function LeadDetailClient({
             <span className={`rounded-md border px-2 py-1 text-xs ${stageBadge.mutedClasses}`}>
               {stageBadge.label}
             </span>
+            {campaignName && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-700/50">
+                <span className="h-1.5 w-1.5 rounded-full bg-violet-500 flex-shrink-0" />
+                {campaignName}
+              </span>
+            )}
             {saving && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
           </div>
         </div>
@@ -690,7 +699,7 @@ export default function LeadDetailClient({
 
         {/* ==== Pipeline ==== */}
         <TabsContent value="pipeline" className="outline-none">
-          <div className={`bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700 ${isDeadState ? 'pointer-events-none opacity-50' : ''}`}>
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-crm-sm dark:bg-[#0f172a] dark:border-slate-700">
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">Pipeline Stage</h2>
             {stagesLoading ? (
               <div className="flex items-center justify-center py-8">

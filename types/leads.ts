@@ -75,6 +75,7 @@ export type PendingFilters = {
   subStatusId: string | null
   closedAction: string | null
   assignedTo: string | null
+  campaignName: string | null
   appUniversityName: string | null
   appCourseName: string | null
   appSource: string | null

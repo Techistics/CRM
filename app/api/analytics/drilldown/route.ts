@@ -155,11 +155,14 @@ export async function GET(request: Request) {
     const activityRows = await db
       .select({
         leadId: leadActivities.leadId,
+        leadName: leads.fullName,
+        displayId: leads.displayId,
         type: leadActivities.type,
         note: leadActivities.note,
         createdAt: leadActivities.createdAt,
       })
       .from(leadActivities)
+      .innerJoin(leads, eq(leadActivities.leadId, leads.id))
       .where(
         and(
           eq(leadActivities.tenantId, tenant.id),
@@ -170,7 +173,7 @@ export async function GET(request: Request) {
       )
 
     const leadActivitiesByLead = activityRows.reduce((acc, row) => {
-      const group = acc[row.leadId] ?? { leadId: row.leadId, logs: [], otherActivities: [] }
+      const group = acc[row.leadId] ?? { leadId: row.leadId, leadName: row.leadName, displayId: row.displayId, logs: [], otherActivities: [] }
       if (row.type === 'note' || row.type === 'stage_change') {
         group.logs.push({ type: row.type, note: row.note, createdAt: row.createdAt })
       } else {
@@ -178,7 +181,7 @@ export async function GET(request: Request) {
       }
       acc[row.leadId] = group
       return acc
-    }, {} as Record<string, { leadId: string; logs: any[]; otherActivities: any[] }>)
+    }, {} as Record<string, { leadId: string; leadName: string | null; displayId: string | null; logs: any[]; otherActivities: any[] }>)
     const leadActivitiesArray = Object.values(leadActivitiesByLead)
 
     const payload = {

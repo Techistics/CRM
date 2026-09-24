@@ -11,8 +11,11 @@ export type LeadRow = {
   lastQualification: string | null
   latestLog: string | null
   assignedTo: string | null
+  campaignName: string | null
+  displayId?: string | null
   tags: { id: string; name: string; color: string }[]
   applicationCount?: number
+  subStatusType?: string | null
 }
 
 export type Agent = {

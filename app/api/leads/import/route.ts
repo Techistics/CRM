@@ -62,6 +62,7 @@ const confirmBodySchema = z.object({
   })),
   tenantSlug: z.string().min(1),
   fileName: z.string().optional(),
+  campaignName: z.string().optional().nullable(),
   totalRows: z.number().optional(),
   duplicateRows: z.number().optional(),
   errorRows: z.number().optional(),
@@ -520,6 +521,7 @@ export async function POST(req: NextRequest) {
           tenantId: ctx.tenant.id,
           importedBy: ctx.dbUserId,
           fileName: parsed.data.fileName ?? 'manual_confirm',
+          campaignName: parsed.data.campaignName?.trim() || null,
           totalRows: parsed.data.totalRows ?? rowsToInsert.length,
           importedRows: 0,
           skippedRows: (parsed.data.duplicateRows ?? 0) + (parsed.data.errorRows ?? 0),
@@ -529,10 +531,14 @@ export async function POST(req: NextRequest) {
 
       const importBatchId = importBatch.id
 
-      const rowsToInsertWithBatch: (typeof leads.$inferInsert)[] = rowsToInsert.map((row) => ({
-        ...row,
-        csvImportId: importBatchId,
-      }))
+      const rowsToInsertWithBatch: (typeof leads.$inferInsert)[] = rowsToInsert.map((row) => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        const nums = '0123456789'
+        let shortId = ''
+        for (let i = 0; i < 2; i++) shortId += chars.charAt(Math.floor(Math.random() * chars.length))
+        for (let i = 0; i < 4; i++) shortId += nums.charAt(Math.floor(Math.random() * nums.length))
+        return { ...row, csvImportId: importBatchId, displayId: shortId }
+      })
 
       let insertedCount = 0
       if (rowsToInsertWithBatch.length > 0) {

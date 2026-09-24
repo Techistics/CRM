@@ -28,6 +28,7 @@ export async function GET() {
       .select({
         id: csvImports.id,
         fileName: csvImports.fileName,
+        campaignName: csvImports.campaignName,
         totalRows: csvImports.totalRows,
         importedRows: csvImports.importedRows,
         skippedRows: csvImports.skippedRows,

@@ -121,21 +121,13 @@ export default async function AdminOverviewPage({
         u.id, u.name, u.email,
         COUNT(l.id) as total_leads,
         COUNT(l.id) FILTER (WHERE l.primary_stage = 'paid') as won,
-        COUNT(l.id) FILTER (
-          WHERE l.last_contacted_at < NOW() - INTERVAL '3 days'
-          OR (l.last_contacted_at IS NULL AND l.created_at < NOW() - INTERVAL '3 days')
-        ) as cold_leads,
-        COUNT(l.id) FILTER (
-          WHERE l.last_contacted_at < NOW() - INTERVAL '7 days'
-          OR (l.last_contacted_at IS NULL AND l.created_at < NOW() - INTERVAL '7 days')
-        ) as dead_leads,
         ROUND(COUNT(l.id) FILTER (WHERE l.primary_stage = 'paid')::numeric / NULLIF(COUNT(l.id), 0) * 100, 1) as conversion_rate,
         MAX(l.last_contacted_at) as last_activity
       FROM users u
       INNER JOIN tenant_members tm ON tm.user_id = u.id AND tm.tenant_id = ${tenant.id}
       LEFT JOIN leads l ON l.assigned_to = u.id AND l.tenant_id = ${tenant.id} AND l.primary_stage NOT IN ('paid', 'cancelled')
       GROUP BY u.id, u.name, u.email
-      ORDER BY dead_leads DESC, cold_leads DESC
+      ORDER BY total_leads DESC
     `),
     db.execute(sql`
       SELECT 

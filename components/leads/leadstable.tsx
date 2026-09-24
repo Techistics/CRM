@@ -46,30 +46,46 @@ const LeadTableRow = memo(function LeadTableRow({
         />
       </td>
       <td className="px-4 py-3">
-        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{lead.fullName}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{lead.fullName}</p>
+          {lead.displayId && (
+            <span className="text-[10px] font-mono font-semibold px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 shrink-0">
+              {lead.displayId}
+            </span>
+          )}
+        </div>
         {lead.email && <p className="text-xs text-slate-400 mt-0.5">{lead.email}</p>}
-        {lead.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            {lead.tags.slice(0, 2).map((tag) => (
-              <span
-                key={tag.id}
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium"
-                style={{ backgroundColor: `${tag.color}20`, color: tag.color, border: `1px solid ${tag.color}40` }}
-              >
-                <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tag.color }} />
-                {tag.name}
-              </span>
-            ))}
-            {lead.tags.length > 2 && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs text-muted-foreground bg-muted">
-                +{lead.tags.length - 2}
-              </span>
-            )}
-          </div>
-        )}
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {lead.tags.length > 0 && (
+            <>
+              {lead.tags.slice(0, 2).map((tag) => (
+                <span
+                  key={tag.id}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium"
+                  style={{ backgroundColor: `${tag.color}20`, color: tag.color, border: `1px solid ${tag.color}40` }}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tag.color }} />
+                  {tag.name}
+                </span>
+              ))}
+              {lead.tags.length > 2 && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs text-muted-foreground bg-muted">
+                  +{lead.tags.length - 2}
+                </span>
+              )}
+            </>
+          )}
+        </div>
       </td>
       <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{lead.contactNumber ?? '—'}</td>
-      <td className="hidden px-4 py-3 text-sm text-slate-600 dark:text-slate-400 md:table-cell">{lead.city ?? '—'}</td>
+      <td className="hidden px-4 py-3 text-sm text-slate-600 dark:text-slate-400 md:table-cell">
+        {lead.campaignName ? (
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-700/50">
+            <span className="h-1.5 w-1.5 rounded-full bg-violet-500 flex-shrink-0" />
+            {lead.campaignName}
+          </span>
+        ) : '—'}
+      </td>
       <td className="hidden px-4 py-3 text-sm text-slate-600 dark:text-slate-400 lg:table-cell">
         <div className="max-w-[200px] truncate" title={lead.latestLog ?? ''}>
           {lead.latestLog ?? '—'}
@@ -85,6 +101,19 @@ const LeadTableRow = memo(function LeadTableRow({
           </div>
         ) : (
           <span className="text-slate-400 font-normal">—</span>
+        )}
+      </td>
+      <td className="px-4 py-3">
+        {lead.subStatusType === 'closed_lost' ? (
+          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+            Closed
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            In Progress
+          </span>
         )}
       </td>
       <td className="px-4 py-3">
@@ -162,10 +191,11 @@ export function LeadsTable({
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Name</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</th>
-              <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 md:table-cell">City</th>
+              <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 md:table-cell">Campaign</th>
               <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 lg:table-cell">Note/Logs</th>
               <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 lg:table-cell">Last Activity</th>
               <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">Apps</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Stage</th>
 
               <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:table-cell">Assigned To</th>

@@ -19,8 +19,6 @@ export type TeamPerformanceRow = {
   email: string
   total_leads: number
   won: number
-  cold_leads: number
-  dead_leads: number
   conversion_rate: number | null
   last_activity: string | null
 }

@@ -108,6 +108,7 @@ export function LeadsDashboard({
   const revIntakeMonthFilter = searchParams.get('revIntakeMonth') ?? undefined
   const revIntakeYearFilter = searchParams.get('revIntakeYear') ?? undefined
   const hasApplicationsFilter = searchParams.get('hasApplications') ?? undefined
+  const campaignNameFilter = searchParams.get('campaignName') ?? undefined
 
   const currentPage = Math.max(1, Number(page) || 1)
   const pageSize = Number(pageSizeParam) || 10
@@ -148,6 +149,7 @@ export function LeadsDashboard({
       if (revIntakeMonthFilter) params.set('revIntakeMonth', revIntakeMonthFilter)
       if (revIntakeYearFilter) params.set('revIntakeYear', revIntakeYearFilter)
       if (hasApplicationsFilter) params.set('hasApplications', hasApplicationsFilter)
+      if (campaignNameFilter) params.set('campaignName', campaignNameFilter)
       params.set('_t', Date.now().toString())
 
       const [leadsRes, agentsRes] = await Promise.all([
@@ -172,7 +174,7 @@ export function LeadsDashboard({
   }, [
     assignedTo, currentPage, pageSize, q, stageFilter, subStatusTypeFilter, subStatusIdFilter, closedActionFilter, tagsParam,
     appUniversityNameFilter, appCourseNameFilter, appSourceFilter, appStatusFilter, appIntakeMonthFilter, appIntakeYearFilter,
-    leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter, hasApplicationsFilter
+    leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter, hasApplicationsFilter, campaignNameFilter
   ])
 
   useEffect(() => {
@@ -201,7 +203,13 @@ export function LeadsDashboard({
 
   const assigneeNameById = useMemo(() => {
     const map = new Map<string, string>()
-    agents.forEach((agent) => map.set(agent.userId, agent.name))
+    agents.forEach((agent) => {
+      let displayName = agent.name
+      if (!displayName || displayName === agent.email) {
+        displayName = agent.email.split('@')[0] || agent.email
+      }
+      map.set(agent.userId, displayName)
+    })
     return map
   }, [agents])
 
@@ -218,11 +226,12 @@ export function LeadsDashboard({
     if (leadIntakeMonthFilter || leadIntakeYearFilter) count++
     if (revIntakeMonthFilter || revIntakeYearFilter) count++
     if (hasApplicationsFilter) count++
+    if (campaignNameFilter) count++
     return count
   }, [
     stageFilter, subStatusTypeFilter, subStatusIdFilter, closedActionFilter, assignedTo, tagsParam,
     appUniversityNameFilter, appCourseNameFilter, appSourceFilter, appStatusFilter,
-    leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter, hasApplicationsFilter
+    leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter, hasApplicationsFilter, campaignNameFilter
   ])
 
   const handleToggleSelect = useCallback((id: string, checked: boolean) => {

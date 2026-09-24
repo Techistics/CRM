@@ -61,15 +61,6 @@ export function TeamPerformanceTable({ rows, tenantSlug, className }: TeamPerfor
                   Total
                 </TableHead>
                 <TableHead className="px-2 py-2 text-center text-crm-xs font-medium text-consulty-text-muted">
-                  Won
-                </TableHead>
-                <TableHead className="px-2 py-2 text-center text-crm-xs font-medium text-consulty-warning">
-                  Cold
-                </TableHead>
-                <TableHead className="px-2 py-2 text-center text-crm-xs font-medium text-consulty-danger">
-                  Dead
-                </TableHead>
-                <TableHead className="px-2 py-2 text-center text-crm-xs font-medium text-consulty-text-muted">
                   Conversion %
                 </TableHead>
                 <TableHead className="px-3 py-2 text-crm-xs font-medium text-consulty-text-muted sm:px-4">
@@ -90,7 +81,7 @@ export function TeamPerformanceTable({ rows, tenantSlug, className }: TeamPerfor
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-crm-xs font-semibold text-consulty-text-primary">
-                          {agent.name}
+                          {(!agent.name || agent.name === agent.email) ? agent.email.split('@')[0] : agent.name}
                         </p>
                         <p className="hidden truncate text-crm-xs text-consulty-text-muted sm:block">
                           {agent.email}
@@ -100,35 +91,6 @@ export function TeamPerformanceTable({ rows, tenantSlug, className }: TeamPerfor
                   </TableCell>
                   <TableCell className="px-2 py-2.5 text-center text-crm-xs tabular-nums text-consulty-text-secondary">
                     {Number(agent.total_leads ?? 0).toLocaleString()}
-                  </TableCell>
-                  <TableCell className="px-2 py-2.5 text-center">
-                    <span className="text-crm-xs font-medium tabular-nums text-consulty-success">
-                      {Number(agent.won ?? 0).toLocaleString()}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-2 py-2.5 text-center">
-                    <span
-                      className={cn(
-                        'inline-flex rounded-consulty-sm px-1.5 py-0.5 text-crm-xs font-medium tabular-nums',
-                        Number(agent.cold_leads ?? 0) > 0
-                          ? 'bg-consulty-warning-soft text-consulty-warning dark:bg-consulty-warning-soft/30'
-                          : 'text-consulty-text-disabled',
-                      )}
-                    >
-                      {Number(agent.cold_leads ?? 0)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-2 py-2.5 text-center">
-                    <span
-                      className={cn(
-                        'inline-flex rounded-consulty-sm px-1.5 py-0.5 text-crm-xs font-medium tabular-nums',
-                        Number(agent.dead_leads ?? 0) > 0
-                          ? 'bg-consulty-danger-soft text-consulty-danger dark:bg-consulty-danger-soft/30'
-                          : 'text-consulty-text-disabled',
-                      )}
-                    >
-                      {Number(agent.dead_leads ?? 0)}
-                    </span>
                   </TableCell>
                   <TableCell className="px-2 py-2.5">
                     <ConversionCell rate={agent.conversion_rate} />

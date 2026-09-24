@@ -367,52 +367,31 @@ export async function POST(req: NextRequest) {
           }
           seenEmails.add(emailKey)
         }
-
-        const phoneKey = row.contactNumber.trim()
-        if (phoneKey) {
-          if (seenPhones.has(phoneKey)) {
-            duplicates.push({ row: row.rowNumber, name: row.fullName, matchedOn: 'phone' })
-            return false
-          }
-          seenPhones.add(phoneKey)
-        }
         return true
       })
 
       const emails = uniqueRows.map((row) => row.email).filter((v): v is string => Boolean(v))
-      const phones = uniqueRows
-        .map((row) => row.contactNumber.trim())
-        .filter((v) => v.length > 0)
 
-      const existing = emails.length > 0 || phones.length > 0
+      const existing = emails.length > 0
         ? await db
           .select({
             email: leads.email,
-            contactNumber: leads.contactNumber,
           })
           .from(leads)
           .where(
             and(
               eq(leads.tenantId, ctx.tenant.id),
-              or(
-                emails.length > 0 ? inArray(leads.email, emails) : undefined,
-                phones.length > 0 ? inArray(leads.contactNumber, phones) : undefined,
-              ),
+              inArray(leads.email, emails),
             ),
           )
         : []
 
       const existingEmailSet = new Set(existing.map((item) => item.email).filter((v): v is string => Boolean(v)))
-      const existingPhoneSet = new Set(existing.map((item) => item.contactNumber).filter((v): v is string => Boolean(v)))
 
       const parsedData = uniqueRows
         .filter((row) => {
           if (row.email && existingEmailSet.has(row.email.toLowerCase())) {
             duplicates.push({ row: row.rowNumber, name: row.fullName, matchedOn: 'email' })
-            return false
-          }
-          if (row.contactNumber && existingPhoneSet.has(row.contactNumber)) {
-            duplicates.push({ row: row.rowNumber, name: row.fullName, matchedOn: 'phone' })
             return false
           }
           return true

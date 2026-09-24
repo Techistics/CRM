@@ -407,7 +407,7 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
             <div className="flex justify-center mb-4">
               <ReactCrop
                 crop={crop}
-                onChange={(c) => setCrop(c)}
+                onChange={(_, percentCrop) => setCrop(percentCrop)}
                 onComplete={(c) => setCompletedCrop(c)}
                 aspect={1}
                 circularCrop={false}
@@ -417,7 +417,7 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
                   src={imgSrc}
                   alt="Crop preview"
                   onLoad={onImageLoad}
-                  className="max-h-[400px] max-w-full object-contain"
+                  className="max-h-[400px] w-auto mx-auto block"
                 />
               </ReactCrop>
             </div>

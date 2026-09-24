@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Loader2, User, Clock, TrendingUp, CheckCircle2, FileText, Search } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
+import { getStageInfo } from '@/constants/pipeline-stages'
 
 type Lead = {
   id: string
@@ -275,7 +276,7 @@ export default function CounselorDrilldownPage() {
                             {l.fullName}
                           </Link>
                           <Badge variant="secondary" className="text-[10px] scale-90">
-                            {l.stage.replace('_', ' ')}
+                            {getStageInfo(l.stage).label}
                           </Badge>
                         </div>
                       ))}

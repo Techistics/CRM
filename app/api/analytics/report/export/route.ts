@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { leads, leadActivities } from '@/db/schema'
-import { eq, and, gte, lte, sql } from 'drizzle-orm'
+import { eq, and, gte, lte, desc } from 'drizzle-orm'
 import { requirePermissionSession } from '@/lib/tenant-server'
 import { canViewAllAnalytics, toMemberScope } from '@/lib/member-scope'
+import { getStageInfo } from '@/constants/pipeline-stages'
 
 function escapeCsv(val: unknown): string {
   if (val === null || val === undefined) return ''
@@ -62,7 +63,9 @@ export async function GET(request: Request) {
         leadName: leads.fullName,
         leadEmail: leads.email,
         stage: leads.stage,
-        dateTouched: sql<Date>`MAX(${leadActivities.createdAt})`,
+        dateTouched: leadActivities.createdAt,
+        type: leadActivities.type,
+        note: leadActivities.note,
       })
       .from(leads)
       .innerJoin(
@@ -70,18 +73,29 @@ export async function GET(request: Request) {
         and(eq(leads.id, leadActivities.leadId), ...activityConditions),
       )
       .where(eq(leads.tenantId, ctx.tenant.id))
-      .groupBy(leads.id, leads.displayId, leads.fullName, leads.email, leads.stage)
-      .orderBy(sql`MAX(${leadActivities.createdAt}) DESC`)
+      .orderBy(desc(leadActivities.createdAt))
 
-    const csvRows = ['Lead ID,Name,Email,Stage,Last Touched Date']
+    // Group by lead ID to get only the latest activity per lead
+    const latestPerLead = new Map<string, typeof results[number]>()
     for (const r of results) {
+      if (!latestPerLead.has(r.leadId)) {
+        latestPerLead.set(r.leadId, r)
+      }
+    }
+    const finalLeads = Array.from(latestPerLead.values())
+
+    const csvRows = ['Lead ID,Name,Email,Stage,Last Touched Date,Action Type,Latest Note']
+    for (const r of finalLeads) {
+      const stageName = getStageInfo(r.stage).label
       csvRows.push(
         [
           escapeCsv(r.displayId ?? r.leadId.slice(0, 6).toUpperCase()),
           escapeCsv(r.leadName),
           escapeCsv(r.leadEmail),
-          escapeCsv(r.stage),
+          escapeCsv(stageName),
           escapeCsv(r.dateTouched ? new Date(r.dateTouched).toISOString() : ''),
+          escapeCsv(r.type),
+          escapeCsv(r.note),
         ].join(','),
       )
     }

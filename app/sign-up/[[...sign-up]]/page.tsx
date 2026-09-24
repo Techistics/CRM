@@ -249,7 +249,7 @@ export default function SignUpPage() {
         </Suspense>
       </div>
 
-      <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-[#27D097] p-12 text-white md:flex">
+      <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-[#069BAF] p-12 text-white md:flex">
         <div className="pointer-events-none absolute -top-20 -right-20 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
 
         <div className="relative z-10 mt-auto mb-auto">

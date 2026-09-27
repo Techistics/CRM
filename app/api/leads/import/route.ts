@@ -167,9 +167,10 @@ function cellValue(value: unknown): string {
  * Defaults to Pakistan (+92) if no country code is detected.
  * Falls back to the stripped raw value if parsing fails.
  */
-function normalizePhone(rawPhone: string): string {
+function normalizePhone(rawPhone: string): string | null {
   const stripped = rawPhone.replace(/[\s\-().]/g, '')
-  if (!stripped) return rawPhone
+  if (!stripped || !/\d/.test(stripped)) return null
+  
   try {
     // Try with explicit PK default first
     if (isValidPhoneNumber(stripped, 'PK')) {

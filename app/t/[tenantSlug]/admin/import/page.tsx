@@ -77,6 +77,7 @@ type DetectResponse = {
 
 type ConfirmResponse = {
   imported: number
+  updated: number
   assigned: number
   skipped: number
   agentBreakdown: Array<{ agentId: string; agentName: string; leadsAssigned: number }>
@@ -569,31 +570,62 @@ export default function ImportPage({
       )}
 
       {state === 'done' && confirmResult && (
-        <Card className="p-6 space-y-4">
+        <Card className="p-6 space-y-6">
+          {/* Header */}
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
+            <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
               <CheckCircle2 className="h-6 w-6 text-emerald-600" />
             </div>
             <div>
               <p className="text-xl font-semibold">Import Complete</p>
-              <p className="text-sm text-muted-foreground">{confirmResult.imported} leads imported successfully</p>
+              <p className="text-sm text-muted-foreground">Here's a full breakdown of what happened</p>
             </div>
           </div>
-          <div className="rounded-md border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="border-b bg-muted/40">
-                <tr><th className="p-2 text-left">Counselor</th><th className="p-2 text-left">Assigned</th></tr>
-              </thead>
-              <tbody>
-                {confirmResult.agentBreakdown.map((item) => (
-                  <tr key={item.agentId} className="border-b last:border-b-0">
-                    <td className="p-2">{item.agentName}</td>
-                    <td className="p-2">{item.leadsAssigned}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          {/* Stats grid */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-lg border bg-emerald-50 dark:bg-emerald-950/30 p-4 text-center">
+              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{confirmResult.imported}</p>
+              <p className="text-xs font-medium text-emerald-600 dark:text-emerald-500 mt-1">✅ New Leads Created</p>
+            </div>
+            <div className="rounded-lg border bg-blue-50 dark:bg-blue-950/30 p-4 text-center">
+              <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{confirmResult.updated}</p>
+              <p className="text-xs font-medium text-blue-600 dark:text-blue-500 mt-1">🔄 Existing Updated</p>
+            </div>
+            <div className="rounded-lg border bg-amber-50 dark:bg-amber-950/30 p-4 text-center">
+              <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{confirmResult.skipped}</p>
+              <p className="text-xs font-medium text-amber-600 dark:text-amber-500 mt-1">⏭ Duplicates Skipped</p>
+            </div>
           </div>
+
+          {/* Note about updated leads */}
+          {confirmResult.updated > 0 && (
+            <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+              ℹ️ {confirmResult.updated} lead{confirmResult.updated === 1 ? '' : 's'} already existed in the CRM.
+              Their counselor and stage were <strong>preserved</strong>. A re-import note was added to each lead's activity log.
+            </p>
+          )}
+
+          {/* Per-agent breakdown */}
+          {confirmResult.agentBreakdown.some((a) => a.leadsAssigned > 0) && (
+            <div className="rounded-md border overflow-hidden">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground px-3 py-2 bg-muted/40 border-b">Counselor Breakdown</p>
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/20">
+                  <tr><th className="p-2 text-left font-medium">Counselor</th><th className="p-2 text-left font-medium">Leads Assigned</th></tr>
+                </thead>
+                <tbody>
+                  {confirmResult.agentBreakdown.map((item) => (
+                    <tr key={item.agentId} className="border-b last:border-b-0">
+                      <td className="p-2">{item.agentName}</td>
+                      <td className="p-2">{item.leadsAssigned}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => { setState('idle'); setFile(null); setParseResult(null); setConfirmResult(null) }}>
               Import Another File

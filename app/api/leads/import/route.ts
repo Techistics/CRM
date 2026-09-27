@@ -3,6 +3,7 @@ import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
 import { and, eq, inArray, or } from 'drizzle-orm'
 import { z } from 'zod'
+import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js'
 
 import { db } from '@/db'
 import { csvImports, leads, tenantMembers, users, leadStageAssignments, pipelineSubStatuses, leadActivities } from '@/db/schema'
@@ -159,6 +160,29 @@ function parseDealCurrency(raw: string): string | null {
 function cellValue(value: unknown): string {
   if (value == null) return ''
   return String(value).trim()
+}
+
+/**
+ * Normalizes a raw phone number string to E.164 format (e.g. +923224971053).
+ * Defaults to Pakistan (+92) if no country code is detected.
+ * Falls back to the stripped raw value if parsing fails.
+ */
+function normalizePhone(rawPhone: string): string {
+  const stripped = rawPhone.replace(/[\s\-().]/g, '')
+  if (!stripped) return rawPhone
+  try {
+    // Try with explicit PK default first
+    if (isValidPhoneNumber(stripped, 'PK')) {
+      return parsePhoneNumber(stripped, 'PK').format('E.164')
+    }
+    // Try as-is (in case it already has a + country code)
+    if (stripped.startsWith('+') && isValidPhoneNumber(stripped)) {
+      return parsePhoneNumber(stripped).format('E.164')
+    }
+  } catch {
+    // Fall through to raw
+  }
+  return stripped
 }
 
 function applyColumnMapping(
@@ -321,7 +345,7 @@ export async function POST(req: NextRequest) {
         }
 
         const contactNumberRaw = String(mapped.contactNumber ?? '').trim()
-        const contactNumber = contactNumberRaw.length > 0 ? contactNumberRaw : null
+        const contactNumber = contactNumberRaw.length > 0 ? normalizePhone(contactNumberRaw) : null
 
         const emailRaw = String(mapped.email ?? '').trim()
         const email =
@@ -359,6 +383,15 @@ export async function POST(req: NextRequest) {
       const seenEmails = new Set<string>()
       const seenPhones = new Set<string>()
       const uniqueRows = parsedRows.filter((row) => {
+        // Check for duplicate phone within the file
+        if (row.contactNumber) {
+          if (seenPhones.has(row.contactNumber)) {
+            duplicates.push({ row: row.rowNumber, name: row.fullName, matchedOn: 'phone' })
+            return false
+          }
+          seenPhones.add(row.contactNumber)
+        }
+        // Check for duplicate email within the file
         if (row.email) {
           const emailKey = row.email.toLowerCase()
           if (seenEmails.has(emailKey)) {
@@ -371,27 +404,39 @@ export async function POST(req: NextRequest) {
       })
 
       const emails = uniqueRows.map((row) => row.email).filter((v): v is string => Boolean(v))
+      const phones = uniqueRows.map((row) => row.contactNumber).filter((v): v is string => Boolean(v))
 
-      const existing = emails.length > 0
-        ? await db
-          .select({
-            email: leads.email,
-          })
-          .from(leads)
-          .where(
-            and(
-              eq(leads.tenantId, ctx.tenant.id),
-              inArray(leads.email, emails),
-            ),
-          )
-        : []
+      // Check both email and phone against existing DB records in parallel
+      const [existingByEmail, existingByPhone] = await Promise.all([
+        emails.length > 0
+          ? db
+              .select({ email: leads.email })
+              .from(leads)
+              .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.email, emails)))
+          : Promise.resolve([]),
+        phones.length > 0
+          ? db
+              .select({ contactNumber: leads.contactNumber })
+              .from(leads)
+              .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.contactNumber, phones)))
+          : Promise.resolve([]),
+      ])
 
-      const existingEmailSet = new Set(existing.map((item) => item.email).filter((v): v is string => Boolean(v)))
+      const existingEmailSet = new Set(
+        existingByEmail.map((item) => item.email).filter((v): v is string => Boolean(v)),
+      )
+      const existingPhoneSet = new Set(
+        existingByPhone.map((item) => item.contactNumber).filter((v): v is string => Boolean(v)),
+      )
 
       const parsedData = uniqueRows
         .filter((row) => {
           if (row.email && existingEmailSet.has(row.email.toLowerCase())) {
-            duplicates.push({ row: row.rowNumber, name: row.fullName, matchedOn: 'email' })
+            duplicates.push({ row: row.rowNumber, name: row.fullName, matchedOn: 'email (already in CRM)' })
+            return false
+          }
+          if (row.contactNumber && existingPhoneSet.has(row.contactNumber)) {
+            duplicates.push({ row: row.rowNumber, name: row.fullName, matchedOn: 'phone (already in CRM)' })
             return false
           }
           return true
@@ -520,59 +565,129 @@ export async function POST(req: NextRequest) {
       })
 
       let insertedCount = 0
+      let updatedCount = 0
       if (rowsToInsertWithBatch.length > 0) {
         await db.transaction(async (tx) => {
-          const inserted = await tx
-            .insert(leads)
-            .values(rowsToInsertWithBatch)
-            .onConflictDoNothing()
-            .returning({
-              id: leads.id,
-              primaryStage: leads.primaryStage,
-              fullName: leads.fullName,
-              contactNumber: leads.contactNumber,
-              email: leads.email,
+          const reimportDate = new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })
+
+          // ── Step 1a: Lookup existing leads by PHONE ────────────────────
+          const incomingPhones = rowsToInsertWithBatch
+            .map((r) => r.contactNumber)
+            .filter((p): p is string => Boolean(p))
+
+          const existingByPhone = incomingPhones.length > 0
+            ? await tx
+                .select({ id: leads.id, contactNumber: leads.contactNumber })
+                .from(leads)
+                .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.contactNumber, incomingPhones)))
+            : []
+
+          const existingPhoneToId = new Map(existingByPhone.map((l) => [l.contactNumber, l.id]))
+
+          // ── Step 1b: Lookup by EMAIL for rows that have no phone ───────
+          const incomingEmailsNoPhone = rowsToInsertWithBatch
+            .filter((r) => !r.contactNumber && r.email)
+            .map((r) => r.email!)
+
+          const existingByEmail = incomingEmailsNoPhone.length > 0
+            ? await tx
+                .select({ id: leads.id, email: leads.email })
+                .from(leads)
+                .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.email, incomingEmailsNoPhone)))
+            : []
+
+          const existingEmailToId = new Map(existingByEmail.map((l) => [l.email, l.id]))
+
+          // ── Step 2: Split rows into update vs insert ───────────────────
+          const updateRows: typeof rowsToInsertWithBatch = []
+          const updateLeadIds: string[] = []
+          const newRows: typeof rowsToInsertWithBatch = []
+
+          for (const row of rowsToInsertWithBatch) {
+            const idByPhone = row.contactNumber ? existingPhoneToId.get(row.contactNumber) : undefined
+            const idByEmail = !row.contactNumber && row.email ? existingEmailToId.get(row.email) : undefined
+            const existingId = idByPhone ?? idByEmail
+            if (existingId) {
+              updateRows.push(row)
+              updateLeadIds.push(existingId)
+            } else {
+              newRows.push(row)
+            }
+          }
+
+          updatedCount = updateRows.length
+
+          // ── Step 3: UPDATE existing leads (preserve counselor + stage) ─
+          for (let i = 0; i < updateRows.length; i++) {
+            const leadId = updateLeadIds[i]
+            await tx
+              .update(leads)
+              .set({ updatedAt: new Date(), lastContactedAt: new Date() })
+              .where(eq(leads.id, leadId))
+            await tx.insert(leadActivities).values({
+              tenantId: ctx.tenant.id,
+              leadId,
+              userId: ctx.dbUserId,
+              type: 'note' as const,
+              note: `Re-imported via Excel on ${reimportDate}. Counselor and stage were preserved.`,
             })
+          }
 
-          insertedCount = inserted.length
+          // ── Step 3: INSERT genuinely new leads ─────────────────────────
+          if (newRows.length > 0) {
+            const inserted = await tx
+              .insert(leads)
+              .values(newRows)
+              .onConflictDoNothing() // safety net for any remaining email conflicts
+              .returning({
+                id: leads.id,
+                primaryStage: leads.primaryStage,
+                fullName: leads.fullName,
+                contactNumber: leads.contactNumber,
+                email: leads.email,
+              })
 
-          if (inserted.length > 0) {
-            await tx.insert(leadStageAssignments).values(
-              inserted.map((row) => ({
-                tenantId: ctx.tenant.id,
-                leadId: row.id,
-                stageKey: row.primaryStage,
-                createdBy: ctx.dbUserId,
-              })),
-            )
+            insertedCount = inserted.length
 
-            const activityRows = inserted
-              .map((row) => {
-                const note = activityNotesByKey.get(
-                  `${row.fullName}|${row.contactNumber ?? ''}|${row.email ?? ''}`,
-                )
-                if (!note) return null
-                return {
+            if (inserted.length > 0) {
+              await tx.insert(leadStageAssignments).values(
+                inserted.map((row) => ({
                   tenantId: ctx.tenant.id,
                   leadId: row.id,
-                  userId: ctx.dbUserId,
-                  type: 'note' as const,
-                  note: `CSV import:\n${note}`,
-                }
-              })
-              .filter((row): row is NonNullable<typeof row> => row !== null)
+                  stageKey: row.primaryStage,
+                  createdBy: ctx.dbUserId,
+                })),
+              )
 
-            if (activityRows.length > 0) {
-              await tx.insert(leadActivities).values(activityRows)
+              const activityRows = inserted
+                .map((row) => {
+                  const note = activityNotesByKey.get(
+                    `${row.fullName}|${row.contactNumber ?? ''}|${row.email ?? ''}`,
+                  )
+                  if (!note) return null
+                  return {
+                    tenantId: ctx.tenant.id,
+                    leadId: row.id,
+                    userId: ctx.dbUserId,
+                    type: 'note' as const,
+                    note: `CSV import:\n${note}`,
+                  }
+                })
+                .filter((row): row is NonNullable<typeof row> => row !== null)
+
+              if (activityRows.length > 0) {
+                await tx.insert(leadActivities).values(activityRows)
+              }
             }
           }
         })
       }
 
+
       await db
         .update(csvImports)
         .set({
-          importedRows: insertedCount,
+          importedRows: insertedCount + updatedCount,
           status: 'done',
         })
         .where(eq(csvImports.id, importBatchId))
@@ -607,6 +722,7 @@ export async function POST(req: NextRequest) {
 
       return successResponse({
         imported: insertedCount,
+        updated: updatedCount,
         importBatchId,
         assigned: Array.from(assignedCounts.values()).reduce((acc, value) => acc + value, 0),
         skipped: (parsed.data.duplicateRows ?? 0) + (parsed.data.errorRows ?? 0),

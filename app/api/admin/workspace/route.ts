@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { tenants } from '@/db/schema'
-import { requireTenantAdminSession } from '@/lib/tenant-server'
+import { requirePermissionSession } from '@/lib/tenant-server'
 
 export async function PATCH(req: Request) {
   try {
-    const { tenant } = await requireTenantAdminSession()
+    const { tenant } = await requirePermissionSession('teams.manage')
     const body = await req.json()
     const { name, logoUrl } = body
 

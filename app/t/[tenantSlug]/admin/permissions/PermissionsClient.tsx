@@ -78,6 +78,8 @@ const PERMISSION_GROUPS = [
     permissions: [
       'payments.view',
       'payments.edit',
+      'finance.view',
+      'finance.manage_commissions',
     ] as Permission[],
   },
   {
@@ -87,9 +89,12 @@ const PERMISSION_GROUPS = [
     permissions: [
       'kanban.view',
       'analytics.view',
+      'reports.view_all',
+      'pipelines.manage',
       'import.leads',
       'templates.manage',
       'teams.manage',
+      'teams.manage_access',
     ] as Permission[],
   },
 ];

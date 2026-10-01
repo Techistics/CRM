@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { eq, and, sql } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 import { db } from '@/db'
-import { users, tenantMembers, tenants } from '@/db/schema'
-import { getSession } from '@/lib/auth'
+import { users, tenantMembers } from '@/db/schema'
+import { requirePermissionApi } from '@/lib/tenant-api'
 import { sendAdminPasswordResetEmail } from '@/lib/mail'
 
 export async function POST(
@@ -11,32 +11,14 @@ export async function POST(
   { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    const session = await getSession()
-    if (!session || !session.tenantId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const ctx = await requirePermissionApi('teams.manage_access')
+    if (!ctx.ok) return ctx.response
 
     const { userId } = await params
     const { newPassword } = await req.json()
 
     if (!newPassword || newPassword.length < 8) {
       return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
-    }
-
-    // Ensure the caller is an Admin for this tenant
-    const [callerMembership] = await db
-      .select({ role: tenantMembers.role })
-      .from(tenantMembers)
-      .where(
-        and(
-          eq(tenantMembers.userId, session.userId),
-          eq(tenantMembers.tenantId, session.tenantId)
-        )
-      )
-      .limit(1)
-
-    if (!callerMembership || callerMembership.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     // Get the target user and their membership in this tenant
@@ -47,20 +29,17 @@ export async function POST(
       .where(
         and(
           eq(tenantMembers.userId, userId),
-          eq(tenantMembers.tenantId, session.tenantId)
+          eq(tenantMembers.tenantId, ctx.tenant.id)
         )
       )
       .limit(1)
-      
-    const tenantPromise = db.select().from(tenants).where(eq(tenants.id, session.tenantId)).limit(1)
 
-    const [[targetUser], [targetMembership], [tenant]] = await Promise.all([
+    const [[targetUser], [targetMembership]] = await Promise.all([
       targetUserPromise,
       targetMembershipPromise,
-      tenantPromise
     ])
 
-    if (!targetUser || !targetMembership || !tenant) {
+    if (!targetUser || !targetMembership) {
       return NextResponse.json({ error: 'User or membership not found' }, { status: 404 })
     }
 
@@ -85,18 +64,18 @@ export async function POST(
       .where(
         and(
           eq(tenantMembers.userId, userId),
-          eq(tenantMembers.tenantId, session.tenantId)
+          eq(tenantMembers.tenantId, ctx.tenant.id)
         )
       )
 
     // Send email notification
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:5000'
-    const loginUrl = `${baseUrl}/t/${tenant.slug}`
+    const loginUrl = `${baseUrl}/t/${ctx.tenant.slug}`
 
     const emailResult = await sendAdminPasswordResetEmail({
       email: targetUser.email,
       newPassword,
-      workspaceName: tenant.name,
+      workspaceName: ctx.tenant.name,
       loginUrl,
     })
 

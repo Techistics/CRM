@@ -42,7 +42,7 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
 
   // Sub-status editor state
   const [subStatusDraft, setSubStatusDraft] = useState<
-    Record<string, Array<{ id: string; label: string; type: 'in_progress' | 'closed_lost' | 'defer'; closedActions: string[] }>>
+    Record<string, Array<{ id: string; label: string; type: 'in_progress' | 'closed_lost'; closedActions: string[] }>>
   >({})
   const [selectedStageIdx, setSelectedStageIdx] = useState(0)
   const [newClosedAction, setNewClosedAction] = useState<Record<string, string>>({})
@@ -361,7 +361,7 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
                           </div>
 
                           <div className="flex gap-2">
-                            {(['in_progress', 'closed_lost', 'defer'] as const).map(type => (
+                            {(['in_progress', 'closed_lost'] as const).map(type => (
                               <button
                                 key={type}
                                 onClick={() => {
@@ -374,8 +374,7 @@ export default function PipelineSetupClient({ tenantName }: { tenantName: string
                                 className={`text-[11px] px-2 py-1 rounded-md font-medium transition-colors ${
                                   ss.type === type
                                     ? type === 'in_progress' ? 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-400'
-                                    : type === 'closed_lost' ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'
-                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400'
+                                    : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'
                                     : 'bg-[var(--main-bg)] text-[var(--muted-text)] hover:bg-slate-100 dark:hover:bg-slate-800'
                                 }`}
                               >

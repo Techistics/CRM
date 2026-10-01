@@ -1,4 +1,4 @@
-import { requireTenantAdminSession } from '@/lib/tenant-server'
+import { requirePermissionSession } from '@/lib/tenant-server'
 import { db } from '@/db'
 import { pipelineSubStatuses, pipelineStages } from '@/db/schema'
 import { eq } from 'drizzle-orm'
@@ -6,7 +6,7 @@ import SubStatusSettingsClient from './SubStatusSettingsClient'
 import PipelineStagesEditor from '@/components/admin/PipelineStagesEditor'
 
 export default async function PipelineSettingsPage() {
-  const { tenant } = await requireTenantAdminSession()
+  const { tenant } = await requirePermissionSession('teams.manage')
 
   const subStatuses = await db
     .select()

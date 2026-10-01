@@ -91,7 +91,7 @@ function SignInForm() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [workspaces, setWorkspaces] = useState<Array<{ tenantSlug: string; tenantId: string; role: string; name: string }>>([]);
+  const [workspaces, setWorkspaces] = useState<Array<{ tenantSlug: string; tenantId: string; role: string; name: string; displayRole?: string }>>([]);
   const [selected, setSelected] = useState<string>('');
 
   useEffect(() => {
@@ -130,9 +130,9 @@ function SignInForm() {
         setLoading(false);
         return; // Show picker
       }
-      if (payload.tenantSlug && payload.role) {
+      if (payload.tenantSlug) {
         const base = `/t/${payload.tenantSlug}`;
-        window.location.href = payload.role === 'ADMIN' ? `${base}/admin/overview` : `${base}/pro/overview`;
+        window.location.href = base;
       } else {
         window.location.href = '/';
       }
@@ -161,9 +161,9 @@ function SignInForm() {
     });
     if (res) {
       const payload = (res as any)?.data ?? res;
-      if (payload.tenantSlug && payload.role) {
+      if (payload.tenantSlug) {
         const base = `/t/${payload.tenantSlug}`;
-        window.location.href = payload.role === 'ADMIN' ? `${base}/admin/overview` : `${base}/pro/overview`;
+        window.location.href = base;
       }
     }
     setLoading(false);
@@ -251,7 +251,7 @@ function SignInForm() {
               <option value="" className="text-[#069BAF] bg-white text-slate-900" disabled>Select workspace</option>
               {workspaces.map((ws) => (
                 <option key={ws.tenantId} value={ws.tenantId} className="bg-white text-slate-900">
-                  {ws.name} ({ws.role})
+                  {ws.name} ({ws.displayRole ?? ws.role})
                 </option>
               ))}
             </select>

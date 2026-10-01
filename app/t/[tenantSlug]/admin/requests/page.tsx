@@ -3,10 +3,10 @@ import { roleRequests } from '@/db/schema'
 import { desc, and, eq } from 'drizzle-orm'
 
 import RoleRequestRowActions from './RoleRequestRowActions'
-import { requireTenantAdminSession } from '@/lib/tenant-server'
+import { requirePermissionSession } from '@/lib/tenant-server'
 
 export default async function AdminRoleRequestsPage() {
-  const { tenant } = await requireTenantAdminSession()
+  const { tenant } = await requirePermissionSession('teams.manage')
 
   const pending = await db
     .select()

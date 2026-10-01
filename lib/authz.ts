@@ -91,9 +91,8 @@ export function defaultRedirectForRole(
   tenantSlug: string,
   role: TenantAppRole,
 ): string {
-  return role === 'ADMIN'
-    ? `/t/${tenantSlug}/admin/overview`
-    : `/t/${tenantSlug}/pro/overview`
+  if (role === 'ADMIN') return `/t/${tenantSlug}/admin/overview`
+  return `/t/${tenantSlug}/pro/overview`
 }
 
 export function forbiddenRedirect(

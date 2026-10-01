@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs'
 import { eq, and, isNull } from 'drizzle-orm'
 
 import { db } from '@/db'
-import { users, tenantMembers, tenants } from '@/db/schema'
+import { users, tenantMembers, tenants, customRoles } from '@/db/schema'
 import { encrypt } from '@/lib/auth'
 import { getCredentialVersionForSession } from '@/lib/session-credential'
 import { loginSchema } from '@/lib/validators/auth'
@@ -64,9 +64,11 @@ export async function POST(req: NextRequest) {
         tenantName: tenants.name,
         tenantSlug: tenants.slug,
         role: tenantMembers.role,
+        customRoleName: customRoles.name,
       })
       .from(tenantMembers)
       .innerJoin(tenants, eq(tenantMembers.tenantId, tenants.id))
+      .leftJoin(customRoles, eq(tenantMembers.customRoleId, customRoles.id))
       .where(eq(tenantMembers.userId, user.id))
 
     if (memberships.length === 0) {
@@ -112,6 +114,7 @@ export async function POST(req: NextRequest) {
         tenantId: m.tenantId,
         role: m.role,
         name: m.tenantName,
+        displayRole: m.role === 'ADMIN' ? 'ADMIN' : (m.customRoleName ?? 'PRO'),
       })),
     })
     response.cookies.set('session', sessionToken, {

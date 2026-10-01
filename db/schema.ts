@@ -541,12 +541,13 @@ export const leadRevenues = pgTable(
     leadId: uuid('lead_id')
       .references(() => leads.id, { onDelete: 'cascade' })
       .notNull(),
-    intakeMonth: integer('intake_month'), // 1–12, nullable
-    intakeYear: integer('intake_year'),   // e.g. 2026, nullable
+    intakeMonth: integer('intake_month'),
+    intakeYear: integer('intake_year'),
     university: text('university'),
     country: text('country'),
     counselorFee: decimal('counselor_fee', { precision: 12, scale: 2 }),
     universityFee: decimal('university_fee', { precision: 12, scale: 2 }),
+    slips: jsonb('slips').notNull().default([]),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
@@ -646,7 +647,7 @@ export const pipelineSubStatuses = pgTable(
       .notNull(),
     stageKey: varchar('stage_key', { length: 64 }).notNull(),
     label: text('label').notNull(),
-    type: text('type', { enum: ['in_progress', 'closed_lost', 'defer'] })
+    type: text('type', { enum: ['in_progress', 'closed_lost'] })
       .notNull()
       .default('in_progress'),
     closedActions: jsonb('closed_actions').notNull().default([]),

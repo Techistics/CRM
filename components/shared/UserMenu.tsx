@@ -82,11 +82,7 @@ export function UserMenu({ user, role, tenantSlug }: { user: { name: string, ema
         <div className="p-1">
           <DropdownMenuItem 
             onClick={() => {
-  const isAdmin = role?.toUpperCase() === 'ADMIN' || role?.toUpperCase() === 'SUPER_ADMIN'
-  const path = isAdmin
-    ? `/t/${tenantSlug}/admin/settings/general`
-    : `/t/${tenantSlug}/pro/settings`
-  router.push(path)
+  router.push(`/t/${tenantSlug}/admin/settings/general`)
 }}
             className="flex items-center gap-3 px-3 py-2.5 rounded-[8px] text-[13px] font-medium text-[var(--text-main)] transition-colors focus:bg-[var(--foreground)]/5 focus:text-[var(--text-strong)] cursor-pointer"
           >

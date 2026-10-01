@@ -1,7 +1,7 @@
 import { db } from '@/db'
 import { counselorDiaries, users } from '@/db/schema'
 import { eq, and, desc, gte, lte } from 'drizzle-orm'
-import { requireTenantAdminSession } from '@/lib/tenant-server'
+import { requirePermissionSession } from '@/lib/tenant-server'
 import AdminDiaryClient from './AdminDiaryClient'
 import { subDays, startOfDay, endOfDay } from 'date-fns'
 
@@ -10,7 +10,7 @@ export default async function AdminDiaryPage({
 }: {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  const ctx = await requireTenantAdminSession()
+  const ctx = await requirePermissionSession('analytics.view')
 
   const resolvedParams = searchParams ? await searchParams : {}
   const fromParam = typeof resolvedParams.from === 'string' ? resolvedParams.from : undefined

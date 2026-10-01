@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     const lead = await getLeadForMemberAction(
       leadId,
       ctx.tenant.id,
-      toMemberScope(ctx),
+      toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] }),
     )
     if (!lead) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 })

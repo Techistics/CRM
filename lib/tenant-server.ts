@@ -16,6 +16,7 @@ export type TenantSessionContext = {
   role: TenantAppRole
   permissions: Permission[]
   customRoleId: string | null
+  customRoleName: string | null
   user: {
     name: string
     email: string
@@ -71,12 +72,22 @@ export async function requireTenantSession(): Promise<TenantSessionContext> {
     }
   })
 
+  let customRoleName: string | null = null
+  if (actor.customRoleId) {
+    const roleRow = await db.query.customRoles.findFirst({
+      where: (r, { eq }) => eq(r.id, actor.customRoleId!),
+      columns: { name: true }
+    })
+    customRoleName = roleRow?.name ?? null
+  }
+
   return { 
     tenant, 
     dbUserId: actor.dbUserId, 
     role: actor.role,
     permissions: actor.permissions ?? [],
     customRoleId: actor.customRoleId,
+    customRoleName,
     user: userRow ?? { name: 'Unknown', email: 'unknown@example.com' }
   }
 }

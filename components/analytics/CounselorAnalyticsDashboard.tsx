@@ -70,7 +70,10 @@ export default function CounselorAnalyticsDashboard({
       const res = await fetch(`/api/analytics/summary?from=${from}&to=${to}`)
       if (!res.ok) throw new Error('Failed to fetch summary data')
       const data = await res.json()
-      if (Array.isArray(data)) {
+      if (data && data.summary && Array.isArray(data.summary)) {
+        setSummaryData(data.summary)
+      } else if (Array.isArray(data)) {
+        // Fallback for old cache
         setSummaryData(data)
       }
     } catch (err) {
@@ -195,13 +198,14 @@ export default function CounselorAnalyticsDashboard({
       c.name,
       c.email,
       String(c.totalLeads ?? 0),
+      c.earliestPunchIn ? new Date(c.earliestPunchIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
       `${c.todayHours ?? 0}h`,
       String(c.periodEdits ?? 0),
     ])
 
     autoTable(doc, {
       startY: 72,
-      head: [['#', 'User Unique ID', 'Consultant Name', 'Corporate Email Address', 'Total Leads', 'Logged Time', 'Leads Edited']],
+      head: [['#', 'User Unique ID', 'Consultant Name', 'Corporate Email Address', 'Total Leads', 'Punch In', 'Logged Time', 'Leads Edited']],
       body: tableBody,
       styles: { font: 'helvetica', fontSize: 7.5, cellPadding: 3.5, textColor: [15, 23, 42] },
       headStyles: {
@@ -217,8 +221,9 @@ export default function CounselorAnalyticsDashboard({
         2: { cellWidth: 35, fontStyle: 'bold' },
         3: { cellWidth: 45 },
         4: { cellWidth: 15, halign: 'center' },
-        5: { cellWidth: 16, halign: 'center' },
+        5: { cellWidth: 15, halign: 'center' },
         6: { cellWidth: 16, halign: 'center' },
+        7: { cellWidth: 16, halign: 'center' },
       },
       margin: { left: 14, right: 14 },
       tableLineColor: [226, 232, 240], // slate-200
@@ -254,7 +259,8 @@ export default function CounselorAnalyticsDashboard({
         </div>
 
         {/* Date Filter Panel */}
-        <div className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm">
           <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
             <Calendar className="h-4 w-4 text-slate-400" />
             <span>Date Range:</span>
@@ -272,6 +278,7 @@ export default function CounselorAnalyticsDashboard({
             onChange={(e) => setTo(e.target.value)}
             className="bg-transparent text-sm border-none focus:ring-0 focus:outline-none text-slate-900 dark:text-slate-100 cursor-pointer font-medium"
           />
+        </div>
         </div>
       </div>
 
@@ -301,6 +308,7 @@ export default function CounselorAnalyticsDashboard({
                 <TableRow className="hover:bg-transparent border-b border-slate-200 dark:border-slate-800">
                   <TableHead className="font-semibold text-slate-700 dark:text-slate-300 pl-6">Counselor Name</TableHead>
                   <TableHead className="font-semibold text-slate-700 dark:text-slate-300 text-center">Total Leads</TableHead>
+                  <TableHead className="font-semibold text-slate-700 dark:text-slate-300 text-center">Earliest Punch In (Today)</TableHead>
                   <TableHead className="font-semibold text-slate-700 dark:text-slate-300 text-center">Clocked Hours Today</TableHead>
                   <TableHead className="font-semibold text-slate-700 dark:text-slate-300 text-center">Leads Edited (Selected Duration)</TableHead>
                 </TableRow>
@@ -312,7 +320,7 @@ export default function CounselorAnalyticsDashboard({
                     className="cursor-pointer border-b border-slate-100 dark:border-slate-900 hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition-colors"
                     onClick={() => {
                       if (!enableCounselorDrilldownRoute) return
-                      router.push(`/t/${tenantSlug}/admin/analytics/${c.userId}?from=${from}&to=${to}&name=${encodeURIComponent(c.name)}&email=${encodeURIComponent(c.email)}`)
+                      router.push(`/t/${tenantSlug}/${leadsPathPrefix}/analytics/${c.userId}?from=${from}&to=${to}&name=${encodeURIComponent(c.name)}&email=${encodeURIComponent(c.email)}`)
                     }}
                   >
                     <TableCell className="font-medium pl-6 text-slate-900 dark:text-slate-100">
@@ -327,6 +335,9 @@ export default function CounselorAnalyticsDashboard({
                       </div>
                     </TableCell>
                     <TableCell className="text-center font-medium text-slate-700 dark:text-slate-300">{c.totalLeads}</TableCell>
+                    <TableCell className="text-center font-medium text-slate-500 dark:text-slate-400">
+                      {c.earliestPunchIn ? new Date(c.earliestPunchIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
+                    </TableCell>
                     <TableCell className="text-center font-medium">
                       <Badge variant="outline" className="px-2.5 py-0.5 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-semibold bg-slate-50 dark:bg-slate-900">
                         {c.todayHours}h
@@ -342,6 +353,8 @@ export default function CounselorAnalyticsDashboard({
           )}
         </CardContent>
       </Card>
+
+
 
       {/* Reports and Export Area */}
       <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 shadow-sm rounded-xl">

@@ -87,6 +87,7 @@ export type PendingFilters = {
   revIntakeMonth: string | null
   revIntakeYear: string | null
   hasApplications: string | null
+  importFileName: string | null
 }
 
 export type FilterSheetProps = {

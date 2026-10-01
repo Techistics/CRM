@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { eq, and, asc } from 'drizzle-orm'
 import { db } from '@/db'
 import { pipelineSubStatuses } from '@/db/schema'
-import { requireTenantSession } from '@/lib/tenant-server'
+import { requireTenantMemberApi, requirePermissionApi } from '@/lib/tenant-api'
 import {
   buildCustomFieldsFromDraft,
   normalizeCustomFields,
@@ -41,7 +41,9 @@ function parseCustomFieldsBody(body: Record<string, unknown>) {
 
 export async function GET(req: NextRequest) {
   try {
-    const { tenant } = await requireTenantSession()
+    const ctx = await requireTenantMemberApi()
+    if (!ctx.ok) return ctx.response
+    const { tenant } = ctx
     const { searchParams } = new URL(req.url)
     const stageKey = searchParams.get('stageKey')
 
@@ -71,8 +73,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { tenant, role } = await requireTenantSession()
-    if (role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const ctx = await requirePermissionApi('pipelines.manage')
+    if (!ctx.ok) return ctx.response
+    const { tenant } = ctx
 
     const body = await req.json()
     const { stageKey, label, type, closedActions, sortOrder } = body
@@ -105,8 +108,9 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { tenant, role } = await requireTenantSession()
-    if (role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const ctx = await requirePermissionApi('pipelines.manage')
+    if (!ctx.ok) return ctx.response
+    const { tenant } = ctx
 
     const body = await req.json()
     const { id, label, type, closedActions, sortOrder } = body
@@ -146,8 +150,9 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const { tenant, role } = await requireTenantSession()
-    if (role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const ctx = await requirePermissionApi('pipelines.manage')
+    if (!ctx.ok) return ctx.response
+    const { tenant } = ctx
 
     const body = await req.json()
     const { id } = body

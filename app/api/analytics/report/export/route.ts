@@ -18,7 +18,7 @@ function escapeCsv(val: unknown): string {
 export async function GET(request: Request) {
   try {
     const ctx = await requirePermissionSession('analytics.view')
-    const viewAll = canViewAllAnalytics(toMemberScope(ctx))
+    const viewAll = canViewAllAnalytics(toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] }))
 
     const { searchParams } = new URL(request.url)
     const counselorIdParam = searchParams.get('counselorId')

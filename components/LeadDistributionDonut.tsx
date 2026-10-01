@@ -88,6 +88,7 @@ export function LeadDistributionDonut({
   onCounselorClick,
   onStageClick,
   centerValue,
+  compact = false,
 }: {
   unassignedCount: number
   breakdown: AgentBreakdown[]
@@ -96,6 +97,7 @@ export function LeadDistributionDonut({
   onCounselorClick?: (agentId: string) => void
   onStageClick?: (agentId: string | null, stageKey: string) => void
   centerValue?: string
+  compact?: boolean
 }) {
   const { series: colors } = useChartPalette()
   const donutLabels = ['Unassigned', ...breakdown.map((a) => a.agentName)]
@@ -111,8 +113,14 @@ export function LeadDistributionDonut({
   const [expandedCounselor, setExpandedCounselor] = useState<string | null>(null)
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 sm:flex-row lg:gap-8">
-      <div className="relative h-52 w-52 flex-shrink-0 sm:h-56 sm:w-56">
+    <div className={cn(
+      "flex flex-1 items-center justify-center gap-6",
+      compact ? "flex-col" : "flex-col sm:flex-row lg:gap-8"
+    )}>
+      <div className={cn(
+        "relative flex-shrink-0",
+        compact ? "h-40 w-40" : "h-52 w-52 sm:h-56 sm:w-56"
+      )}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -169,8 +177,11 @@ export function LeadDistributionDonut({
         </div>
       </div>
 
-      <div className="w-full max-w-md flex-1 space-y-2 sm:w-auto">
-        <p className="mb-2 text-center text-crm-xs font-semibold uppercase tracking-wider text-consulty-text-muted sm:text-left">
+      <div className={cn("w-full max-w-md flex-1 space-y-2", compact ? "sm:w-full" : "sm:w-auto")}>
+        <p className={cn(
+          "mb-2 text-crm-xs font-semibold uppercase tracking-wider text-consulty-text-muted",
+          compact ? "text-left" : "text-center sm:text-left"
+        )}>
           Counselor Breakdown
         </p>
         {donutLabels.map((label, i) => {

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireTenantAdminSession } from '@/lib/tenant-server'
+import { requirePermissionSession } from '@/lib/tenant-server'
 import { uploadFile } from '@/lib/storage'
 
 const MAX_BYTES = 2 * 1024 * 1024 // 2 MB for logos
 
 export async function POST(req: NextRequest) {
   try {
-    const { tenant } = await requireTenantAdminSession()
+    const { tenant } = await requirePermissionSession('teams.manage')
     
     const formData = await req.formData()
     const file = formData.get('file')

@@ -65,6 +65,31 @@ export default async function proxy(req: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
+  // 3. Role/path mismatch guard (fast — uses JWT payload, no extra DB call)
+  // Only fires when role is known in the JWT (single-workspace session).
+  if (payload?.role) {
+    const tenantPathMatch = pathname.match(/^\/t\/([^/]+)(\/.*)?$/)
+    if (tenantPathMatch) {
+      const slug = tenantPathMatch[1]
+      const subPath = tenantPathMatch[2] ?? '/'
+
+      // PRO must never access /admin/
+      if (payload.role === 'PRO' && subPath.startsWith('/admin')) {
+        const dest = req.nextUrl.clone()
+        dest.pathname = `/t/${slug}/pro/overview`
+        return NextResponse.redirect(dest)
+      }
+
+      // ADMIN must never access /pro/
+      if (payload.role === 'ADMIN' && subPath.startsWith('/pro')) {
+        const dest = req.nextUrl.clone()
+        dest.pathname = `/t/${slug}/admin/overview`
+        return NextResponse.redirect(dest)
+      }
+    }
+  }
+
+
   // If public AND signed in -> redirect to dashboard (prevent double sign-in)
   // ONLY for /sign-in and /sign-up
   if (payload && (pathname === '/sign-in' || pathname === '/sign-up')) {

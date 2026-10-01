@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
-import { and, eq, inArray, or } from 'drizzle-orm'
+import { and, eq, inArray, isNull, or } from 'drizzle-orm'
 import { z } from 'zod'
 import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js'
 
@@ -490,6 +490,7 @@ export async function POST(req: NextRequest) {
             and(
               eq(tenantMembers.tenantId, ctx.tenant.id),
               inArray(tenantMembers.userId, parsed.data.agentAssignments.map((a) => a.agentId)),
+              isNull(tenantMembers.deletedAt),
               ...(ctx.role !== 'ADMIN' ? [eq(tenantMembers.role, 'PRO')] : []),
             ),
           )

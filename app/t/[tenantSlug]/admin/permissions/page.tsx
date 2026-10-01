@@ -1,4 +1,4 @@
-import { requireTenantAdminSession } from '@/lib/tenant-server';
+import { requirePermissionSession } from '@/lib/tenant-server';
 import PermissionsClient from './PermissionsClient';
 import { db } from '@/db';
 import { customRoles } from '@/db/schema';
@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm';
 import { sanitizePermissions } from '@/lib/authz';
 
 export default async function PermissionsPage() {
-  const { tenant } = await requireTenantAdminSession();
+  const { tenant } = await requirePermissionSession('teams.manage');
   const roles = await db.select().from(customRoles).where(eq(customRoles.tenantId, tenant.id));
   return (
     <PermissionsClient

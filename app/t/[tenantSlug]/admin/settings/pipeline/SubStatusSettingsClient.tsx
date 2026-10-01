@@ -15,7 +15,7 @@ type SubStatus = {
   id: string
   stageKey: string
   label: string
-  type: 'in_progress' | 'closed_lost' | 'defer'
+  type: 'in_progress' | 'closed_lost'
   closedActions: unknown
   customFieldsEnabled?: boolean
   customFields?: unknown
@@ -25,13 +25,11 @@ type SubStatus = {
 const TYPE_BADGE: Record<string, string> = {
   in_progress: 'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400',
   closed_lost: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400',
-  defer: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
 }
 
 const TYPE_LABEL: Record<string, string> = {
   in_progress: 'In Progress',
   closed_lost: 'Closed Lost',
-  defer: 'Defer',
 }
 
 const emptyFieldDraft = (): CustomFieldDraft => ({
@@ -42,7 +40,7 @@ const emptyFieldDraft = (): CustomFieldDraft => ({
 
 function resetFormState(setters: {
   setFormLabel: (v: string) => void
-  setFormType: (v: 'in_progress' | 'closed_lost' | 'defer') => void
+  setFormType: (v: 'in_progress' | 'closed_lost') => void
   setFormActions: (v: string) => void
   setFormCustomFieldsEnabled: (v: boolean) => void
   setFormCustomFieldsDraft: (v: CustomFieldDraft[]) => void
@@ -67,7 +65,7 @@ export default function SubStatusSettingsClient({
   const [addingStage, setAddingStage] = useState<string | null>(null)
 
   const [formLabel, setFormLabel] = useState('')
-  const [formType, setFormType] = useState<'in_progress' | 'closed_lost' | 'defer'>('in_progress')
+  const [formType, setFormType] = useState<'in_progress' | 'closed_lost'>('in_progress')
   const [formActions, setFormActions] = useState('')
   const [formCustomFieldsEnabled, setFormCustomFieldsEnabled] = useState(false)
   const [formCustomFieldsDraft, setFormCustomFieldsDraft] = useState<CustomFieldDraft[]>([])
@@ -210,7 +208,6 @@ export default function SubStatusSettingsClient({
       >
         <option value="in_progress">In Progress</option>
         <option value="closed_lost">Closed Lost</option>
-        <option value="defer">Defer</option>
       </select>
       <input
         value={formActions}

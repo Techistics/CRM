@@ -12,7 +12,7 @@ export default function ProAnalyticsPageClient({
     return (
       <CounselorAnalyticsDashboard
         leadsPathPrefix="pro"
-        enableCounselorDrilldownRoute={false}
+        enableCounselorDrilldownRoute={true}
       />
     )
   }

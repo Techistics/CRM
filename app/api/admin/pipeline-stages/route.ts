@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 import { db } from '@/db'
 import { pipelineStages } from '@/db/schema' // trigger rebuild
-import { requireTenantAdminApi } from '@/lib/tenant-api'
+import { requirePermissionApi } from '@/lib/tenant-api'
 import { errorResponse, successResponse, withApiErrorHandling } from '@/lib/api-response'
 
 const stageSchema = z.object({
@@ -27,7 +27,7 @@ const saveSchema = z
 
 export async function GET() {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('pipelines.manage')
     if (!ctx.ok) return ctx.response
 
     const stages = await db
@@ -49,7 +49,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   return withApiErrorHandling(async () => {
-    const ctx = await requireTenantAdminApi()
+    const ctx = await requirePermissionApi('pipelines.manage')
     if (!ctx.ok) return ctx.response
 
     const body = await req.json().catch(() => null)

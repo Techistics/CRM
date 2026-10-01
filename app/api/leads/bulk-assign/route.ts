@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { db } from '@/db'
@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
         and(
           eq(tenantMembers.tenantId, ctx.tenant.id),
           eq(tenantMembers.userId, parsed.data.assignedTo),
+          isNull(tenantMembers.deletedAt),
         ),
       )
       .limit(1)
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
     const scopedIds = await db
       .select({ id: leads.id })
       .from(leads)
-      .where(leadIdsInScopeWhere(ctx.tenant.id, parsed.data.leadIds, toMemberScope(ctx)))
+      .where(leadIdsInScopeWhere(ctx.tenant.id, parsed.data.leadIds, toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] })))
 
     if (scopedIds.length === 0) {
       return successResponse({ updated: 0 })

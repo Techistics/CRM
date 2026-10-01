@@ -26,7 +26,7 @@ export type Agent = {
   activeLeadCount: number
 }
 
-export type SubStatusType = 'in_progress' | 'closed_lost' | 'defer'
+export type SubStatusType = 'in_progress' | 'closed_lost'
 
 export type SubStatusRow = {
   id: string
@@ -46,7 +46,6 @@ export type SubStatusOption = {
 export const SUB_STATUS_TYPE_OPTIONS: { value: SubStatusType; label: string }[] = [
   { value: 'in_progress', label: 'In Progress' },
   { value: 'closed_lost', label: 'Closed' },
-  { value: 'defer', label: 'Defer' },
 ]
 
 export const MONTH_NAMES = [

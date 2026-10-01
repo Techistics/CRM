@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     const scopedIds = await db
       .select({ id: leads.id })
       .from(leads)
-      .where(leadIdsInScopeWhere(ctx.tenant.id, parsed.data.leadIds, toMemberScope(ctx)))
+      .where(leadIdsInScopeWhere(ctx.tenant.id, parsed.data.leadIds, toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] })))
 
     if (scopedIds.length === 0) {
       return successResponse({ updated: 0 })

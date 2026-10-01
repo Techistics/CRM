@@ -3,10 +3,9 @@
 import { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
-import { CalendarIcon, Clock, Search, Filter, FileText } from 'lucide-react'
+import { CalendarIcon, Clock, FileText } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Table,
@@ -50,12 +49,11 @@ export default function AdminDiaryClient({
   const [toDate, setToDate] = useState(initialFilters.to.split('T')[0])
   const [counselor, setCounselor] = useState(initialFilters.counselor)
 
-  const applyFilters = () => {
+  const applyFilters = (from: string, to: string, c: string) => {
     const params = new URLSearchParams()
-    if (fromDate) params.set('from', fromDate)
-    if (toDate) params.set('to', toDate)
-    if (counselor && counselor !== 'all') params.set('counselor', counselor)
-    
+    if (from) params.set('from', from)
+    if (to) params.set('to', to)
+    if (c && c !== 'all') params.set('counselor', c)
     router.push(`${pathname}?${params.toString()}`)
   }
 
@@ -67,7 +65,7 @@ export default function AdminDiaryClient({
           <Input 
             type="date" 
             value={fromDate} 
-            onChange={e => setFromDate(e.target.value)} 
+            onChange={e => { setFromDate(e.target.value); applyFilters(e.target.value, toDate, counselor) }} 
           />
         </div>
         <div className="w-full md:w-auto flex-1 max-w-xs">
@@ -75,12 +73,12 @@ export default function AdminDiaryClient({
           <Input 
             type="date" 
             value={toDate} 
-            onChange={e => setToDate(e.target.value)} 
+            onChange={e => { setToDate(e.target.value); applyFilters(fromDate, e.target.value, counselor) }} 
           />
         </div>
         <div className="w-full md:w-auto flex-1 max-w-xs">
           <label className="text-xs font-medium text-slate-500 mb-1.5 block">Counselor</label>
-          <Select value={counselor} onValueChange={setCounselor}>
+          <Select value={counselor} onValueChange={c => { setCounselor(c); applyFilters(fromDate, toDate, c) }}>
             <SelectTrigger>
               <SelectValue placeholder="All Counselors" />
             </SelectTrigger>
@@ -92,10 +90,8 @@ export default function AdminDiaryClient({
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={applyFilters} className="gap-2">
-          <Search className="w-4 h-4" /> Filter
-        </Button>
       </div>
+
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         {diaries.length === 0 ? (

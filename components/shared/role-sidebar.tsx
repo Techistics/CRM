@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { LogOut, Menu } from 'lucide-react'
+import { LogOut, PanelLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import type { AppRole } from '@/types/roles'
@@ -12,10 +12,16 @@ import { cn } from '@/lib/utils'
 import { tenantPath } from '@/lib/tenant-path'
 import { Button } from '@/components/ui/button'
 import { crmConfig } from '@/lib/config/theme'
-import { adminMainNav, adminSettingsLinks } from '@/components/admin/nav-config'
-import { proMainNav, proSettingsLinks } from '@/components/pro/nav-config'
+import { adminSettingsLinks } from '@/components/admin/nav-config'
 import { filterNavByPermissions, type Permission } from '@/lib/authz'
 import type { Tenant } from '@/types/models'
+import {
+  LayoutDashboard, Users, Wallet, LineChart, Import,
+  UserCheck, Sparkles, BookOpen, KeyRound, Settings as SettingsIcon,
+  Layers, DollarSign,
+} from 'lucide-react'
+import { ADMIN_ROUTES } from '@/lib/admin-nav'
+import { PRO_ROUTES } from '@/lib/pro-nav'
 
 function isActive(pathname: string, href: string, matchPrefix?: boolean) {
   if (matchPrefix) return pathname === href || pathname.startsWith(`${href}/`)
@@ -42,24 +48,58 @@ export function RoleSidebar({
   const { isOpen, toggle } = useSidebar()
   const sidebarScale = pathname?.includes('/kanban') ? 0.78 : 0.67
 
-  const { mainNav, settingsLinks } = (() => {
-    const normalizedRole = role.toUpperCase()
-    if (normalizedRole === 'ADMIN' || normalizedRole === 'SUPER_ADMIN') {
-      return {
-        mainNav: filterNavByPermissions(
-          adminMainNav.map((i) =>
-            i.name === 'Users' ? { ...i, badgeKey: 'team' } : i,
-          ),
-          permissions,
-        ),
-        settingsLinks: adminSettingsLinks,
-      }
-    }
-    return {
-      mainNav: filterNavByPermissions(proMainNav, permissions),
-      settingsLinks: proSettingsLinks,
-    }
-  })()
+  const isAdmin = role === 'ADMIN'
+
+  type NavItem = {
+    name: string
+    href: string
+    icon: React.ElementType
+    permission?: Permission
+    matchPrefix?: boolean
+    badgeKey?: string
+  }
+
+  // Admin nav (only used when role === 'ADMIN')
+  const adminNav: NavItem[] = [
+    { name: 'Dashboard',         href: ADMIN_ROUTES.overview,   icon: LayoutDashboard, permission: 'analytics.view', matchPrefix: false },
+    { name: 'Leads',             href: ADMIN_ROUTES.leads,      icon: Wallet,          permission: 'leads.view',      matchPrefix: true },
+    { name: 'My Leads',          href: ADMIN_ROUTES.myLeads,    icon: UserCheck,       permission: 'leads.receive',   matchPrefix: true },
+    { name: 'Import Leads',      href: ADMIN_ROUTES.import,     icon: Import,          permission: 'import.leads',    matchPrefix: true },
+    { name: 'Analytics',         href: ADMIN_ROUTES.analytics,  icon: LineChart,       permission: 'analytics.view',  matchPrefix: true },
+    { name: 'Finance',           href: ADMIN_ROUTES.finance,    icon: DollarSign,      permission: 'finance.view',    matchPrefix: true },
+    { name: 'Templates',         href: ADMIN_ROUTES.templates,  icon: Sparkles,        permission: 'templates.manage',matchPrefix: true },
+    { name: 'Team',              href: ADMIN_ROUTES.team,       icon: Users,           permission: 'teams.manage',    matchPrefix: true, badgeKey: 'team' },
+    { name: 'Counselor Diaries', href: ADMIN_ROUTES.diary,      icon: BookOpen,        permission: 'analytics.view',  matchPrefix: true },
+  ]
+
+  // PRO nav (only used when role === 'PRO')
+  const proNav: NavItem[] = [
+    { name: 'Dashboard',         href: PRO_ROUTES.overview,          icon: LayoutDashboard, permission: 'analytics.view', matchPrefix: false },
+    { name: 'Leads',             href: PRO_ROUTES.leads,             icon: Wallet,          permission: 'leads.view',      matchPrefix: true },
+    { name: 'Reassigned Leads',  href: PRO_ROUTES.reassignedLeads,   icon: UserCheck,       permission: 'leads.receive',   matchPrefix: true },
+    { name: 'Import Leads',      href: PRO_ROUTES.import,            icon: Import,          permission: 'import.leads',    matchPrefix: true },
+    { name: 'Analytics',         href: PRO_ROUTES.analytics,         icon: LineChart,       permission: 'analytics.view',  matchPrefix: true },
+    { name: 'Finance',           href: PRO_ROUTES.finance,           icon: DollarSign,      permission: 'finance.view',    matchPrefix: true },
+    { name: 'Templates',         href: PRO_ROUTES.templates,         icon: Sparkles,        permission: 'templates.manage', matchPrefix: true },
+    { name: 'Team',              href: PRO_ROUTES.team,              icon: Users,           permission: 'teams.manage',    matchPrefix: true, badgeKey: 'team' },
+    { name: 'Diary',             href: PRO_ROUTES.diary,             icon: BookOpen,        matchPrefix: true },
+  ]
+
+  // Settings links gated on teams.manage
+  const adminSettings: NavItem[] = [
+    { name: 'Settings',     href: ADMIN_ROUTES.settings,     icon: SettingsIcon, permission: 'teams.manage' },
+    { name: 'Pipeline',     href: ADMIN_ROUTES.pipeline,     icon: Layers,       permission: 'teams.manage' },
+    { name: 'Permissions',  href: ADMIN_ROUTES.permissions,  icon: KeyRound,     permission: 'teams.manage' },
+  ]
+  const proSettings: NavItem[] = [
+    { name: 'Settings',     href: PRO_ROUTES.settings,       icon: SettingsIcon },
+    { name: 'Pipeline',     href: '/pro/settings/pipeline',  icon: Layers,       permission: 'pipelines.manage' },
+  ]
+
+  const allNav = isAdmin ? adminNav : proNav
+  const allSettings = isAdmin ? adminSettings : proSettings
+  const mainNav = isAdmin ? allNav : filterNavByPermissions(allNav, permissions)
+  const settingsLinks = isAdmin ? allSettings : filterNavByPermissions(allSettings, permissions)
 
   return (
     <>
@@ -76,8 +116,8 @@ export function RoleSidebar({
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex w-[var(--sidebar-width)] flex-col',
           'border-r border-slate-200 bg-white dark:bg-[#0b0f19] dark:border-slate-800',
-          'transition-transform duration-200 ease-out',
-          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+          'transition-transform duration-300 ease-in-out',
+          isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
         data-role={role}
         style={{ overflow: 'hidden' }}
@@ -98,11 +138,11 @@ export function RoleSidebar({
             <Button
               variant="ghost"
               size="icon"
-              className="ml-auto h-8 w-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 lg:hidden"
+              className="ml-auto h-8 w-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
               onClick={toggle}
               type="button"
             >
-              <Menu className="h-5 w-5" />
+              <PanelLeft className="h-4 w-4" />
               <span className="sr-only">Close menu</span>
             </Button>
           </div>

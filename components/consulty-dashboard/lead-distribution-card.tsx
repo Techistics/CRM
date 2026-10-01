@@ -13,6 +13,9 @@ export function LeadDistributionCard({
   totalLeads,
   tenantSlug,
   className,
+  title = "Lead Distribution",
+  description = "All leads by counselor",
+  compact = false,
 }: LeadDistributionCardProps) {
   const router = useRouter()
   const donutTotal = unassignedCount + breakdown.reduce((sum, agent) => sum + agent.totalLeads, 0)
@@ -20,8 +23,8 @@ export function LeadDistributionCard({
   return (
     <DashboardCard className={className}>
       <DashboardCardHeader
-        title="Lead Distribution"
-        description="All leads by counselor"
+        title={title}
+        description={description}
         badge={
           <span className="rounded-full bg-consulty-primary-soft px-2 py-0.5 text-crm-xs font-semibold uppercase tracking-wide text-consulty-primary dark:bg-consulty-primary-soft/30">
             {donutTotal.toLocaleString()} Total Leads
@@ -46,6 +49,7 @@ export function LeadDistributionCard({
             router.push(`/t/${tenantSlug}/admin/leads?${params.toString()}`)
           }}
           centerValue={totalLeads.toLocaleString()}
+          compact={compact}
         />
       </DashboardCardBody>
     </DashboardCard>

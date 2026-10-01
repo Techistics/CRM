@@ -35,7 +35,7 @@ export async function POST(
       return errorResponse(parsed.error.issues[0].message, 'VALIDATION_ERROR', 400)
     }
 
-    const lead = await getLeadForMemberAction(id, ctx.tenant.id, toMemberScope(ctx))
+    const lead = await getLeadForMemberAction(id, ctx.tenant.id, toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] }))
     if (!lead) {
       return errorResponse('Lead not found or no access', 'NOT_FOUND', 404)
     }

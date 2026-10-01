@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Download, Loader2, MoreHorizontal, Upload } from 'lucide-react'
@@ -88,6 +88,25 @@ export function LeadsDashboard({
 
   const [tenantStages, setTenantStages] = useState<{ key: string; label: string }[]>([])
 
+  const isFirstRender = useRef(true)
+
+  useEffect(() => {
+    const storageKey = `crm-leads-filters-${tenantSlug}-${role}`
+    const currentQuery = searchParams.toString()
+
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      const savedQuery = sessionStorage.getItem(storageKey)
+      
+      if (!currentQuery && savedQuery) {
+        router.replace(`?${savedQuery}`)
+        return
+      }
+    }
+    
+    sessionStorage.setItem(storageKey, currentQuery)
+  }, [searchParams, tenantSlug, role, router])
+
   const assignedTo = searchParams.get('assignedTo') ?? undefined
   const q = searchParams.get('q') ?? undefined
   const page = searchParams.get('page') ?? '1'
@@ -109,6 +128,7 @@ export function LeadsDashboard({
   const revIntakeYearFilter = searchParams.get('revIntakeYear') ?? undefined
   const hasApplicationsFilter = searchParams.get('hasApplications') ?? undefined
   const campaignNameFilter = searchParams.get('campaignName') ?? undefined
+  const importFileNameFilter = searchParams.get('importFileName') ?? undefined
 
   const currentPage = Math.max(1, Number(page) || 1)
   const pageSize = Number(pageSizeParam) || 10
@@ -150,6 +170,7 @@ export function LeadsDashboard({
       if (revIntakeYearFilter) params.set('revIntakeYear', revIntakeYearFilter)
       if (hasApplicationsFilter) params.set('hasApplications', hasApplicationsFilter)
       if (campaignNameFilter) params.set('campaignName', campaignNameFilter)
+      if (importFileNameFilter) params.set('importFileName', importFileNameFilter)
       params.set('_t', Date.now().toString())
 
       const [leadsRes, agentsRes] = await Promise.all([
@@ -174,7 +195,7 @@ export function LeadsDashboard({
   }, [
     assignedTo, currentPage, pageSize, q, stageFilter, subStatusTypeFilter, subStatusIdFilter, closedActionFilter, tagsParam,
     appUniversityNameFilter, appCourseNameFilter, appSourceFilter, appStatusFilter, appIntakeMonthFilter, appIntakeYearFilter,
-    leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter, hasApplicationsFilter, campaignNameFilter
+    leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter, hasApplicationsFilter, campaignNameFilter, importFileNameFilter
   ])
 
   useEffect(() => {
@@ -227,11 +248,12 @@ export function LeadsDashboard({
     if (revIntakeMonthFilter || revIntakeYearFilter) count++
     if (hasApplicationsFilter) count++
     if (campaignNameFilter) count++
+    if (importFileNameFilter) count++
     return count
   }, [
     stageFilter, subStatusTypeFilter, subStatusIdFilter, closedActionFilter, assignedTo, tagsParam,
     appUniversityNameFilter, appCourseNameFilter, appSourceFilter, appStatusFilter,
-    leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter, hasApplicationsFilter, campaignNameFilter
+    leadIntakeMonthFilter, leadIntakeYearFilter, revIntakeMonthFilter, revIntakeYearFilter, hasApplicationsFilter, campaignNameFilter, importFileNameFilter
   ])
 
   const handleToggleSelect = useCallback((id: string, checked: boolean) => {

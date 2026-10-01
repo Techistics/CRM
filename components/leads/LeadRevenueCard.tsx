@@ -13,8 +13,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { getLeadRevenues, saveLeadRevenue } from '@/lib/leads/revenue-actions'
+import { apiCall } from '@/lib/utils/api-handler'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Paperclip, ExternalLink } from 'lucide-react'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -43,6 +44,7 @@ export function LeadRevenueCard({ leadId }: LeadRevenueCardProps) {
   const [country, setCountry] = useState('')
   const [counselorFee, setCounselorFee] = useState('')
   const [universityFee, setUniversityFee] = useState('')
+  const [files, setFiles] = useState<File[]>([])
 
   const intakeYears = getIntakeYears()
 
@@ -76,6 +78,33 @@ export function LeadRevenueCard({ leadId }: LeadRevenueCardProps) {
 
     setSaving(true)
     try {
+      const uploadedSlips = []
+      
+      // Upload files if any
+      if (files.length > 0) {
+        for (const file of files) {
+          const fd = new FormData()
+          fd.append('file', file)
+          fd.append('label', 'Slip')
+          const res = await fetch(`/api/leads/${leadId}/documents`, {
+            method: 'POST',
+            body: fd,
+          })
+          if (!res.ok) {
+            throw new Error(`Failed to upload ${file.name}`)
+          }
+          const docData = await res.json()
+          if (docData?.data?.document) {
+            uploadedSlips.push({
+              id: docData.data.document.id,
+              fileName: docData.data.document.fileName,
+              storageUrl: docData.data.document.storageUrl,
+              uploadedAt: new Date().toISOString()
+            })
+          }
+        }
+      }
+
       await saveLeadRevenue(leadId, {
         intakeMonth: intakeMonth ? parseInt(intakeMonth, 10) : null,
         intakeYear: intakeYear ? parseInt(intakeYear, 10) : null,
@@ -83,6 +112,7 @@ export function LeadRevenueCard({ leadId }: LeadRevenueCardProps) {
         country,
         counselorFee: parseFloat(counselorFee),
         universityFee: parseFloat(universityFee),
+        slips: uploadedSlips
       })
       toast.success('Revenue saved successfully')
       // Reset form
@@ -92,6 +122,7 @@ export function LeadRevenueCard({ leadId }: LeadRevenueCardProps) {
       setCountry('')
       setCounselorFee('')
       setUniversityFee('')
+      setFiles([])
       // Refresh list
       await fetchRevenues()
     } catch (error) {
@@ -193,6 +224,27 @@ export function LeadRevenueCard({ leadId }: LeadRevenueCardProps) {
             </div>
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="rev-slips">Slip Upload</Label>
+            <Input
+              id="rev-slips"
+              type="file"
+              multiple
+              onChange={(e) => {
+                if (e.target.files) {
+                  setFiles(Array.from(e.target.files))
+                }
+              }}
+              disabled={saving}
+              className="cursor-pointer"
+            />
+            {files.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {files.length} file(s) selected
+              </p>
+            )}
+          </div>
+
           <Button type="submit" disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Revenue
@@ -228,6 +280,25 @@ export function LeadRevenueCard({ leadId }: LeadRevenueCardProps) {
                       <span>University Fee:</span>
                       <span className="font-medium text-foreground">${Number(rev.universityFee).toFixed(2)}</span>
                     </div>
+                    {rev.slips && rev.slips.length > 0 && (
+                      <div className="pt-2 mt-2 border-t space-y-1">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1"><Paperclip className="h-3 w-3" /> Attached Slips:</span>
+                        <div className="flex flex-wrap gap-2">
+                          {rev.slips.map((s: any) => (
+                            <a
+                              key={s.id}
+                              href={s.storageUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs flex items-center gap-1 bg-muted px-2 py-1 rounded-md text-foreground hover:bg-muted/80 transition-colors"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              {s.fileName}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               })}

@@ -4,14 +4,14 @@ import { eq, count, gte, lte, isNull, and, sql } from 'drizzle-orm'
 import AnalyticsOverviewClient from './AnalyticsOverviewClient'
 import { loadChartSnapshotsByWindow } from '@/lib/analytics-pipeline'
 import { reconcileOverdueRemindersForTenant } from '@/lib/lead-reminders-sync'
-import { requireTenantAdminSession } from '@/lib/tenant-server'
+import { requirePermissionSession } from '@/lib/tenant-server'
 
 export default async function AdminOverviewPage({
   searchParams,
 }: {
   searchParams: Promise<{ from?: string; to?: string }>
 }) {
-  const { tenant } = await requireTenantAdminSession()
+  const { tenant } = await requirePermissionSession('analytics.view')
   const { from, to } = await searchParams
 
   let startDate: Date | null = null
@@ -73,7 +73,8 @@ export default async function AdminOverviewPage({
     prevPeriodStats,
     currPeriodStats,
     chartByWindow,
-    activeAgentStageRaw
+    activeAgentStageRaw,
+    filteredAgentStageRaw
   ] = await Promise.all([
     db
       .select({ c: count(leadReminders.id) })
@@ -133,8 +134,8 @@ export default async function AdminOverviewPage({
       SELECT 
         DATE(created_at) as day,
         COUNT(*) FILTER (WHERE tenant_id = ${tenant.id}) as total,
-        COUNT(*) FILTER (WHERE tenant_id = ${tenant.id} AND assigned_to IS NULL) as unassigned,
-        COALESCE(SUM(deal_value) FILTER (WHERE tenant_id = ${tenant.id} AND primary_stage = 'paid'), 0) as revenue
+        COUNT(*) FILTER (WHERE tenant_id = ${tenant.id} AND primary_stage IN ('paid', 'cancelled')) as closed,
+        COUNT(*) FILTER (WHERE tenant_id = ${tenant.id} AND primary_stage NOT IN ('paid', 'cancelled')) as in_progress
       FROM leads
       WHERE tenant_id = ${tenant.id} AND created_at >= NOW() - INTERVAL '7 days'
       GROUP BY DATE(created_at)
@@ -144,16 +145,16 @@ export default async function AdminOverviewPage({
       .select({
         totalLeads: sql<number>`COUNT(*)::int`,
         newLeads: sql<number>`COUNT(*)::int`,
-        wonRevenue: sql<number>`COALESCE(SUM(${leads.dealValue}) FILTER (WHERE ${leads.primaryStage} = 'paid'), 0)::int`,
-        unassigned: sql<number>`COUNT(*) FILTER (WHERE ${leads.assignedTo} IS NULL)::int`,
+        closed: sql<number>`COUNT(*) FILTER (WHERE ${leads.primaryStage} IN ('paid', 'cancelled'))::int`,
+        inProgress: sql<number>`COUNT(*) FILTER (WHERE ${leads.primaryStage} NOT IN ('paid', 'cancelled'))::int`,
       })
       .from(leads)
       .where(and(eq(leads.tenantId, tenant.id), gte(leads.createdAt, (() => { const d = new Date(); d.setDate(d.getDate() - 60); d.setHours(0,0,0,0); return d })(),), lte(leads.createdAt, (() => { const d = new Date(); d.setDate(d.getDate() - 30); d.setHours(23,59,59,999); return d })(),))),
     db
       .select({
         totalLeads: sql<number>`COUNT(*)::int`,
-        wonRevenue: sql<number>`COALESCE(SUM(${leads.dealValue}) FILTER (WHERE ${leads.primaryStage} = 'paid'), 0)::int`,
-        unassigned: sql<number>`COUNT(*) FILTER (WHERE ${leads.assignedTo} IS NULL)::int`,
+        closed: sql<number>`COUNT(*) FILTER (WHERE ${leads.primaryStage} IN ('paid', 'cancelled'))::int`,
+        inProgress: sql<number>`COUNT(*) FILTER (WHERE ${leads.primaryStage} NOT IN ('paid', 'cancelled'))::int`,
       })
       .from(leads)
       .where(and(eq(leads.tenantId, tenant.id), gte(leads.createdAt, (() => { const d = new Date(); d.setDate(d.getDate() - 30); d.setHours(0,0,0,0); return d })()))),
@@ -166,6 +167,15 @@ export default async function AdminOverviewPage({
       })
       .from(leads)
       .where(eq(leads.tenantId, tenant.id))
+      .groupBy(leads.assignedTo, leads.primaryStage),
+    db
+      .select({
+        assignedTo: leads.assignedTo,
+        stage: leads.primaryStage,
+        count: count(leads.id)
+      })
+      .from(leads)
+      .where(tScope)
       .groupBy(leads.assignedTo, leads.primaryStage)
   ])
 
@@ -191,8 +201,8 @@ export default async function AdminOverviewPage({
     return d
   })
 
-  const sparkRows = (sparklineRaw.rows ?? []) as Array<{ day: string; total: number; unassigned: number; revenue: number }>
-  const buildSpark = (key: 'total' | 'unassigned' | 'revenue') =>
+  const sparkRows = (sparklineRaw.rows ?? []) as Array<{ day: string; total: number; closed: number; in_progress: number }>
+  const buildSpark = (key: 'total' | 'closed' | 'in_progress') =>
     last7Days.map((d) => {
       const dateStr = d.toISOString().split('T')[0]
       const row = sparkRows.find((r) => String(r.day).startsWith(dateStr))
@@ -208,8 +218,8 @@ export default async function AdminOverviewPage({
   const trends = {
     totalLeads: calcTrend(Number(currPeriodStats[0]?.totalLeads ?? 0), Number(prevPeriodStats[0]?.totalLeads ?? 0)),
     newToday: calcTrend(newLeadsToday, Math.round(Number(prevPeriodStats[0]?.newLeads ?? 0) / 30)),
-    wonRevenue: calcTrend(Number(currPeriodStats[0]?.wonRevenue ?? 0), Number(prevPeriodStats[0]?.wonRevenue ?? 0)),
-    unassigned: calcTrend(Number(currPeriodStats[0]?.unassigned ?? 0), Number(prevPeriodStats[0]?.unassigned ?? 0)),
+    closed: calcTrend(Number(currPeriodStats[0]?.closed ?? 0), Number(prevPeriodStats[0]?.closed ?? 0)),
+    inProgress: calcTrend(Number(currPeriodStats[0]?.inProgress ?? 0), Number(prevPeriodStats[0]?.inProgress ?? 0)),
   }
 
   const sparklines = {
@@ -219,8 +229,8 @@ export default async function AdminOverviewPage({
       const row = sparkRows.find((r) => String(r.day).startsWith(dateStr))
       return Number(row?.total ?? 0)
     }),
-    wonRevenue: buildSpark('revenue'),
-    unassigned: buildSpark('unassigned'),
+    closed: buildSpark('closed'),
+    inProgress: buildSpark('in_progress'),
   }
 
   const stageLookup = new Map(chartByWindow.week.stageData.map(s => [s.value, s.label]))
@@ -273,16 +283,83 @@ export default async function AdminOverviewPage({
       })).sort((a, b) => b.count - a.count)
     }))
 
+  let pieTotalLeads = 0
+  let pieClosedCount = 0
+  let pieInProgressCount = 0
+
+  for (const [stage, c] of Object.entries(unassignedStages)) {
+    pieTotalLeads += c
+    if (stage === 'paid' || stage === 'cancelled') pieClosedCount += c
+    else pieInProgressCount += c
+  }
+
+  for (const item of agentBreakdownMap.values()) {
+    for (const [stage, c] of Object.entries(item.stages)) {
+      pieTotalLeads += c
+      if (stage === 'paid' || stage === 'cancelled') pieClosedCount += c
+      else pieInProgressCount += c
+    }
+  }
+
+  const filteredAgentBreakdownMap = new Map<string, { agentId: string, agentName: string, totalLeads: number, stages: Record<string, number> }>()
+  for (const agent of proUsers) {
+    filteredAgentBreakdownMap.set(agent.id, {
+      agentId: agent.id,
+      agentName: agent.name || 'Unknown',
+      totalLeads: 0,
+      stages: {}
+    })
+  }
+
+  const filteredUnassignedStages: Record<string, number> = {}
+
+  for (const row of filteredAgentStageRaw) {
+    const c = Number(row.count)
+    if (c === 0) continue
+
+    if (!row.assignedTo) {
+      filteredUnassignedStages[row.stage] = (filteredUnassignedStages[row.stage] || 0) + c
+      continue
+    }
+
+    const mapItem = filteredAgentBreakdownMap.get(row.assignedTo)
+    if (mapItem) {
+      mapItem.totalLeads += c
+      mapItem.stages[row.stage] = (mapItem.stages[row.stage] || 0) + c
+    }
+  }
+
+  const filteredUnassignedBreakdown = Object.entries(filteredUnassignedStages).map(([key, c]) => ({
+    key,
+    label: stageLookup.get(key) || key,
+    count: c
+  })).sort((a, b) => b.count - a.count)
+
+  const filteredAgentStageBreakdown = Array.from(filteredAgentBreakdownMap.values())
+    .filter(item => item.totalLeads > 0)
+    .map(item => ({
+      agentId: item.agentId,
+      agentName: item.agentName,
+      totalLeads: item.totalLeads,
+      stages: Object.entries(item.stages).map(([key, c]) => ({
+        key,
+        label: stageLookup.get(key) || key,
+        count: c
+      })).sort((a, b) => b.count - a.count)
+    }))
+
   return (
     <AnalyticsOverviewClient
       chartByWindow={chartByWindow}
       overdueRemindersCount={overdueRemindersCount}
-      totalLeads={totalLeads}
+      totalLeads={pieTotalLeads}
       activeCount={activeCount}
       paidCount={paidCount}
       cancelledCount={cancelledCount}
       newLeadsToday={newLeadsToday}
       unassignedCount={unassignedCount}
+      closedCount={pieClosedCount}
+      inProgressCount={pieInProgressCount}
       agentStats={agentStats}
       pipelineValue={Number(valueAggs[0]?.pipelineValue ?? 0)}
       wonRevenue={Number(valueAggs[0]?.wonRevenue ?? 0)}
@@ -293,6 +370,8 @@ export default async function AdminOverviewPage({
       dateRange={{ from: startDate, to: endDate }}
       agentStageBreakdown={agentStageBreakdown}
       unassignedBreakdown={unassignedBreakdown}
+      filteredAgentStageBreakdown={filteredAgentStageBreakdown}
+      filteredUnassignedBreakdown={filteredUnassignedBreakdown}
     />
   )
 }

@@ -7,7 +7,7 @@ type MyLead = {
   fullName: string
   email: string | null
   contactNumber: string | null
-  city: string | null
+  source: string | null
   stage: string
   reassignedByName: string | null
   reassignedByEmail: string | null
@@ -36,7 +36,8 @@ export default function AdminMyLeadsClient({
             <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 text-left text-slate-500">
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Contact</th>
-              <th className="px-4 py-3 font-medium">City</th>
+              <th className="px-4 py-3 font-medium">Source</th>
+              <th className="px-4 py-3 font-medium">Date Of Lead Assign</th>
               <th className="px-4 py-3 font-medium">Stage</th>
               <th className="px-4 py-3 font-medium">Reassigned By</th>
               <th className="px-4 py-3 font-medium">Action</th>
@@ -47,7 +48,14 @@ export default function AdminMyLeadsClient({
               <tr key={lead.id} className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                 <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{lead.fullName}</td>
                 <td className="px-4 py-3 text-slate-500">{lead.contactNumber ?? '—'}</td>
-                <td className="px-4 py-3 text-slate-500">{lead.city ?? '—'}</td>
+                <td className="px-4 py-3 text-slate-500 capitalize">{lead.source?.replace(/_/g, ' ') ?? '—'}</td>
+                <td className="px-4 py-3 text-slate-500">
+                  {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                  }) : '—'}
+                </td>
                 <td className="px-4 py-3">
                   <span className="rounded-md bg-slate-100 dark:bg-slate-700 px-2 py-1 text-xs font-medium text-slate-700 dark:text-slate-300">
                     {stageLabels[lead.stage] || lead.stage}

@@ -164,9 +164,6 @@ export default function ProAnalyticsClient({ viewAll = false }: { viewAll?: bool
                   <tr className="border-b border-[var(--card-border-color)] text-left text-xs text-[var(--muted-text)]">
                     <th className="px-4 py-3 font-medium">Counselor</th>
                     <th className="px-4 py-3 font-medium text-center">Total</th>
-                    <th className="px-4 py-3 font-medium text-center">Active</th>
-                    <th className="px-4 py-3 font-medium text-center">Cold</th>
-                    <th className="px-4 py-3 font-medium text-center">Dead</th>
                     <th className="px-4 py-3 font-medium text-center">Hours Today</th>
                     <th className="px-4 py-3 font-medium text-center">Edits Today</th>
                   </tr>
@@ -188,9 +185,6 @@ export default function ProAnalyticsClient({ viewAll = false }: { viewAll?: bool
                         <div className="text-xs text-[var(--muted-text)]">{row.email}</div>
                       </td>
                       <td className="px-4 py-3 text-center">{row.totalLeads}</td>
-                      <td className="px-4 py-3 text-center">{row.activeLeads}</td>
-                      <td className="px-4 py-3 text-center">{row.coldLeads}</td>
-                      <td className="px-4 py-3 text-center">{row.deadLeads}</td>
                       <td className="px-4 py-3 text-center">{row.todayHours}h</td>
                       <td className="px-4 py-3 text-center">{row.todayEdits}</td>
                     </tr>
@@ -203,12 +197,9 @@ export default function ProAnalyticsClient({ viewAll = false }: { viewAll?: bool
       )}
 
       {/* Summary cards row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
           { title: "Total Leads", val: summary?.totalLeads },
-          { title: "Active Leads", val: summary?.activeLeads },
-          { title: "Cold Leads", val: summary?.coldLeads },
-          { title: "Dead Leads", val: summary?.deadLeads },
         ].map((item, idx) => (
           <Card key={idx} className="border-[0.5px] border-[var(--card-border-color)] bg-[var(--card-bg)] shadow-crm-sm rounded-[12px]">
             <CardHeader className="pb-2 pt-4 px-4">

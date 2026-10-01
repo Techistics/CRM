@@ -1,12 +1,12 @@
 import { eq, and, isNotNull, isNull } from 'drizzle-orm'
 import { db } from '@/db'
 import { leads, users } from '@/db/schema'
-import { requireTenantAdminSession } from '@/lib/tenant-server'
+import { requirePermissionSession } from '@/lib/tenant-server'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 import AdminMyLeadsClient from './AdminMyLeadsClient'
 
 export default async function AdminMyLeadsPage() {
-  const { tenant, dbUserId } = await requireTenantAdminSession()
+  const { tenant, dbUserId } = await requirePermissionSession('leads.receive')
 
   const pipeline = await getTenantPipeline(tenant.id)
   const stageLabels = Object.fromEntries(pipeline.stages.map(s => [s.key, s.label]))
@@ -17,7 +17,7 @@ export default async function AdminMyLeadsPage() {
       fullName: leads.fullName,
       email: leads.email,
       contactNumber: leads.contactNumber,
-      city: leads.city,
+      source: leads.source,
       stage: leads.stage,
       primaryStage: leads.primaryStage,
       assignedTo: leads.assignedTo,

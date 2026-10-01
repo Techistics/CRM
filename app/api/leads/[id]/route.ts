@@ -37,7 +37,7 @@ return withApiErrorHandling(async () => {
   const lead = await getLeadForMemberAction(
     id,
     ctx.tenant.id,
-    toMemberScope(ctx),
+    toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] }),
   )
   if (!lead) {
     return errorResponse('Lead not found', 'NOT_FOUND', 404)
@@ -59,7 +59,7 @@ return withApiErrorHandling(async () => {
   const lead = await getLeadForMemberAction(
     id,
     ctx.tenant.id,
-    toMemberScope(ctx),
+    toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] }),
   )
   if (!lead) {
     return errorResponse('Lead not found', 'NOT_FOUND', 404)
@@ -282,7 +282,7 @@ return withApiErrorHandling(async () => {
   if (!ctx.ok) return ctx.response
 
   const { id } = await params
-  const lead = await getLeadForMemberAction(id, ctx.tenant.id, toMemberScope(ctx))
+  const lead = await getLeadForMemberAction(id, ctx.tenant.id, toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] }))
   if (!lead) {
     return errorResponse('Lead not found', 'NOT_FOUND', 404)
   }

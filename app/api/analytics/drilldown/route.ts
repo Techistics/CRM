@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   if (!ctx.ok) return ctx.response
 
   const { tenant, dbUserId } = ctx
-  const viewAll = canViewAllAnalytics(toMemberScope(ctx))
+  const viewAll = canViewAllAnalytics(toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] }))
 
     // Grab URL parameters
     const { searchParams } = new URL(request.url)
@@ -174,11 +174,8 @@ export async function GET(request: Request) {
 
     const leadActivitiesByLead = activityRows.reduce((acc, row) => {
       const group = acc[row.leadId] ?? { leadId: row.leadId, leadName: row.leadName, displayId: row.displayId, logs: [], otherActivities: [] }
-      if (row.type === 'note' || row.type === 'stage_change') {
-        group.logs.push({ type: row.type, note: row.note, createdAt: row.createdAt })
-      } else {
-        group.otherActivities.push({ type: row.type, note: row.note, createdAt: row.createdAt })
-      }
+      // Treat all activity types as logs so note content is visible in the UI
+      group.logs.push({ type: row.type, note: row.note, createdAt: row.createdAt })
       acc[row.leadId] = group
       return acc
     }, {} as Record<string, { leadId: string; leadName: string | null; displayId: string | null; logs: any[]; otherActivities: any[] }>)

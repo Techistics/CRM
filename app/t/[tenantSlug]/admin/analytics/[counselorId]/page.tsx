@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
-import { useParams, useSearchParams, useRouter } from 'next/navigation'
+import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Loader2, User, Clock, TrendingUp, CheckCircle2, FileText, Search } from 'lucide-react'
@@ -45,6 +45,8 @@ export default function CounselorDrilldownPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
+  const pathname = usePathname()
+  const basePath = pathname?.includes('/pro/') ? 'pro' : 'admin'
 
   const tenantSlug = params?.tenantSlug as string
   const counselorId = params?.counselorId as string
@@ -176,7 +178,7 @@ export default function CounselorDrilldownPage() {
     <div className="flex-1 space-y-6 p-8 pt-6">
       <div className="mb-6">
         <Link
-          href={`/t/${tenantSlug}/admin/analytics?from=${from}&to=${to}`}
+          href={`/t/${tenantSlug}/${basePath}/analytics?from=${from}&to=${to}`}
           className="text-sm text-indigo-600 hover:text-indigo-700 transition-colors font-medium flex items-center gap-1 mb-4"
         >
           ← Back to Analytics
@@ -199,7 +201,7 @@ export default function CounselorDrilldownPage() {
                 value={localFrom}
                 onChange={(e) => {
                   setLocalFrom(e.target.value)
-                  router.push(`/t/${tenantSlug}/admin/analytics/${counselorId}?from=${e.target.value}&to=${localTo}&name=${encodeURIComponent(counselorName)}&email=${encodeURIComponent(counselorEmail)}`)
+                  router.push(`/t/${tenantSlug}/${basePath}/analytics/${counselorId}?from=${e.target.value}&to=${localTo}&name=${encodeURIComponent(counselorName)}&email=${encodeURIComponent(counselorEmail)}`)
                 }}
                 className="text-sm border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
@@ -209,7 +211,7 @@ export default function CounselorDrilldownPage() {
                 value={localTo}
                 onChange={(e) => {
                   setLocalTo(e.target.value)
-                  router.push(`/t/${tenantSlug}/admin/analytics/${counselorId}?from=${localFrom}&to=${e.target.value}&name=${encodeURIComponent(counselorName)}&email=${encodeURIComponent(counselorEmail)}`)
+                  router.push(`/t/${tenantSlug}/${basePath}/analytics/${counselorId}?from=${localFrom}&to=${e.target.value}&name=${encodeURIComponent(counselorName)}&email=${encodeURIComponent(counselorEmail)}`)
                 }}
                 className="text-sm border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
@@ -270,7 +272,7 @@ export default function CounselorDrilldownPage() {
                       {drilldownData?.leads?.touchedToday?.map((l) => (
                         <div key={l.id} className="flex justify-between items-center bg-muted/20 p-2.5 rounded-lg border border-border/40 hover:bg-muted/40 transition-colors">
                           <Link
-                            href={`/t/${tenantSlug}/admin/leads/${l.id}?tab=activity`}
+                            href={`/t/${tenantSlug}/${basePath}/leads/${l.id}?tab=activity`}
                             className="text-xs text-indigo-600 hover:underline font-semibold"
                           >
                             {l.fullName}
@@ -379,7 +381,7 @@ export default function CounselorDrilldownPage() {
                     {visibleActivities.map(group => (
                       <div key={group.leadId} className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
                         <div className="flex items-center justify-between mb-2">
-                          <Link href={`/t/${tenantSlug}/admin/leads/${group.leadId}?tab=activity`} className="text-sm font-medium text-sky-600 hover:underline">
+                          <Link href={`/t/${tenantSlug}/${basePath}/leads/${group.leadId}?tab=activity`} className="text-sm font-medium text-sky-600 hover:underline">
                             {group.leadName || 'Unknown Lead'} <span className="text-xs text-muted-foreground ml-1">({group.displayId || group.leadId.slice(0, 6).toUpperCase()})</span>
                           </Link>
                           {/* Last activity timestamp */}

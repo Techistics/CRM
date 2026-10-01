@@ -49,6 +49,15 @@ export async function createInvitationAndSendEmail({
   const token = crypto.randomUUID()
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 
+  // Industry Standard: Clean up any previous pending invitations for this email to prevent duplicates
+  await db.delete(invitations).where(
+    and(
+      eq(invitations.tenantId, tenantId),
+      sql`lower(${invitations.email}) = lower(${email})`,
+      eq(invitations.status, 'PENDING')
+    )
+  )
+
   const [invitation] = await db
     .insert(invitations)
     .values({

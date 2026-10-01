@@ -1,4 +1,4 @@
-export type SubStatusType = 'in_progress' | 'closed_lost' | 'defer'
+export type SubStatusType = 'in_progress' | 'closed_lost'
 
 export type DefaultSubStatus = {
   label: string
@@ -26,11 +26,9 @@ export const DEFAULT_SUB_STATUSES: Record<string, DefaultSubStatus[]> = {
   applicant: [
     { label: 'In Progress', type: 'in_progress', closedActions: ['Application Sent', 'Offer Received-Conditional', 'Offer Received-Unconditional', 'Offer Accepted'] },
     { label: 'Closed Lost', type: 'closed_lost', closedActions: ['All Rejections', 'Do not contact', 'Financial issue', 'Insufficient academics', 'Insufficient English', 'No response', 'Not commissionable', 'Not going overseas', 'Paid services only', 'Using another agent', 'Will apply directly', 'GTE non-compliant (Aus only)'] },
-    { label: 'Defer', type: 'defer', closedActions: [] },
   ],
   final_choice: [
     { label: 'Closed Lost', type: 'closed_lost', closedActions: ['Do not contact', 'Failed credibility interviews', 'Financial issue', 'Insufficient academics', 'Insufficient English', 'No response', 'Not commissionable', 'Not going overseas', 'Paid services only', 'Using another agent', 'Visa Rejected', 'GTE non-compliant (Aus only)'] },
-    { label: 'Defer', type: 'defer', closedActions: [] },
   ],
 }
 

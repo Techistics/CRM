@@ -72,7 +72,7 @@ export async function PATCH(
     const lead = await getLeadForMemberAction(
       id,
       ctx.tenant.id,
-      toMemberScope(ctx),
+      toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] }),
     )
     if (!lead) {
       return errorResponse('Lead not found or no access', 'NOT_FOUND', 404)

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
-import { users, tenantMembers, leads, tenantTimesheets, leadActivities } from '@/db/schema'
+import { users, tenantMembers, leads, tenantTimesheets, leadActivities, leadRevenues } from '@/db/schema'
 import { eq, and, gte, lte, isNull, sql } from 'drizzle-orm'
 import { requirePermissionApi } from '@/lib/tenant-api'
 import { canViewAllAnalytics, toMemberScope } from '@/lib/member-scope'
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   if (!ctx.ok) return ctx.response
 
   const { tenant, dbUserId } = ctx
-  const scope = toMemberScope(ctx)
+  const scope = toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] })
   const viewAll = canViewAllAnalytics(scope)
 
     // Grab optional from and to query parameters from request URL
@@ -89,6 +89,7 @@ export async function GET(request: Request) {
     const timesheets = await db
   .select({
     userId: tenantTimesheets.userId,
+    earliestPunchIn: sql<string | null>`MIN(${tenantTimesheets.punchIn})::text`,
     totalMinutes: sql<number>`
       SUM(
         CASE
@@ -128,8 +129,10 @@ export async function GET(request: Request) {
 
     // Merge everything in memory
     const timesheetMap = new Map<string, number>()
+    const earliestPunchInMap = new Map<string, string | null>()
     for (const t of timesheets) {
       timesheetMap.set(t.userId, t.totalMinutes)
+      earliestPunchInMap.set(t.userId, t.earliestPunchIn)
     }
 
     const editsMap = new Map<string, number>()
@@ -141,6 +144,7 @@ export async function GET(request: Request) {
       const totalMinutes = timesheetMap.get(u.userId) || 0
       const todayHours = Number((totalMinutes / 60).toFixed(2))
       const periodEdits = editsMap.get(u.userId) || 0
+      const earliestPunchIn = earliestPunchInMap.get(u.userId) || null
 
       return {
         userId: u.userId,
@@ -151,8 +155,66 @@ export async function GET(request: Request) {
 
         todayHours,
         periodEdits,
+        earliestPunchIn,
       }
     })
 
-    return NextResponse.json(payload)
+    // Get all revenues within the period
+    const revenuesWhere = [
+      eq(leadRevenues.tenantId, tenant.id),
+    ]
+    if (startDate) {
+      revenuesWhere.push(gte(leadRevenues.createdAt, startDate))
+    }
+    if (endDate) {
+      revenuesWhere.push(lte(leadRevenues.createdAt, endDate))
+    }
+    if (!viewAll) {
+      // For revenues, we match by the lead's assigned counselor, but leadRevenues has createdBy.
+      // Wait, let's just filter by createdBy for now or join leads.
+      revenuesWhere.push(eq(leadRevenues.createdBy, dbUserId))
+    }
+
+    const revenuesData = await db
+      .select({
+        counselorId: leadRevenues.createdBy,
+        counselorFee: leadRevenues.counselorFee,
+        universityFee: leadRevenues.universityFee,
+        country: leadRevenues.country,
+        intakeYear: leadRevenues.intakeYear,
+        intakeMonth: leadRevenues.intakeMonth,
+      })
+      .from(leadRevenues)
+      .where(and(...revenuesWhere))
+
+    const revenueByCountry: Record<string, number> = {}
+    const revenueByCounselor: Record<string, number> = {}
+    const revenueByIntakeYear: Record<string, number> = {}
+    const studentCountPerCounselorIntake: Record<string, number> = {}
+
+    for (const rev of revenuesData) {
+      const cFee = Number(rev.counselorFee || 0)
+      const uFee = Number(rev.universityFee || 0)
+      const totalRev = cFee + uFee
+
+      const country = rev.country || 'Unknown'
+      revenueByCountry[country] = (revenueByCountry[country] || 0) + totalRev
+
+      const counselor = rev.counselorId || 'Unknown'
+      revenueByCounselor[counselor] = (revenueByCounselor[counselor] || 0) + totalRev
+
+      const year = rev.intakeYear ? String(rev.intakeYear) : 'Unknown'
+      revenueByIntakeYear[year] = (revenueByIntakeYear[year] || 0) + totalRev
+
+      const intakeKey = `${counselor}_${year}_${rev.intakeMonth || 'All'}`
+      studentCountPerCounselorIntake[intakeKey] = (studentCountPerCounselorIntake[intakeKey] || 0) + 1
+    }
+
+    return NextResponse.json({
+      summary: payload,
+      revenueByCountry,
+      revenueByCounselor,
+      revenueByIntakeYear,
+      studentCountPerCounselorIntake
+    })
 }

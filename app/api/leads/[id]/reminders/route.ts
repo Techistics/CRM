@@ -29,7 +29,7 @@ export async function GET(
     const lead = await getLeadForMemberAction(
       id,
       ctx.tenant.id,
-      toMemberScope(ctx),
+      toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] }),
     )
     if (!lead) {
       return errorResponse('Lead not found', 'NOT_FOUND', 404)
@@ -61,7 +61,7 @@ export async function POST(
     const lead = await getLeadForMemberAction(
       id,
       ctx.tenant.id,
-      toMemberScope(ctx),
+      toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] }),
     )
     if (!lead) {
       return errorResponse('Lead not found', 'NOT_FOUND', 404)

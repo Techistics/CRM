@@ -16,4 +16,5 @@ export const ADMIN_ROUTES = {
   myLeads: '/admin/my-leads',
   permissions: '/admin/permissions', 
   diary: '/admin/diary',
+  finance: '/admin/finance',
 } as const

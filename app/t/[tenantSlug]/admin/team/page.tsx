@@ -2,11 +2,11 @@ import { db } from '@/db'
 import { users, leads, tenantMembers, invitations, customRoles } from '@/db/schema'
 import { eq, count, and, isNull } from 'drizzle-orm'
 
-import { requireTenantAdminSession } from '@/lib/tenant-server'
+import { requirePermissionSession } from '@/lib/tenant-server'
 import TeamManagementClient from './TeamManagementClient'
 
 export default async function TeamPage() {
-  const { tenant } = await requireTenantAdminSession()
+  const { tenant } = await requirePermissionSession('teams.manage')
   const tScope = eq(leads.tenantId, tenant.id)
 
   const members = await db

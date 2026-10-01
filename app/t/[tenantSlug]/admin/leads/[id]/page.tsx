@@ -1,9 +1,9 @@
 import { db } from '@/db'
 import { leadActivities, users, tenantMembers, leadTags, leadTagAssignments, leadStageAssignments } from '@/db/schema'
-import { eq, desc, and } from 'drizzle-orm'
+import { eq, desc, and, isNull } from 'drizzle-orm'
 import { notFound } from 'next/navigation'
 import LeadDetailClient from './LeadDetailClient'
-import { requireTenantAdminSession } from '@/lib/tenant-server'
+import { requirePermissionSession } from '@/lib/tenant-server'
 import { getLeadInTenant } from '@/lib/lead-tenant'
 
 export default async function LeadDetailPage({
@@ -11,7 +11,7 @@ export default async function LeadDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  const { tenant } = await requireTenantAdminSession()
+  const { tenant } = await requirePermissionSession('leads.view')
   const { id } = await params
 
   const lead = await getLeadInTenant(id, tenant.id)
@@ -56,7 +56,7 @@ export default async function LeadDetailPage({
     })
     .from(tenantMembers)
     .innerJoin(users, eq(tenantMembers.userId, users.id))
-    .where(eq(tenantMembers.tenantId, tenant.id))
+    .where(and(eq(tenantMembers.tenantId, tenant.id), isNull(tenantMembers.deletedAt)))
 
   const tags = await db
     .select({

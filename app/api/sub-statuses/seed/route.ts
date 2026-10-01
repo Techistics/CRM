@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { pipelineSubStatuses } from '@/db/schema'
-import { requireTenantSession } from '@/lib/tenant-server'
+import { requirePermissionApi } from '@/lib/tenant-api'
 import { DEFAULT_SUB_STATUSES } from '@/constants/sub-status-defaults'
 
 export async function POST(req: NextRequest) {
   try {
-    const { tenant, role } = await requireTenantSession()
-    if (role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const ctx = await requirePermissionApi('pipelines.manage')
+    if (!ctx.ok) return ctx.response
+    const { tenant } = ctx
 
     // Check if already seeded
     const existing = await db

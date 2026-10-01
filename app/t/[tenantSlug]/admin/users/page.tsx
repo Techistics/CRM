@@ -1,12 +1,12 @@
 // app/t/[tenantSlug]/admin/users/page.tsx
-import { requireTenantAdminSession } from '@/lib/tenant-server';
+import { requirePermissionSession } from '@/lib/tenant-server';
 import TeamManagementClient from '../team/TeamManagementClient';
 import { db } from '@/db';
 import { users, leads, tenantMembers, invitations, customRoles } from '@/db/schema';
 import { eq, count, and, isNull } from 'drizzle-orm';
 
 export default async function UsersPage() {
-  const { tenant } = await requireTenantAdminSession();
+  const { tenant } = await requirePermissionSession('teams.manage');
   const tScope = eq(leads.tenantId, tenant.id);
 
   // Fetch team members and pending invites (same as existing team page)

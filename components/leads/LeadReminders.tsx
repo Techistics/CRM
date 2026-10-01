@@ -28,7 +28,7 @@ export function LeadReminders({ leadId, className, variant = 'dark' }: LeadRemin
         const res = await fetch(`/api/leads/${leadId}/reminders`)
         return res.json()
       }, { errorMsg: 'Failed to load reminders' })
-      setReminders((data as { reminders?: LeadReminder[] } | null)?.reminders ?? [])
+      setReminders((data as any)?.data?.reminders ?? [])
       setLoading(false)
     }
 
@@ -52,7 +52,7 @@ export function LeadReminders({ leadId, className, variant = 'dark' }: LeadRemin
     }, { successMsg: 'Reminder added', errorMsg: 'Could not create reminder' })
     
     if (data) {
-      const reminder = (data as { reminder?: LeadReminder }).reminder
+      const reminder = (data as any)?.data?.reminder
       if (reminder) {
         setReminders((prev) => 
           [...prev, reminder].sort((a, b) => +new Date(a.dueAt ?? 0) - +new Date(b.dueAt ?? 0))
@@ -75,7 +75,7 @@ export function LeadReminders({ leadId, className, variant = 'dark' }: LeadRemin
       return res.json()
     }, { successMsg: 'Reminder completed', errorMsg: 'Failed to complete reminder' })
     
-    const reminder = (data as { reminder?: LeadReminder } | null)?.reminder
+    const reminder = (data as any)?.data?.reminder
     if (reminder) {
       setReminders((prev) => prev.map((r) => (r.id === reminderId ? reminder : r)))
     }

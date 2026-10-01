@@ -12,6 +12,7 @@ export async function saveLeadRevenue(leadId: string, data: {
   country: string
   counselorFee: number
   universityFee: number
+  slips?: any[]
 }) {
   const ctx = await requireTenantSession()
   const tenant = ctx.tenant
@@ -39,6 +40,7 @@ export async function saveLeadRevenue(leadId: string, data: {
       country: data.country,
       counselorFee: data.counselorFee.toString(),
       universityFee: data.universityFee.toString(),
+      slips: data.slips ?? [],
       createdBy: userId,
     })
     .returning()

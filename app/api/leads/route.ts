@@ -57,13 +57,14 @@ export async function GET(req: NextRequest) {
     const revIntakeMonth = revIntakeMonthRaw ? parseInt(revIntakeMonthRaw, 10) : null
     const revIntakeYear = revIntakeYearRaw ? parseInt(revIntakeYearRaw, 10) : null
 
-    // ── Campaign filter ────────────────────────────────────────
+    // ── Campaign & File Name filters ────────────────────────────────────────
     const campaignName = url.searchParams.get('campaignName')?.trim()
+    const importFileName = url.searchParams.get('importFileName')?.trim()
 
     // Whether we need to join applications
     const needsAppJoin = !!(appUniversityName || appCourseName || appSource || appStatus || appIntakeMonth || appIntakeYear)
 
-    const conditions = [leadsVisibleWhere(ctx.tenant.id, toMemberScope(ctx))]
+    const conditions = [leadsVisibleWhere(ctx.tenant.id, toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] }))]
 
     if (q) {
       conditions.push(
@@ -103,7 +104,7 @@ export async function GET(req: NextRequest) {
       conditions.push(eq(leads.primaryStage, stage))
     }
 
-    if (subStatusType === 'in_progress' || subStatusType === 'closed_lost' || subStatusType === 'defer') {
+    if (subStatusType === 'in_progress' || subStatusType === 'closed_lost') {
       conditions.push(
         inArray(
           leads.subStatusId,
@@ -203,6 +204,17 @@ export async function GET(req: NextRequest) {
           SELECT 1 FROM csv_imports ci
           WHERE ci.id = ${leads.csvImportId}
             AND ci.campaign_name ILIKE ${'%' + campaignName + '%'}
+        )`
+      )
+    }
+
+    // ── Import file name filter ────────────────────────────────
+    if (importFileName) {
+      conditions.push(
+        sql`EXISTS (
+          SELECT 1 FROM csv_imports ci
+          WHERE ci.id = ${leads.csvImportId}
+            AND ci.file_name ILIKE ${'%' + importFileName + '%'}
         )`
       )
     }

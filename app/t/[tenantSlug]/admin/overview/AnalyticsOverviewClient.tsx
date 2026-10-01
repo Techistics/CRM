@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter, usePathname, useSearchParams, useParams } from 'next/navigation'
-import { DollarSign, TrendingUp, UserX, Users } from 'lucide-react'
+import { Activity, CheckCircle2, TrendingUp, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { DashboardShell } from '@/components/consulty-dashboard/ui/dashboard-shell'
 import { OverviewHeader } from '@/components/consulty-dashboard/overview-header'
@@ -24,6 +24,8 @@ export default function AnalyticsOverviewClient({
   agentStats,
   pipelineValue,
   wonRevenue,
+  inProgressCount,
+  closedCount,
   conversionRate,
   teamPerformance,
   sparklines,
@@ -31,6 +33,8 @@ export default function AnalyticsOverviewClient({
   dateRange,
   agentStageBreakdown,
   unassignedBreakdown = [],
+  filteredAgentStageBreakdown,
+  filteredUnassignedBreakdown = [],
 }: {
   chartByWindow: Record<ChartWindow, PipelineChartSnapshot>
   overdueRemindersCount: number
@@ -43,6 +47,8 @@ export default function AnalyticsOverviewClient({
   agentStats: AgentStat[]
   pipelineValue: number
   wonRevenue: number
+  inProgressCount: number
+  closedCount: number
   conversionRate: number
   teamPerformance: Array<{
     id: string
@@ -56,14 +62,14 @@ export default function AnalyticsOverviewClient({
   sparklines?: {
     totalLeads: number[]
     newToday: number[]
-    wonRevenue: number[]
-    unassigned: number[]
+    inProgress: number[]
+    closed: number[]
   }
   trends?: {
     totalLeads: { value: string; positive: boolean }
     newToday: { value: string; positive: boolean }
-    wonRevenue: { value: string; positive: boolean }
-    unassigned: { value: string; positive: boolean }
+    inProgress: { value: string; positive: boolean }
+    closed: { value: string; positive: boolean }
   }
   dateRange: { from: Date | string | null; to: Date | string | null }
   agentStageBreakdown?: Array<{
@@ -73,6 +79,13 @@ export default function AnalyticsOverviewClient({
     stages: Array<{ key: string; label: string; count: number }>
   }>
   unassignedBreakdown?: Array<{ key: string; label: string; count: number }>
+  filteredAgentStageBreakdown?: Array<{
+    agentId: string | null
+    agentName: string
+    totalLeads: number
+    stages: Array<{ key: string; label: string; count: number }>
+  }>
+  filteredUnassignedBreakdown?: Array<{ key: string; label: string; count: number }>
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -139,6 +152,10 @@ export default function AnalyticsOverviewClient({
   const donutTotalLeads = donutUnassignedCount + breakdown.reduce((sum, a) => sum + a.totalLeads, 0)
   const comparisonLabel = 'vs previous period'
 
+  const filteredBreakdown = filteredAgentStageBreakdown ?? []
+  const filteredDonutUnassignedCount = (filteredUnassignedBreakdown ?? []).reduce((sum, b) => sum + b.count, 0)
+  const filteredDonutTotalLeads = filteredDonutUnassignedCount + filteredBreakdown.reduce((sum, a) => sum + a.totalLeads, 0)
+
   const metricCards: MetricCardData[] = [
     {
       label: 'Total Leads',
@@ -163,25 +180,25 @@ export default function AnalyticsOverviewClient({
       colorIndex: 1,
     },
     {
-      label: 'Won Revenue',
-      value: `$${wonRevenue.toLocaleString()}`,
-      trend: trends?.wonRevenue.value ?? '+0%',
-      positive: trends?.wonRevenue.positive ?? true,
+      label: 'In Progress',
+      value: inProgressCount.toLocaleString(),
+      trend: trends?.inProgress.value ?? '+0%',
+      positive: trends?.inProgress.positive ?? true,
       comparison: comparisonLabel,
-      icon: DollarSign,
+      icon: Activity, // You can change this if you have another icon for In Progress
       accent: 'secondary',
-      sparkData: sparklines?.wonRevenue ?? [100, 200, 150, 300, 250, 400, wonRevenue || 0],
+      sparkData: sparklines?.inProgress ?? [5, 4, 6, 3, 5, 4, inProgressCount],
       colorIndex: 2,
     },
     {
-      label: 'Unassigned',
-      value: unassignedCount.toLocaleString(),
-      trend: trends?.unassigned.value ?? '+0%',
-      positive: trends?.unassigned.positive ?? false,
+      label: 'Closed',
+      value: closedCount.toLocaleString(),
+      trend: trends?.closed.value ?? '+0%',
+      positive: trends?.closed.positive ?? true,
       comparison: comparisonLabel,
-      icon: UserX,
+      icon: CheckCircle2, // Can be changed as well
       accent: 'danger',
-      sparkData: sparklines?.unassigned ?? [5, 4, 6, 3, 5, 4, unassignedCount],
+      sparkData: sparklines?.closed ?? [2, 3, 1, 4, 5, 2, closedCount],
       colorIndex: 3,
     },
   ]
@@ -206,7 +223,18 @@ export default function AnalyticsOverviewClient({
           unassignedBreakdown={unassignedBreakdown}
           totalLeads={donutTotalLeads}
           tenantSlug={tenantSlug}
-          className="lg:col-span-10"
+          className="lg:col-span-7"
+        />
+        <LeadDistributionCard
+          title="Period Distribution"
+          description="Leads in selected period"
+          unassignedCount={filteredDonutUnassignedCount}
+          breakdown={filteredBreakdown}
+          unassignedBreakdown={filteredUnassignedBreakdown}
+          totalLeads={filteredDonutTotalLeads}
+          tenantSlug={tenantSlug}
+          className="lg:col-span-3"
+          compact={true}
         />
       </div>
 

@@ -13,5 +13,6 @@ export const PRO_ROUTES = {
   templates: '/pro/templates',
   team: '/pro/team',
   diary: '/pro/diary',
+  finance: '/pro/finance',
 } as const
 

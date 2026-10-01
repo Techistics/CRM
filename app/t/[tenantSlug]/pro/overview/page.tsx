@@ -4,6 +4,9 @@ import { sql, and, eq, gte, lte } from 'drizzle-orm'
 import Link from 'next/link'
 import { requireTenantSession } from '@/lib/tenant-server'
 import { tenantPath } from '@/lib/tenant-path'
+import { toMemberScope, hasElevatedScope } from '@/lib/member-scope'
+import type { TenantAppRole } from '@/lib/tenant-membership'
+import AdminOverviewPage from '@/app/t/[tenantSlug]/admin/overview/page'
 import { getStageInfo, PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 import {
@@ -53,8 +56,17 @@ const STAGE_BUCKET = (stage: string | null): 'new_lead' | 'follow_up' | 'active'
 
 // ─── page ───────────────────────────────────────────────────────────────────
 
-export default async function ProOverviewPage() {
-  const { tenant, dbUserId } = await requireTenantSession()
+export default async function ProOverviewPage(props: {
+  searchParams: Promise<{ from?: string; to?: string }>
+}) {
+  const { tenant, dbUserId, role, permissions, customRoleId } = await requireTenantSession()
+  const isElevated = hasElevatedScope(
+    toMemberScope({ role: role as TenantAppRole, dbUserId, customRoleId, permissions })
+  )
+
+  if (isElevated) {
+    return <AdminOverviewPage searchParams={props.searchParams} />
+  }
 
   const [dbUser] = await db
     .select()
@@ -85,7 +97,7 @@ export default async function ProOverviewPage() {
     .where(
       and(
         eq(leads.tenantId, tenant.id),
-        eq(leads.assignedTo, dbUserId),
+        ...(isElevated ? [] : [eq(leads.assignedTo, dbUserId)]),
         sql`${leads.stage} NOT IN ('paid', 'cancelled')`,
         sql`COALESCE(${pipelineSubStatuses.type}, 'in_progress') != 'closed_lost'`
       ),
@@ -123,9 +135,9 @@ export default async function ProOverviewPage() {
     .from(leads)
     .leftJoin(pipelineSubStatuses, eq(leads.subStatusId, pipelineSubStatuses.id))
     .where(and(
-      eq(leads.tenantId, tenant.id), 
-      eq(leads.assignedTo, dbUserId), 
-      gte(leads.createdAt, curr30Start), 
+      eq(leads.tenantId, tenant.id),
+      ...(isElevated ? [] : [eq(leads.assignedTo, dbUserId)]),
+      gte(leads.createdAt, curr30Start),
       sql`${leads.stage} NOT IN ('paid', 'cancelled')`,
       sql`COALESCE(${pipelineSubStatuses.type}, 'in_progress') != 'closed_lost'`
     ))
@@ -139,10 +151,10 @@ export default async function ProOverviewPage() {
     .from(leads)
     .leftJoin(pipelineSubStatuses, eq(leads.subStatusId, pipelineSubStatuses.id))
     .where(and(
-      eq(leads.tenantId, tenant.id), 
-      eq(leads.assignedTo, dbUserId), 
-      gte(leads.createdAt, prev30Start), 
-      lte(leads.createdAt, prev30End), 
+      eq(leads.tenantId, tenant.id),
+      ...(isElevated ? [] : [eq(leads.assignedTo, dbUserId)]),
+      gte(leads.createdAt, prev30Start),
+      lte(leads.createdAt, prev30End),
       sql`${leads.stage} NOT IN ('paid', 'cancelled')`,
       sql`COALESCE(${pipelineSubStatuses.type}, 'in_progress') != 'closed_lost'`
     ))
@@ -238,15 +250,15 @@ export default async function ProOverviewPage() {
   const followUpRate = total > 0 ? Math.round((followUps.length / total) * 100) : 0
 
   const performanceMetrics = [
-    { label: 'Active Rate',     value: activeRate,     barClass: 'bg-emerald-500', trackClass: 'bg-emerald-500' },
-    { label: 'Follow-up Rate',  value: followUpRate,   barClass: 'bg-orange-500',  trackClass: 'bg-orange-500' },
+    { label: 'Active Rate', value: activeRate, barClass: 'bg-emerald-500', trackClass: 'bg-emerald-500' },
+    { label: 'Follow-up Rate', value: followUpRate, barClass: 'bg-orange-500', trackClass: 'bg-orange-500' },
   ]
 
   // ── Quick stats rows ──────────────────────────────────────────────────────
   const quickStats = [
-    { label: 'Total Assigned',   value: total,                    dotClass: 'bg-blue-500',    Icon: ClipboardList },
-    { label: 'In Progress',      value: activeLeads.length,       dotClass: 'bg-emerald-500', Icon: TrendingUp },
-    { label: 'Need Follow-up',   value: followUps.length,         dotClass: 'bg-orange-500',  Icon: Clock },
+    { label: 'Total Assigned', value: total, dotClass: 'bg-blue-500', Icon: ClipboardList },
+    { label: 'In Progress', value: activeLeads.length, dotClass: 'bg-emerald-500', Icon: TrendingUp },
+    { label: 'Need Follow-up', value: followUps.length, dotClass: 'bg-orange-500', Icon: Clock },
   ]
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -313,11 +325,10 @@ export default async function ProOverviewPage() {
               {/* Trend */}
               <div className="mt-2 flex items-center gap-1">
                 <span
-                  className={`text-[9px] font-semibold tabular-nums ${
-                    card.trend.positive
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-red-500 dark:text-red-400'
-                  }`}
+                  className={`text-[9px] font-semibold tabular-nums ${card.trend.positive
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-red-500 dark:text-red-400'
+                    }`}
                 >
                   {card.trend.positive ? '↑' : '↓'} {card.trend.value}
                 </span>

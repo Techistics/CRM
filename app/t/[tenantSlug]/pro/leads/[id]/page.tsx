@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { db } from '@/db'
 import { leadActivities, users, tenantMembers, customRoles } from '@/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, isNull } from 'drizzle-orm'
 import ProLeadDetailClient from './ProLeadDetailClient'
 import { requirePermissionSession } from '@/lib/tenant-server'
 import { getLeadForMemberAction } from '@/lib/lead-tenant'
@@ -53,7 +53,7 @@ export default async function ProLeadDetailPage({
     .from(tenantMembers)
     .innerJoin(users, eq(tenantMembers.userId, users.id))
     .leftJoin(customRoles, eq(tenantMembers.customRoleId, customRoles.id))
-    .where(eq(tenantMembers.tenantId, ctx.tenant.id))
+    .where(and(eq(tenantMembers.tenantId, ctx.tenant.id), isNull(tenantMembers.deletedAt)))
 
   return (
     <ProLeadDetailClient

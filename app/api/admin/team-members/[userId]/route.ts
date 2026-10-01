@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 
 import { db } from '@/db'
 import { tenantMembers, auditLogs, users, leads, customRoles } from '@/db/schema'
-import { requirePermissionApi } from '@/lib/tenant-api'
+import { requirePermissionApi, requireTenantMemberApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { roleUpdateSchema } from '@/lib/validators/auth'
 import { validateCustomRoleId } from '@/lib/validate-custom-role'

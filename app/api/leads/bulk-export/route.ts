@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       .leftJoin(users, eq(users.id, leads.assignedTo))
       .where(
         and(
-          leadsVisibleWhere(ctx.tenant.id, toMemberScope(ctx)),
+          leadsVisibleWhere(ctx.tenant.id, toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] })),
           inArray(leads.id, parsed.data.leadIds),
         ),
       )

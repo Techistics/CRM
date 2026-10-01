@@ -78,10 +78,12 @@ export default function TeamManagementClient({
   initialMembers,
   customRoles = [],
   isAdmin = true,
+  canManageAccess = false,
 }: {
   initialMembers: TeamMember[]
   customRoles?: { id: string; name: string }[]
   isAdmin?: boolean
+  canManageAccess?: boolean
 }) {
   const router = useRouter()
   const [members, setMembers] = useState(initialMembers)
@@ -423,7 +425,8 @@ export default function TeamManagementClient({
                         </Button>
                       ) : (
                         <>
-                          {(!isAdmin && m.role === 'ADMIN') ? null : (
+                          {/* canManageAccess (password reset only): show Edit only for PRO members */}
+                          {(isAdmin || (canManageAccess && m.role === 'PRO') || (!isAdmin && !canManageAccess && m.role !== 'ADMIN')) && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -434,7 +437,8 @@ export default function TeamManagementClient({
                               {busyId === m.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Edit'}
                             </Button>
                           )}
-                          {(!isAdmin && m.role === 'ADMIN') ? null : (
+                          {/* Remove only for admins or non-restricted team managers */}
+                          {(isAdmin || (!isAdmin && !canManageAccess && m.role !== 'ADMIN')) && (
                             <Button
                               size="sm"
                               variant="destructive"
@@ -502,10 +506,10 @@ export default function TeamManagementClient({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="PRO">Pro</SelectItem>
-                {isAdmin && <SelectItem value="ADMIN">Admin</SelectItem>}
+                {(isAdmin || canManageAccess) && <SelectItem value="ADMIN">Admin</SelectItem>}
               </SelectContent>
             </Select>
-            {isAdmin && inviteRole === 'PRO' && (
+            {(isAdmin || canManageAccess) && inviteRole === 'PRO' && (
               <Select value={inviteCustomRoleId} onValueChange={setInviteCustomRoleId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Custom role (optional)" />
@@ -539,13 +543,16 @@ export default function TeamManagementClient({
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{isAdmin ? 'Edit member role' : 'Edit member'}</DialogTitle>
+            <DialogTitle>{isAdmin ? 'Edit member' : canManageAccess ? 'Reset Password' : 'Edit member'}</DialogTitle>
             <DialogDescription>
-              {isAdmin ? "Update this user's workspace role." : 'Update this counselor\'s email address.'}
+              {isAdmin ? "Update this user's role, email or password." : canManageAccess ? 'Set a new temporary password for this user.' : 'Update this counselor\'s email address.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <Input type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
+            {/* Email and role editing — admin only */}
+            {isAdmin && (
+              <Input type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
+            )}
             {isAdmin && (
               <>
                 <Select value={editRole} onValueChange={(v) => setEditRole(v as TeamRole)}>
@@ -570,42 +577,50 @@ export default function TeamManagementClient({
                     </SelectContent>
                   </Select>
                 )}
-                <div className="mt-6 border-t dark:border-slate-700 pt-4">
-                  <h4 className="text-sm font-medium mb-1">Reset Password</h4>
+              </>
+            )}
+            {/* Reset Password — shown for admins AND canManageAccess */}
+            {(isAdmin || canManageAccess) && (
+              <div className={isAdmin ? 'mt-6 border-t dark:border-slate-700 pt-4' : ''}>
+                {isAdmin && <h4 className="text-sm font-medium mb-1">Reset Password</h4>}
+                {isAdmin && (
                   <p className="text-xs text-muted-foreground mb-3">
                     Set a new temporary password for this user. They will receive an email with the new password.
                   </p>
-                  <div className="flex gap-2">
-                    <Input
-                      type="text"
-                      placeholder="Min 8 characters"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                    />
-                    <Button
-                      variant="secondary"
-                      disabled={busyId === 'resetPwd' || newPassword.length < 8}
-                      onClick={doResetPassword}
-                    >
-                      {busyId === 'resetPwd' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reset & Email'}
-                    </Button>
-                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Min 8 characters"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                  <Button
+                    variant="secondary"
+                    disabled={busyId === 'resetPwd' || newPassword.length < 8}
+                    onClick={doResetPassword}
+                  >
+                    {busyId === 'resetPwd' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reset & Email'}
+                  </Button>
                 </div>
-              </>
+              </div>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               Cancel
             </Button>
-            <Button
-              disabled={!editId || busyId === editId}
-              onClick={saveEdit}
-              className="text-white"
-              style={{ backgroundColor: BRAND }}
-            >
-              {busyId === editId ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
-            </Button>
+            {/* Only show Save button if admin (email/role changes need saving) */}
+            {isAdmin && (
+              <Button
+                disabled={!editId || busyId === editId}
+                onClick={saveEdit}
+                className="text-white"
+                style={{ backgroundColor: BRAND }}
+              >
+                {busyId === editId ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -625,7 +640,7 @@ export default function TeamManagementClient({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="PRO">Pro</SelectItem>
-              {isAdmin && <SelectItem value="ADMIN">Admin</SelectItem>}
+              {(isAdmin || canManageAccess) && <SelectItem value="ADMIN">Admin</SelectItem>}
             </SelectContent>
           </Select>
           <DialogFooter>

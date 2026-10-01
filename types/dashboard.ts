@@ -38,4 +38,7 @@ export type LeadDistributionCardProps = {
   totalLeads: number
   tenantSlug: string
   className?: string
+  title?: string
+  description?: string
+  compact?: boolean
 }

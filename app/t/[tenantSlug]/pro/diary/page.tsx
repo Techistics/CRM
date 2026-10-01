@@ -2,10 +2,28 @@ import { db } from '@/db'
 import { counselorDiaries } from '@/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import { requireTenantSession } from '@/lib/tenant-server'
+import { toMemberScope, hasElevatedScope } from '@/lib/member-scope'
+import type { TenantAppRole } from '@/lib/tenant-membership'
+import AdminDiaryPage from '@/app/t/[tenantSlug]/admin/diary/page'
 import ProDiaryClient from './ProDiaryClient'
 
-export default async function ProDiaryPage() {
+export default async function ProDiaryPage(props: {
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const ctx = await requireTenantSession()
+  
+  const isElevated = hasElevatedScope(
+    toMemberScope({ 
+      role: ctx.role as TenantAppRole, 
+      dbUserId: ctx.dbUserId, 
+      customRoleId: ctx.customRoleId, 
+      permissions: ctx.permissions 
+    })
+  )
+
+  if (isElevated) {
+    return <AdminDiaryPage searchParams={props.searchParams} />
+  }
 
   const diariesRaw = await db
     .select()

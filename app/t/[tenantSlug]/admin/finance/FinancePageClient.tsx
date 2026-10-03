@@ -253,9 +253,9 @@ export default function FinancePageClient({ tenantSlug }: { tenantSlug: string }
       {/* ── KPI CARDS ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Revenue', value: stats.total, color: 'text-emerald-600 dark:text-emerald-400', icon: TrendingUp },
-          { label: 'Service Charges', value: stats.totalCf, color: 'text-indigo-600 dark:text-indigo-400', icon: DollarSign },
-          { label: 'Uni Commissions', value: stats.totalUf, color: 'text-sky-600 dark:text-sky-400', icon: Building2 },
+          { label: 'Total Revenue', value: stats.total, color: 'text-emerald-600 dark:text-emerald-400', icon: TrendingUp, prefix: '$' },
+          { label: 'Service Charges', value: stats.totalCf, color: 'text-indigo-600 dark:text-indigo-400', icon: DollarSign, prefix: 'PKR ' },
+          { label: 'Uni Commissions', value: stats.totalUf, color: 'text-sky-600 dark:text-sky-400', icon: Building2, prefix: '$' },
         ].map((kpi, i) => (
           <Card key={i} className="border-0 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800 bg-white dark:bg-slate-900/50">
             <CardContent className="p-5">
@@ -263,7 +263,7 @@ export default function FinancePageClient({ tenantSlug }: { tenantSlug: string }
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{kpi.label}</p>
                   <p className={`text-2xl font-bold tracking-tight ${kpi.color}`}>
-                    ${kpi.value.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {kpi.prefix}{kpi.value.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
                 <div className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg">
@@ -447,7 +447,7 @@ export default function FinancePageClient({ tenantSlug }: { tenantSlug: string }
                               <div className="text-xs text-slate-400 mt-0.5">{r.intakeMonth && r.intakeYear ? `${MONTHS[r.intakeMonth - 1]} ${r.intakeYear}` : ''}</div>
                             </TableCell>
                             <TableCell className="py-3 text-right text-sm text-slate-600 dark:text-slate-300 tabular-nums">
-                              {cf > 0 ? `$${cf.toLocaleString('en', { minimumFractionDigits: 2 })}` : '—'}
+                              {cf > 0 ? `PKR ${cf.toLocaleString('en', { minimumFractionDigits: 2 })}` : '—'}
                             </TableCell>
                             <TableCell className="py-3 text-right text-sm text-slate-600 dark:text-slate-300 tabular-nums">
                               {uf > 0 ? `$${uf.toLocaleString('en', { minimumFractionDigits: 2 })}` : '—'}

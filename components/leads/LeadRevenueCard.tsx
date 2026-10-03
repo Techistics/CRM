@@ -199,7 +199,7 @@ export function LeadRevenueCard({ leadId }: LeadRevenueCardProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="rev-counselorFee">Counselor Fee</Label>
+              <Label htmlFor="rev-counselorFee">Service Fee (Counselor Fee)</Label>
               <Input
                 id="rev-counselorFee"
                 type="number"
@@ -273,8 +273,8 @@ export function LeadRevenueCard({ leadId }: LeadRevenueCardProps) {
                       <span className="text-muted-foreground text-xs">{intakeLabel}</span>
                     </div>
                     <div className="flex justify-between items-center text-muted-foreground">
-                      <span>Counselor Fee:</span>
-                      <span className="font-medium text-foreground">${Number(rev.counselorFee).toFixed(2)}</span>
+                      <span>Service Fee (Counselor Fee):</span>
+                      <span className="font-medium text-foreground">PKR {Number(rev.counselorFee).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center text-muted-foreground">
                       <span>University Fee:</span>

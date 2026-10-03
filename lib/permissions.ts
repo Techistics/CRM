@@ -8,7 +8,6 @@ export const ALL_PERMISSIONS = [
   'analytics.view',
   'import.leads',
   'templates.manage',
-  'kanban.view',
   'teams.manage',
   'payments.view',
   'payments.edit',
@@ -30,7 +29,6 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'analytics.view': 'View Analytics',
   'import.leads': 'Import Leads',
   'templates.manage': 'Manage Templates',
-  'kanban.view': 'View Kanban',
   'teams.manage': 'Manage Team',
   'leads.receive': 'Receive Reassigned Leads',
   'payments.view': 'View Payments',
@@ -46,8 +44,8 @@ export const DEFAULT_PRO_PERMISSIONS: Permission[] = [
   'leads.view',
   'leads.create',
   'leads.edit',
-  'kanban.view',
   'analytics.view',
+  'templates.manage'
 ]
 
 export function hasPermission(permissions: Permission[], check: Permission): boolean {
@@ -60,9 +58,9 @@ export function getPermissionsForMember(
 ): Permission[] {
   // ADMIN always gets everything
   if (role === 'ADMIN') return [...ALL_PERMISSIONS]
-  // PRO with a custom role: get EXACTLY what the custom role defines, nothing more
+  // PRO with a custom role: append custom permissions to the default PRO permissions
   if (customRolePermissions != null && customRolePermissions.length > 0) {
-    return [...customRolePermissions]
+    return Array.from(new Set([...DEFAULT_PRO_PERMISSIONS, ...customRolePermissions]))
   }
   // PRO without a custom role: bare minimum defaults
   return DEFAULT_PRO_PERMISSIONS

@@ -1,5 +1,5 @@
 import { db } from '@/db'
-import { leads, leadReminders, users, tenantMembers } from '@/db/schema'
+import { leads, leadReminders, users, tenantMembers, pipelineSubStatuses } from '@/db/schema'
 import { eq, count, gte, lte, isNull, and, sql } from 'drizzle-orm'
 import AnalyticsOverviewClient from './AnalyticsOverviewClient'
 import { loadChartSnapshotsByWindow } from '@/lib/analytics-pipeline'
@@ -163,18 +163,22 @@ export default async function AdminOverviewPage({
       .select({
         assignedTo: leads.assignedTo,
         stage: leads.primaryStage,
-        count: count(leads.id)
+        count: count(leads.id),
+        closedCount: sql<number>`COUNT(*) FILTER (WHERE ${pipelineSubStatuses.type} = 'closed_lost')::int`,
       })
       .from(leads)
+      .leftJoin(pipelineSubStatuses, eq(leads.subStatusId, pipelineSubStatuses.id))
       .where(eq(leads.tenantId, tenant.id))
       .groupBy(leads.assignedTo, leads.primaryStage),
     db
       .select({
         assignedTo: leads.assignedTo,
         stage: leads.primaryStage,
-        count: count(leads.id)
+        count: count(leads.id),
+        closedCount: sql<number>`COUNT(*) FILTER (WHERE ${pipelineSubStatuses.type} = 'closed_lost')::int`,
       })
       .from(leads)
+      .leftJoin(pipelineSubStatuses, eq(leads.subStatusId, pipelineSubStatuses.id))
       .where(tScope)
       .groupBy(leads.assignedTo, leads.primaryStage)
   ])
@@ -235,7 +239,20 @@ export default async function AdminOverviewPage({
 
   const stageLookup = new Map(chartByWindow.week.stageData.map(s => [s.value, s.label]))
   
-  const agentBreakdownMap = new Map<string, { agentId: string, agentName: string, totalLeads: number, stages: Record<string, number> }>()
+  type StageCounts = Record<string, { count: number; closedCount: number }>
+  const bumpStage = (map: StageCounts, stage: string, count: number, closedCount: number) => {
+    const prev = map[stage] ?? { count: 0, closedCount: 0 }
+    map[stage] = { count: prev.count + count, closedCount: prev.closedCount + closedCount }
+  }
+  const toStageBreakdown = (stages: StageCounts) =>
+    Object.entries(stages).map(([key, v]) => ({
+      key,
+      label: stageLookup.get(key) || key,
+      count: v.count,
+      closedCount: v.closedCount,
+    })).sort((a, b) => b.count - a.count)
+
+  const agentBreakdownMap = new Map<string, { agentId: string, agentName: string, totalLeads: number, stages: StageCounts }>()
 
   for (const agent of proUsers) {
     agentBreakdownMap.set(agent.id, {
@@ -246,29 +263,26 @@ export default async function AdminOverviewPage({
     })
   }
 
-  const unassignedStages: Record<string, number> = {}
+  const unassignedStages: StageCounts = {}
 
   for (const row of activeAgentStageRaw) {
     const c = Number(row.count)
     if (c === 0) continue
+    const closed = Number(row.closedCount ?? 0)
 
     if (!row.assignedTo) {
-      unassignedStages[row.stage] = (unassignedStages[row.stage] || 0) + c
+      bumpStage(unassignedStages, row.stage, c, closed)
       continue
     }
 
     const mapItem = agentBreakdownMap.get(row.assignedTo)
     if (mapItem) {
       mapItem.totalLeads += c
-      mapItem.stages[row.stage] = (mapItem.stages[row.stage] || 0) + c
+      bumpStage(mapItem.stages, row.stage, c, closed)
     }
   }
 
-  const unassignedBreakdown = Object.entries(unassignedStages).map(([key, c]) => ({
-    key,
-    label: stageLookup.get(key) || key,
-    count: c
-  })).sort((a, b) => b.count - a.count)
+  const unassignedBreakdown = toStageBreakdown(unassignedStages)
 
   const agentStageBreakdown = Array.from(agentBreakdownMap.values())
     .filter(item => item.totalLeads > 0)
@@ -276,32 +290,28 @@ export default async function AdminOverviewPage({
       agentId: item.agentId,
       agentName: item.agentName,
       totalLeads: item.totalLeads,
-      stages: Object.entries(item.stages).map(([key, c]) => ({
-        key,
-        label: stageLookup.get(key) || key,
-        count: c
-      })).sort((a, b) => b.count - a.count)
+      stages: toStageBreakdown(item.stages),
     }))
 
   let pieTotalLeads = 0
   let pieClosedCount = 0
   let pieInProgressCount = 0
 
-  for (const [stage, c] of Object.entries(unassignedStages)) {
-    pieTotalLeads += c
-    if (stage === 'paid' || stage === 'cancelled') pieClosedCount += c
-    else pieInProgressCount += c
+  for (const [stage, v] of Object.entries(unassignedStages)) {
+    pieTotalLeads += v.count
+    if (stage === 'paid' || stage === 'cancelled') pieClosedCount += v.count
+    else pieInProgressCount += v.count
   }
 
   for (const item of agentBreakdownMap.values()) {
-    for (const [stage, c] of Object.entries(item.stages)) {
-      pieTotalLeads += c
-      if (stage === 'paid' || stage === 'cancelled') pieClosedCount += c
-      else pieInProgressCount += c
+    for (const [stage, v] of Object.entries(item.stages)) {
+      pieTotalLeads += v.count
+      if (stage === 'paid' || stage === 'cancelled') pieClosedCount += v.count
+      else pieInProgressCount += v.count
     }
   }
 
-  const filteredAgentBreakdownMap = new Map<string, { agentId: string, agentName: string, totalLeads: number, stages: Record<string, number> }>()
+  const filteredAgentBreakdownMap = new Map<string, { agentId: string, agentName: string, totalLeads: number, stages: StageCounts }>()
   for (const agent of proUsers) {
     filteredAgentBreakdownMap.set(agent.id, {
       agentId: agent.id,
@@ -311,29 +321,26 @@ export default async function AdminOverviewPage({
     })
   }
 
-  const filteredUnassignedStages: Record<string, number> = {}
+  const filteredUnassignedStages: StageCounts = {}
 
   for (const row of filteredAgentStageRaw) {
     const c = Number(row.count)
     if (c === 0) continue
+    const closed = Number(row.closedCount ?? 0)
 
     if (!row.assignedTo) {
-      filteredUnassignedStages[row.stage] = (filteredUnassignedStages[row.stage] || 0) + c
+      bumpStage(filteredUnassignedStages, row.stage, c, closed)
       continue
     }
 
     const mapItem = filteredAgentBreakdownMap.get(row.assignedTo)
     if (mapItem) {
       mapItem.totalLeads += c
-      mapItem.stages[row.stage] = (mapItem.stages[row.stage] || 0) + c
+      bumpStage(mapItem.stages, row.stage, c, closed)
     }
   }
 
-  const filteredUnassignedBreakdown = Object.entries(filteredUnassignedStages).map(([key, c]) => ({
-    key,
-    label: stageLookup.get(key) || key,
-    count: c
-  })).sort((a, b) => b.count - a.count)
+  const filteredUnassignedBreakdown = toStageBreakdown(filteredUnassignedStages)
 
   const filteredAgentStageBreakdown = Array.from(filteredAgentBreakdownMap.values())
     .filter(item => item.totalLeads > 0)
@@ -341,11 +348,7 @@ export default async function AdminOverviewPage({
       agentId: item.agentId,
       agentName: item.agentName,
       totalLeads: item.totalLeads,
-      stages: Object.entries(item.stages).map(([key, c]) => ({
-        key,
-        label: stageLookup.get(key) || key,
-        count: c
-      })).sort((a, b) => b.count - a.count)
+      stages: toStageBreakdown(item.stages),
     }))
 
   return (

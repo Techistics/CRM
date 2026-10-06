@@ -76,14 +76,14 @@ export default function AnalyticsOverviewClient({
     agentId: string | null
     agentName: string
     totalLeads: number
-    stages: Array<{ key: string; label: string; count: number }>
+    stages: Array<{ key: string; label: string; count: number; closedCount?: number }>
   }>
   unassignedBreakdown?: Array<{ key: string; label: string; count: number }>
   filteredAgentStageBreakdown?: Array<{
     agentId: string | null
     agentName: string
     totalLeads: number
-    stages: Array<{ key: string; label: string; count: number }>
+    stages: Array<{ key: string; label: string; count: number; closedCount?: number }>
   }>
   filteredUnassignedBreakdown?: Array<{ key: string; label: string; count: number }>
 }) {

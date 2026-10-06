@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 
-const DEFAULT_SCALE = 0.67
+const DEFAULT_SCALE = 0.80
 const KANBAN_SCALE = 0.78
 
 function getScaleForPath(pathname: string | null) {

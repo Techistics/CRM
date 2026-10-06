@@ -10,6 +10,7 @@ import { toMemberScope } from '@/lib/member-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 import { validateStageTransition } from '@/lib/lead-stage-validation'
+import { canMovePipelineBackward } from '@/lib/authz'
 
 const bodySchema = z.object({
   leadIds: z.array(z.string().uuid()).min(1).max(500),
@@ -54,7 +55,13 @@ export async function POST(req: NextRequest) {
       .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.id, allowedLeadIds)))
 
     for (const lead of affected) {
-      const validation = validateStageTransition(lead.fromStage, stage, pipeline.stages, parsed.data.deadReason)
+      const validation = validateStageTransition(
+        lead.fromStage,
+        stage,
+        pipeline.stages,
+        parsed.data.deadReason,
+        { allowBackward: canMovePipelineBackward(ctx.permissions ?? []) },
+      )
       if (!validation.valid) {
         return errorResponse(`Lead ${lead.id}: ${validation.error}`, 'INVALID_TRANSITION', 400)
       }

@@ -77,7 +77,8 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [label, setLabel] = useState('')
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
+  const [fileInputKey, setFileInputKey] = useState(0)
 
   // Edit/Delete state
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -109,24 +110,32 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
 
   async function onUpload(e: React.FormEvent) {
     e.preventDefault()
-    if (!file) {
+    if (files.length === 0) {
       toast.error('Choose a file first')
       return
     }
     setUploading(true)
     const data = await apiCall(async () => {
-      const fd = new FormData()
-      fd.append('file', file)
-      if (label.trim()) fd.append('label', label.trim())
-      const res = await fetch(`/api/leads/${leadId}/documents`, {
-        method: 'POST',
-        body: fd,
-      })
-      return res.json()
-    }, { successMsg: 'File uploaded', errorMsg: 'Upload failed' })
+      for (const file of files) {
+        const fd = new FormData()
+        fd.append('file', file)
+        if (label.trim()) fd.append('label', label.trim())
+        const res = await fetch(`/api/leads/${leadId}/documents`, {
+          method: 'POST',
+          body: fd,
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error ?? 'Upload failed')
+      }
+      return true
+    }, {
+      successMsg: files.length === 1 ? 'File uploaded' : `${files.length} files uploaded`,
+      errorMsg: 'Upload failed',
+    })
     if (data) {
-      setFile(null)
+      setFiles([])
       setLabel('')
+      setFileInputKey((k) => k + 1)
       await loadDocuments()
     }
     setUploading(false)
@@ -180,7 +189,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
           </div>
           <Button
             type="submit"
-            disabled={uploading || !file}
+            disabled={uploading || files.length === 0}
             className="shrink-0 gap-2 bg-[var(--accent-color)] hover:brightness-95 text-[var(--accent-text)] rounded-[8px] h-10 px-6 font-medium text-[13px] transition-all shadow-sm"
           >
             {uploading ? (
@@ -188,7 +197,7 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
             ) : (
               <Upload className="h-4 w-4" />
             )}
-            {uploading ? 'Processing…' : 'Add Document'}
+            {uploading ? 'Processing…' : files.length > 1 ? 'Add Documents' : 'Add Document'}
           </Button>
         </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -197,10 +206,12 @@ export function LeadDocumentsPanel({ leadId }: { leadId: string }) {
               File Selector
             </Label>
             <Input
+              key={fileInputKey}
               id="doc-file"
               type="file"
+              multiple
               className="cursor-pointer bg-[var(--main-bg)] border-[0.5px] border-[var(--card-border-color)] text-[var(--text-strong)] rounded-[8px] h-10 focus-visible:ring-0 focus-visible:border-[var(--text-strong)] text-xs"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
             />
           </div>
           <div className="space-y-1.5">

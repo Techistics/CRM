@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { UserMenu } from '@/components/shared/UserMenu'
 import { Menu, Search, Square } from 'lucide-react'
@@ -16,17 +16,18 @@ function TimesheetPunchBar() {
   const [duration, setDuration] = useState('')
   const [loading, setLoading] = useState(true)
 
+  const autoPunchStarted = useRef(false)
+
   const fetchStatus = async () => {
     try {
       const res = await fetch('/api/timesheets/status')
       const data = await res.json()
-      if (data.activeSession) {
-        setActiveSession(data.activeSession)
-      } else {
-        setActiveSession(null)
-      }
+      const session = data.activeSession ?? null
+      setActiveSession(session)
+      return session
     } catch {
       setActiveSession(null)
+      return null
     } finally {
       setLoading(false)
     }
@@ -77,7 +78,18 @@ function TimesheetPunchBar() {
 }, [activeSession])
 
   useEffect(() => {
-    fetchStatus()
+    let cancelled = false
+    ;(async () => {
+      const session = await fetchStatus()
+      if (cancelled || autoPunchStarted.current || session) return
+      autoPunchStarted.current = true
+      setLoading(true)
+      await fetch('/api/timesheets/punch-in', { method: 'POST' })
+      if (!cancelled) await fetchStatus()
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {

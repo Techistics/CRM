@@ -477,7 +477,7 @@ export function LeadsDashboard({
           onToggleSelectAll={handleToggleSelectAll}
           stageInfoMap={stageInfoMap}
           assigneeNameById={assigneeNameById}
-          onRowClick={(id) => router.push(leadDetailPath(id))}
+          onRowClick={(id) => window.open(leadDetailPath(id), '_blank', 'noopener,noreferrer')}
         />
       )}
 

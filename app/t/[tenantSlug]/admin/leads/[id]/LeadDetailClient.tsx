@@ -32,6 +32,7 @@ import {
   normalizeFieldValues,
 } from '@/lib/pipeline/sub-status-fields'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { isEarlierPipelineStage } from '@/lib/lead-stage-validation'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -52,6 +53,8 @@ export default function LeadDetailClient({
   tags,
   activeStages: activeStagesProp,
   campaignName,
+  stageLabels: serverStageLabels = {},
+  canMoveStageBackward = false,
 }: {
   lead: Lead
   activities: ActivityRow[]
@@ -59,6 +62,8 @@ export default function LeadDetailClient({
   tags: { id: string; name: string; color: string }[]
   activeStages: string[]
   campaignName?: string | null
+  stageLabels?: Record<string, string>
+  canMoveStageBackward?: boolean
 }) {
   const router = useRouter()
   const params = useParams()
@@ -97,6 +102,10 @@ export default function LeadDetailClient({
   )
   const [savingSubStatus, setSavingSubStatus] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
+  const [activities, setActivities] = useState(initialActivities)
+
+  // Keep activities in sync when server re-renders (after router.refresh())
+  useEffect(() => { setActivities(initialActivities) }, [initialActivities])
   const [profileForm, setProfileForm] = useState({
     fullName: lead.fullName ?? '',
     email: lead.email ?? '',
@@ -232,8 +241,13 @@ export default function LeadDetailClient({
     return true
   }
 
+  const orderedPipelineStages = pipelineStages.length > 0
+    ? pipelineStages
+    : PIPELINE_STAGES.map((s) => ({ key: s.value, label: s.label }))
+
   async function handleStageToggle(stageKey: string) {
     if (stageKey === primaryStage) return
+    if (!canMoveStageBackward && isEarlierPipelineStage(primaryStage, stageKey, orderedPipelineStages)) return
     const prevPrimary = primaryStage
     const prevActive = activeStages
     setPrimaryStage(stageKey)
@@ -717,21 +731,30 @@ export default function LeadDetailClient({
                         'bg-gray-500/10 text-gray-400 border-gray-500/20',
                     }))
                     : PIPELINE_STAGES
-                  ).map((s) => (
+                  ).map((s) => {
+                    const isEarlier = isEarlierPipelineStage(primaryStage, s.value, orderedPipelineStages)
+                    const backwardLocked = isEarlier && !canMoveStageBackward
+                    return (
                     <button
                       key={s.value}
+                      type="button"
                       onClick={() => handleStageToggle(s.value)}
+                      disabled={backwardLocked}
+                      title={backwardLocked ? 'Only admins and users who can edit leads can move a lead backward' : undefined}
                       className={`text-left px-3 py-2 rounded-lg text-sm transition-colors border ${primaryStage === s.value
                         ? s.mutedClasses
                         : activeStages.includes(s.value)
                           ? 'bg-brand-light border-brand/30 text-brand'
+                          : backwardLocked
+                            ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed dark:bg-[#0f172a] dark:border-slate-800 dark:text-slate-600'
                           : 'bg-white border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 dark:bg-[#0f172a] dark:border-slate-700 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-700'
                         }`}
                     >
                       {activeStages.includes(s.value) && <span className="mr-1">✓</span>}
                       {s.label}
                     </button>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 {/* Sub Status & Action */}
@@ -844,7 +867,7 @@ export default function LeadDetailClient({
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
               Full timeline: who changed what, with email and exact date and time (newest first).
             </p>
-            <LeadActivityTimeline activities={initialActivities} stageLabels={stageLabelByKey} />
+            <LeadActivityTimeline activities={activities} stageLabels={{ ...serverStageLabels, ...stageLabelByKey }} />
           </div>
         </TabsContent>
 

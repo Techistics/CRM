@@ -25,6 +25,7 @@ import {
   normalizeCustomFields,
   normalizeFieldValues,
 } from '@/lib/pipeline/sub-status-fields'
+import { isEarlierPipelineStage } from '@/lib/lead-stage-validation'
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -47,6 +48,8 @@ export default function ProLeadDetailClient({
   canAssign = false,
   canViewPayments = false,
   canEditPayments = false,
+  canMoveStageBackward = false,
+  stageLabels: serverStageLabels = {},
 }: {
   lead: Lead
   activities: ActivityRow[]
@@ -56,6 +59,8 @@ export default function ProLeadDetailClient({
   canAssign?: boolean
   canViewPayments?: boolean
   canEditPayments?: boolean
+  canMoveStageBackward?: boolean
+  stageLabels?: Record<string, string>
 }) {
   const router = useRouter()
   const params = useParams()
@@ -82,6 +87,10 @@ export default function ProLeadDetailClient({
   const [savingAssignee, setSavingAssignee] = useState(false)
   const [copiedId, setCopiedId] = useState(false);
   const [editingLead, setEditingLead] = useState(false);
+  const [activities, setActivities] = useState(initialActivities);
+
+  // Keep activities in sync when server re-renders (after router.refresh())
+  useEffect(() => { setActivities(initialActivities) }, [initialActivities])
 
   const [subStatuses, setSubStatuses] = useState<any[]>([])
   const [selectedSubStatusId, setSelectedSubStatusId] = useState<string | null>(lead.subStatusId ?? null)
@@ -244,8 +253,13 @@ export default function ProLeadDetailClient({
     router.refresh()
   }
 
+  const orderedPipelineStages = pipelineStages.length > 0
+    ? pipelineStages
+    : PIPELINE_STAGES.map((s) => ({ key: s.value, label: s.label }))
+
   async function handleStageChange(newStage: string) {
      if (newStage === stage) return
+     if (!canMoveStageBackward && isEarlierPipelineStage(stage, newStage, orderedPipelineStages)) return
      const previous = stage
      setStage(newStage)
      setSaving(true)
@@ -387,18 +401,19 @@ export default function ProLeadDetailClient({
 
           {/* NEW – Student ID */}
           <div className="mt-1 flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Student ID:</span>
-            <span className="text-xs font-mono text-muted-foreground" title={lead.id}>
-              {lead.id.slice(0, 7)}...
+            <span className="text-xs text-muted-foreground">Lead ID:</span>
+            <span className="text-xs font-mono font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded" title={lead.id}>
+              {lead.displayId ?? lead.id.slice(0, 6).toUpperCase()}
             </span>
             <button
               onClick={() => {
-                navigator.clipboard.writeText(lead.id)
+                const idToCopy = lead.displayId ?? lead.id
+                navigator.clipboard.writeText(idToCopy)
                 setCopiedId(true)
                 setTimeout(() => setCopiedId(false), 2000)
               }}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-              title="Copy full Student ID"
+              title="Copy Lead ID"
             >
               {copiedId ? (
                 <span className="flex items-center text-green-500">
@@ -738,14 +753,19 @@ export default function ProLeadDetailClient({
         ) : (pipelineStages.length ? pipelineStages.map((s) => s.key) : PIPELINE_STAGES.map((s) => s.value)).map((s) => {
           const isSelected = stage === s
           const stageLabel = stageLabelByKey.get(s) ?? PIPELINE_STAGES.find((x) => x.value === s)?.label ?? s
+          const backwardLocked = !canMoveStageBackward && isEarlierPipelineStage(stage, s, orderedPipelineStages)
           return (
             <button
               key={s}
+              type="button"
               onClick={() => handleStageChange(s)}
-              disabled={isDeadState}
+              disabled={isDeadState || backwardLocked}
+              title={backwardLocked ? 'Only admins and users who can edit leads can move a lead backward' : undefined}
               className={`text-left px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all border ${
                 isSelected
                   ? 'bg-brand-light border-brand/30 text-brand'
+                  : backwardLocked
+                    ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed dark:bg-[#0f172a] dark:border-slate-800 dark:text-slate-600'
                   : 'bg-white border-slate-200 text-slate-500 hover:text-slate-900 hover:border-slate-300 hover:bg-slate-50 dark:bg-[#0f172a] dark:border-slate-700 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-700'
               }`}
             >
@@ -869,7 +889,7 @@ export default function ProLeadDetailClient({
             <h2 className="text-gray-900 font-semibold mb-2 dark:text-slate-100">Activity Log</h2>
             <p className="text-gray-500 text-xs mb-6 font-medium dark:text-slate-400">Historical timeline of status changes, calls, notes, and messages.</p>
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 dark:bg-slate-800/40 dark:border-slate-700/50">
-              <LeadActivityTimeline activities={initialActivities} stageLabels={Object.fromEntries(stageLabelByKey)} />
+              <LeadActivityTimeline activities={activities} stageLabels={{ ...serverStageLabels, ...Object.fromEntries(stageLabelByKey ?? new Map()) }} />
             </div>
           </div>
         </TabsContent>

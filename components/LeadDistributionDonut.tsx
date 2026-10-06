@@ -16,7 +16,7 @@ const DONUT_COLOR_CLASSES = [
   'bg-consulty-chart-6',
 ] as const
 
-export type StageBreakdown = { key: string; label: string; count: number }
+export type StageBreakdown = { key: string; label: string; count: number; closedCount?: number }
 
 export type AgentBreakdown = {
   agentId: string | null
@@ -71,7 +71,12 @@ function CustomTooltip({
           {stages.map((s) => (
             <div key={s.key} className="flex justify-between gap-4 text-consulty-text-secondary">
               <span className="truncate">{s.label}</span>
-              <span className="font-medium text-consulty-text-primary">{s.count}</span>
+              <span className="font-medium text-consulty-text-primary">
+                {s.count}
+                {(s.closedCount ?? 0) > 0 ? (
+                  <span className="ml-1.5 font-normal text-consulty-text-muted">{s.closedCount} closed</span>
+                ) : null}
+              </span>
             </div>
           ))}
         </div>
@@ -95,7 +100,7 @@ export function LeadDistributionDonut({
   unassignedBreakdown: StageBreakdown[]
   onUnassignedClick: () => void
   onCounselorClick?: (agentId: string) => void
-  onStageClick?: (agentId: string | null, stageKey: string) => void
+  onStageClick?: (agentId: string | null, stageKey: string, closed?: boolean) => void
   centerValue?: string
   compact?: boolean
 }) {
@@ -258,6 +263,7 @@ export function LeadDistributionDonut({
                   <div className="space-y-2">
                     {stages.map((stage) => {
                       const stagePct = stageBase > 0 ? Math.round((stage.count / stageBase) * 100) : 0
+                      const closedCount = stage.closedCount ?? 0
                       return (
                         <div key={stage.key} className="flex items-center gap-2">
                           <button
@@ -273,9 +279,22 @@ export function LeadDistributionDonut({
                               style={{ width: `${stagePct}%`, backgroundColor: fillColor }}
                             />
                           </div>
-                          <span className="w-6 text-right text-crm-xs font-medium tabular-nums text-consulty-text-primary">
+                          <button
+                            type="button"
+                            onClick={() => onStageClick?.(agent?.agentId ?? null, stage.key)}
+                            className="w-6 text-right text-crm-xs font-medium tabular-nums text-consulty-text-primary hover:underline cursor-pointer"
+                          >
                             {stage.count}
-                          </span>
+                          </button>
+                          <button
+                            type="button"
+                            title={`${closedCount} closed in ${stage.label}`}
+                            disabled={closedCount === 0}
+                            onClick={() => onStageClick?.(agent?.agentId ?? null, stage.key, true)}
+                            className="w-6 text-right text-crm-xs tabular-nums text-consulty-text-muted hover:underline cursor-pointer disabled:cursor-default disabled:no-underline"
+                          >
+                            {closedCount}
+                          </button>
                         </div>
                       )
                     })}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { LeadDistributionDonut } from '@/components/LeadDistributionDonut'
 import type { AgentBreakdown, StageBreakdown } from '@/components/LeadDistributionDonut'
 import { DashboardCard, DashboardCardBody, DashboardCardHeader } from './ui/dashboard-card'
@@ -18,6 +18,9 @@ export function LeadDistributionCard({
   compact = false,
 }: LeadDistributionCardProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const leadsBase = pathname.includes('/pro/') ? 'pro' : 'admin'
+  const leadsPath = `/t/${tenantSlug}/${leadsBase}/leads`
   const donutTotal = unassignedCount + breakdown.reduce((sum, agent) => sum + agent.totalLeads, 0)
 
   return (
@@ -37,16 +40,17 @@ export function LeadDistributionCard({
           breakdown={breakdown}
           unassignedBreakdown={unassignedBreakdown}
           onUnassignedClick={() =>
-            router.push(`/t/${tenantSlug}/admin/leads?assignedTo=unassigned`)
+            router.push(`${leadsPath}?assignedTo=unassigned`)
           }
           onCounselorClick={(agentId) =>
-            router.push(`/t/${tenantSlug}/admin/leads?assignedTo=${encodeURIComponent(agentId)}`)
+            router.push(`${leadsPath}?assignedTo=${encodeURIComponent(agentId)}`)
           }
-          onStageClick={(agentId, stageKey) => {
+          onStageClick={(agentId, stageKey, closed) => {
             const params = new URLSearchParams()
             params.set('assignedTo', agentId ?? 'unassigned')
             params.set('stage', stageKey)
-            router.push(`/t/${tenantSlug}/admin/leads?${params.toString()}`)
+            if (closed) params.set('subStatusType', 'closed_lost')
+            router.push(`${leadsPath}?${params.toString()}`)
           }}
           centerValue={totalLeads.toLocaleString()}
           compact={compact}

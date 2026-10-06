@@ -10,6 +10,7 @@ import { toMemberScope } from '@/lib/member-scope'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 import { validateStageTransition } from '@/lib/lead-stage-validation'
+import { canMovePipelineBackward } from '@/lib/authz'
 
 const bodySchema = z.union([
   z.object({
@@ -83,7 +84,8 @@ export async function PATCH(
       lead.primaryStage,
       primaryStage,
       pipeline.stages,
-      parsed.data.deadReason
+      parsed.data.deadReason,
+      { allowBackward: canMovePipelineBackward(ctx.permissions ?? []) },
     )
     if (!validation.valid) {
       return errorResponse(validation.error!, 'INVALID_TRANSITION', 400)

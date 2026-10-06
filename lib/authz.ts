@@ -27,6 +27,11 @@ export function can(permissions: PermissionSet, permission: Permission): boolean
   return hasPermission(permissions, permission)
 }
 
+/** Admins (all permissions) and members with leads.edit can move a lead backward in the pipeline. */
+export function canMovePipelineBackward(permissions: PermissionSet): boolean {
+  return can(permissions, 'leads.receive')
+}
+
 export function canAny(permissions: PermissionSet, checks: Permission[]): boolean {
   return checks.some((p) => can(permissions, p))
 }

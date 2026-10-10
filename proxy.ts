@@ -16,6 +16,7 @@ const PUBLIC_ROUTES = [
   '/api/invite/accept',
   '/forgot-password',
   '/reset-password',
+  '/api/webhooks/meta-lead',
   '/invite/accept',
   '/accept-invite',
   '/platform/sign-in',

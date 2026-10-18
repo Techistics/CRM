@@ -197,7 +197,7 @@ export function LeadDistributionDonut({
           const isExpanded = expandedCounselor === label
           const stages = isUnassigned ? unassignedBreakdown : agent?.stages ?? []
           const stageBase = isUnassigned ? unassignedCount : agent?.totalLeads ?? 0
-          const colorClass = DONUT_COLOR_CLASSES[i % DONUT_COLOR_CLASSES.length]
+          const colorClass = DONUT_COLOR_CLASSES[(i + 1) % DONUT_COLOR_CLASSES.length]
           const fillColor = colors[(i + 1) % colors.length] ?? colors[0]
 
           return (
@@ -222,10 +222,8 @@ export function LeadDistributionDonut({
                   className="flex min-w-0 items-center gap-2.5 cursor-pointer"
                 >
                   <span
-                    className={cn(
-                      'h-3 w-3 flex-shrink-0 rounded-full border border-consulty-border-subtle dark:border-consulty-border',
-                      colorClass,
-                    )}
+                    className="h-3 w-3 flex-shrink-0 rounded-full border border-consulty-border-subtle dark:border-consulty-border"
+                    style={{ backgroundColor: fillColor }}
                   />
                   <span className="truncate text-crm-xs font-semibold text-consulty-text-secondary hover:text-consulty-text-primary hover:underline">
                     {label}

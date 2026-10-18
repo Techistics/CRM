@@ -61,8 +61,9 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
 
   const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const { width, height } = e.currentTarget
+    // Center an 80%-wide selection with no forced aspect — user can freely resize
     const initialCrop = centerCrop(
-      makeAspectCrop({ unit: '%', width: 80 }, 1, width, height),
+      makeAspectCrop({ unit: '%', width: 80 }, width / height, width, height),
       width,
       height
     )
@@ -409,7 +410,6 @@ export default function GeneralSettingsClient({ tenant }: GeneralSettingsClientP
                 crop={crop}
                 onChange={(_, percentCrop) => setCrop(percentCrop)}
                 onComplete={(c) => setCompletedCrop(c)}
-                aspect={1}
                 circularCrop={false}
               >
                 <img

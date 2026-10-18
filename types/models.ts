@@ -10,6 +10,9 @@ import {
   roleRequests,
   tenants,
   tenantMembers,
+  metaConnections,
+  metaFormMappings,
+  metaWebhookEvents,
 } from '@/db/schema'
 
 export type Tenant = typeof tenants.$inferSelect
@@ -27,3 +30,8 @@ export type StageValue = string
 export type LeadStage = string
 export type Notification = typeof notifications.$inferSelect
 export type RoleRequest = typeof roleRequests.$inferSelect
+
+// ─── Meta Lead Ads ────────────────────────────────────────────────────────────
+export type MetaConnection = typeof metaConnections.$inferSelect
+export type MetaFormMapping = typeof metaFormMappings.$inferSelect
+export type MetaWebhookEvent = typeof metaWebhookEvents.$inferSelect

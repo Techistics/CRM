@@ -682,3 +682,126 @@ export const counselorDiaries = pgTable('counselor_diaries', {
   idx_user: index('idx_counselor_diaries_user').on(t.userId),
   idx_date: index('idx_counselor_diaries_date').on(t.diaryDate),
 }))
+
+// ─── Meta (Facebook / Instagram) Lead Ads Integration ────────────────────────
+
+/** One row per Facebook Page connected to a tenant. */
+export const metaConnections = pgTable(
+  'meta_connections',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .references(() => tenants.id, { onDelete: 'cascade' })
+      .notNull(),
+    pageId: text('page_id').notNull().unique(),
+    pageName: text('page_name'),
+    pageToken: text('page_token').notNull(),
+    defaultAssigneeId: uuid('default_assignee_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    /**
+     * Connection-level fallback field map applied when a form has no explicit
+     * field_map. Shape: { "<meta_field_name>": "<crm_key>" }
+     */
+    defaultFieldMap: jsonb('default_field_map').notNull().default({}),
+    status: text('status', { enum: ['active', 'disabled'] })
+      .notNull()
+      .default('active'),
+    createdAt: timestamp('created_at').defaultNow(),
+    updatedAt: timestamp('updated_at').defaultNow(),
+  },
+  (t) => ({
+    idx_tenant: index('idx_meta_connections_tenant').on(t.tenantId),
+    idx_status: index('idx_meta_connections_status').on(t.status),
+  }),
+)
+
+/** Maps a Meta lead-gen form to CRM field keys. One row per form. */
+export const metaFormMappings = pgTable(
+  'meta_form_mappings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    connectionId: uuid('connection_id')
+      .references(() => metaConnections.id, { onDelete: 'cascade' })
+      .notNull(),
+    formId: text('form_id').notNull().unique(),
+    formName: text('form_name'),
+    campaignName: text('campaign_name'),
+    /**
+     * Maps Meta form field names to CRM field keys.
+     * Shape: { "<meta_field_name>": "<crm_field_key>" }
+     */
+    fieldMap: jsonb('field_map').notNull().default({}),
+    createdAt: timestamp('created_at').defaultNow(),
+  },
+  (t) => ({
+    idx_connection: index('idx_meta_form_mappings_connection').on(t.connectionId),
+  }),
+)
+
+/** Raw webhook events from the Meta Leadgen webhook; one row per unique leadgen_id. */
+export const metaWebhookEvents = pgTable(
+  'meta_webhook_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    leadgenId: text('leadgen_id').notNull().unique(),
+    pageId: text('page_id').notNull(),
+    formId: text('form_id'),
+    tenantId: uuid('tenant_id').references(() => tenants.id, {
+      onDelete: 'set null',
+    }),
+    payload: jsonb('payload').notNull(),
+    status: text('status', {
+      enum: ['received', 'processed', 'failed', 'duplicate', 'skipped'],
+    })
+      .notNull()
+      .default('received'),
+    error: text('error'),
+    retryCount: integer('retry_count').notNull().default(0),
+    leadId: uuid('lead_id').references(() => leads.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at').defaultNow(),
+    processedAt: timestamp('processed_at'),
+  },
+  (t) => ({
+    idx_status_created: index('idx_meta_webhook_events_status_created').on(
+      t.status,
+      t.createdAt,
+    ),
+    idx_tenant: index('idx_meta_webhook_events_tenant').on(t.tenantId),
+    idx_page: index('idx_meta_webhook_events_page').on(t.pageId),
+  }),
+)
+
+// ─── Meta Relations ───────────────────────────────────────────────────────────
+
+export const metaConnectionRelations = relations(metaConnections, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [metaConnections.tenantId],
+    references: [tenants.id],
+  }),
+  defaultAssignee: one(users, {
+    fields: [metaConnections.defaultAssigneeId],
+    references: [users.id],
+  }),
+  formMappings: many(metaFormMappings),
+}))
+
+export const metaFormMappingRelations = relations(metaFormMappings, ({ one }) => ({
+  connection: one(metaConnections, {
+    fields: [metaFormMappings.connectionId],
+    references: [metaConnections.id],
+  }),
+}))
+
+export const metaWebhookEventRelations = relations(metaWebhookEvents, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [metaWebhookEvents.tenantId],
+    references: [tenants.id],
+  }),
+  lead: one(leads, {
+    fields: [metaWebhookEvents.leadId],
+    references: [leads.id],
+  }),
+}))

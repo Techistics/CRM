@@ -126,7 +126,7 @@ const config = {
         'crm-lg': '0 10px 15px rgba(0,0,0,0.07), 0 4px 6px rgba(0,0,0,0.04)',
       },
       fontFamily: {
-        sans: ['DM Sans', 'var(--font-dm-sans)', 'system-ui', 'sans-serif'],
+        sans: ['DM Sans', 'Segoe UI', 'Helvetica Neue', 'Arial', 'sans-serif'],
       },
       borderRadius: {
         lg: "var(--radius)",

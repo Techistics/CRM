@@ -1,10 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Loader2, Trash2 } from 'lucide-react'
+import { Check, Loader2, Pencil, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +17,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { apiCall } from '@/lib/utils/api-handler'
+import { useToast } from '@/hooks/use-toast'
 
 type ImportBatch = {
   id: string
@@ -35,6 +37,10 @@ export function ImportBatchHistory({ canDelete }: { canDelete: boolean }) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [editingBatchId, setEditingBatchId] = useState<string | null>(null)
+  const [campaignDraft, setCampaignDraft] = useState('')
+  const [savingBatchId, setSavingBatchId] = useState<string | null>(null)
+  const { toast } = useToast()
 
   const loadBatches = useCallback(async () => {
     setLoading(true)
@@ -74,6 +80,66 @@ export function ImportBatchHistory({ canDelete }: { canDelete: boolean }) {
     if (data) {
       setSelected(new Set())
       await loadBatches()
+    }
+  }
+
+  function cancelCampaignEdit() {
+    setEditingBatchId(null)
+    setCampaignDraft('')
+  }
+
+  async function saveCampaignName(batch: ImportBatch) {
+    if (savingBatchId) return
+
+    const campaignName = campaignDraft.trim()
+    if (!campaignName || campaignName.length > 100) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid campaign name',
+        description: 'Enter a campaign name between 1 and 100 characters.',
+      })
+      return
+    }
+
+    const previousName = batch.campaignName
+    setBatches((current) =>
+      current.map((item) => item.id === batch.id ? { ...item, campaignName } : item),
+    )
+    setSavingBatchId(batch.id)
+
+    try {
+      const res = await fetch(`/api/leads/import/batches/${batch.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignName }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        throw new Error(json.error || 'Could not update campaign name')
+      }
+
+      const savedName = json.data?.batch?.campaignName
+      if (typeof savedName === 'string') {
+        setBatches((current) =>
+          current.map((item) =>
+            item.id === batch.id ? { ...item, campaignName: savedName } : item,
+          ),
+        )
+      }
+      cancelCampaignEdit()
+    } catch (error) {
+      setBatches((current) =>
+        current.map((item) =>
+          item.id === batch.id ? { ...item, campaignName: previousName } : item,
+        ),
+      )
+      toast({
+        variant: 'destructive',
+        title: 'Campaign name update failed',
+        description: error instanceof Error ? error.message : 'Could not update campaign name.',
+      })
+    } finally {
+      setSavingBatchId(null)
     }
   }
 
@@ -139,12 +205,66 @@ export function ImportBatchHistory({ canDelete }: { canDelete: boolean }) {
                 )}
                 <td className="p-2">{batch.fileName ?? 'Import'}</td>
                 <td className="p-2">
-                  {batch.campaignName ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
-                      {batch.campaignName}
-                    </span>
+                  {editingBatchId === batch.id ? (
+                    <div className="flex min-w-56 items-center gap-1">
+                      <Input
+                        autoFocus
+                        value={campaignDraft}
+                        maxLength={100}
+                        aria-label={`Campaign name for ${batch.fileName ?? 'import'}`}
+                        onChange={(event) => setCampaignDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault()
+                            void saveCampaignName(batch)
+                          } else if (event.key === 'Escape') {
+                            cancelCampaignEdit()
+                          }
+                        }}
+                        disabled={savingBatchId === batch.id}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Save campaign name"
+                        onClick={() => void saveCampaignName(batch)}
+                        disabled={savingBatchId === batch.id}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Cancel campaign name edit"
+                        onClick={cancelCampaignEdit}
+                        disabled={savingBatchId === batch.id}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   ) : (
-                    <span className="text-muted-foreground text-xs">—</span>
+                    <div className="flex items-center gap-1">
+                      {batch.campaignName ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+                          {batch.campaignName}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        aria-label="Edit campaign name"
+                        onClick={() => {
+                          setEditingBatchId(batch.id)
+                          setCampaignDraft(batch.campaignName ?? '')
+                        }}
+                        disabled={savingBatchId !== null || deleting}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   )}
                 </td>
                 <td className="p-2">{batch.importedRows ?? 0}</td>

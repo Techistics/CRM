@@ -3,10 +3,11 @@ import { cn } from '@/lib/utils'
 import type { SnapshotItem } from '@/types/dashboard'
 import { SNAPSHOT_ACCENT_STYLES as ACCENT } from '@/constants/dashboard'
 import { DashboardCard, DashboardCardBody, DashboardCardHeader } from './ui/dashboard-card'
+import { formatCurrencyAmount } from '@/lib/format-currency'
 
 type TeamSnapshotProps = {
   counselorCount: number
-  pipelineValue: number
+  pipelineValues: Array<{ currency: string; value: number }>
   conversionRate: number
   className?: string
 }
@@ -40,7 +41,7 @@ function SnapshotMiniCard({ item }: { item: SnapshotItem }) {
 
 export function TeamSnapshot({
   counselorCount,
-  pipelineValue,
+  pipelineValues,
   conversionRate,
   className,
 }: TeamSnapshotProps) {
@@ -54,7 +55,9 @@ export function TeamSnapshot({
     },
     {
       label: 'Pipeline Value',
-      value: `$${pipelineValue.toLocaleString()}`,
+      value: pipelineValues.length > 0
+        ? pipelineValues.map(({ currency, value }) => formatCurrencyAmount(value, currency)).join(' · ')
+        : '—',
       description: 'Total pipeline value',
       icon: Coins,
       accent: 'secondary',

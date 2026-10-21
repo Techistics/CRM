@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server'
-import { and, count, desc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'
-import { leads, leadTagAssignments, leadTags, leadStageAssignments, leadRevenues, pipelineSubStatuses, applications, csvImports } from '@/db/schema'
+import { leads, leadTagAssignments, leadTags, leadStageAssignments, leadRevenues, pipelineSubStatuses, csvImports } from '@/db/schema'
 import { leadsVisibleWhere } from '@/lib/leads-scope'
 import { toMemberScope } from '@/lib/member-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
@@ -33,6 +33,33 @@ export async function GET(req: NextRequest) {
     const subStatusType = url.searchParams.get('subStatusType')?.trim()
     const subStatusId = url.searchParams.get('subStatusId')?.trim()
     const idsOnly = url.searchParams.get('idsOnly') === 'true'
+    const optionType = url.searchParams.get('optionType')
+
+    if (optionType === 'campaign-name' || optionType === 'file-name') {
+      const column = optionType === 'campaign-name' ? csvImports.campaignName : csvImports.fileName
+
+      const rows = await db
+        .selectDistinct({ value: column })
+        .from(csvImports)
+        .where(
+          and(
+            eq(csvImports.tenantId, ctx.tenant.id),
+            isNotNull(column),
+            sql`${column} <> ''`,
+          ),
+        )
+        .orderBy(asc(column))
+
+      const values = Array.from(
+        new Set(
+          rows
+            .map((row) => row.value)
+            .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        ),
+      ).sort((a, b) => a.localeCompare(b))
+
+      return successResponse({ values })
+    }
 
     // ── Application filters ───────────────────────────────────
     const appUniversityName = url.searchParams.get('appUniversityName')?.trim()
@@ -58,8 +85,8 @@ export async function GET(req: NextRequest) {
     const revIntakeYear = revIntakeYearRaw ? parseInt(revIntakeYearRaw, 10) : null
 
     // ── Campaign & File Name filters ────────────────────────────────────────
-    const campaignName = url.searchParams.get('campaignName')?.trim()
-    const importFileName = url.searchParams.get('importFileName')?.trim()
+    const campaignName = url.searchParams.get('campaignName')
+    const importFileName = url.searchParams.get('importFileName')
 
     // Whether we need to join applications
     const needsAppJoin = !!(appUniversityName || appCourseName || appSource || appStatus || appIntakeMonth || appIntakeYear)
@@ -198,25 +225,13 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Campaign name filter ───────────────────────────────────
-    if (campaignName) {
-      conditions.push(
-        sql`EXISTS (
-          SELECT 1 FROM csv_imports ci
-          WHERE ci.id = ${leads.csvImportId}
-            AND ci.campaign_name ILIKE ${'%' + campaignName + '%'}
-        )`
-      )
+    if (campaignName?.trim()) {
+      conditions.push(eq(csvImports.campaignName, campaignName))
     }
 
     // ── Import file name filter ────────────────────────────────
-    if (importFileName) {
-      conditions.push(
-        sql`EXISTS (
-          SELECT 1 FROM csv_imports ci
-          WHERE ci.id = ${leads.csvImportId}
-            AND ci.file_name ILIKE ${'%' + importFileName + '%'}
-        )`
-      )
+    if (importFileName?.trim()) {
+      conditions.push(eq(csvImports.fileName, importFileName))
     }
 
     const where = and(...conditions)
@@ -261,6 +276,10 @@ export async function GET(req: NextRequest) {
       const rows = await db
         .select({ id: leads.id })
         .from(leads)
+        .leftJoin(
+          csvImports,
+          and(eq(csvImports.id, leads.csvImportId), eq(csvImports.tenantId, ctx.tenant.id)),
+        )
         .where(where)
         .orderBy(desc(leads.updatedAt))
       return successResponse({ leadIds: rows.map((row) => row.id) })
@@ -317,11 +336,21 @@ export async function GET(req: NextRequest) {
     }
 
     if (paginate) {
-      // Count query — no join needed (filter is EXISTS-based)
-      const [totalRow] = await db.select({ c: count() }).from(leads).where(where)
+      // csv_imports.id is unique, so the left join keeps the count to one row per lead.
+      const [totalRow] = await db
+        .select({ c: count() })
+        .from(leads)
+        .leftJoin(
+          csvImports,
+          and(eq(csvImports.id, leads.csvImportId), eq(csvImports.tenantId, ctx.tenant.id)),
+        )
+        .where(where)
 
-      // Data query — no join; filter is EXISTS-based, lead always appears once
       const rows = await db.select(leadSelectShape).from(leads)
+        .leftJoin(
+          csvImports,
+          and(eq(csvImports.id, leads.csvImportId), eq(csvImports.tenantId, ctx.tenant.id)),
+        )
         .where(where)
         .orderBy(desc(leads.updatedAt))
         .limit(pageSize)
@@ -344,6 +373,10 @@ export async function GET(req: NextRequest) {
     const rows = await db
       .select(leadSelectShape)
       .from(leads)
+      .leftJoin(
+        csvImports,
+        and(eq(csvImports.id, leads.csvImportId), eq(csvImports.tenantId, ctx.tenant.id)),
+      )
       .where(where)
       .orderBy(desc(leads.updatedAt))
     const rowsWithTags = stripDealFieldsFromList(

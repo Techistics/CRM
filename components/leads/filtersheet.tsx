@@ -12,7 +12,6 @@ import { TagFilter } from '@/components/leads/TagFilter'
 import { MonthYearSelect } from '@/components/leads/Monthyearselect'
 import { cn } from '@/lib/utils'
 import {
-  Agent,
   SubStatusRow,
   SubStatusType,
   SUB_STATUS_TYPE_OPTIONS,
@@ -41,6 +40,9 @@ export function FilterSheet({
   const [isOpen, setIsOpen] = useState(false)
   const [subStatuses, setSubStatuses] = useState<SubStatusRow[]>([])
   const [subStatusesLoading, setSubStatusesLoading] = useState(false)
+  const [campaignOptions, setCampaignOptions] = useState<string[]>([])
+  const [fileOptions, setFileOptions] = useState<string[]>([])
+  const [filterOptionsError, setFilterOptionsError] = useState<string | null>(null)
   const [leadsExpanded, setLeadsExpanded] = useState(true)
   const [appsExpanded, setAppsExpanded] = useState(true)
 
@@ -68,8 +70,68 @@ export function FilterSheet({
 
   const [pendingFilters, setPendingFilters] = useState<PendingFilters>(buildInitialFilters)
 
+  const loadFilterOptions = useCallback(async () => {
+    setFilterOptionsError(null)
+    setCampaignOptions([])
+    setFileOptions([])
+
+    try {
+      const [campaignRes, fileRes] = await Promise.all([
+        fetch('/api/leads?optionType=campaign-name', { cache: 'no-store' }),
+        fetch('/api/leads?optionType=file-name', { cache: 'no-store' }),
+      ])
+      const [campaignPayload, filePayload] = await Promise.all([
+        campaignRes.json(),
+        fileRes.json(),
+      ])
+
+      if (!campaignRes.ok) {
+        throw new Error(
+          typeof campaignPayload?.error === 'string'
+            ? campaignPayload.error
+            : 'Failed to load campaign names',
+        )
+      }
+      if (!fileRes.ok) {
+        throw new Error(
+          typeof filePayload?.error === 'string'
+            ? filePayload.error
+            : 'Failed to load file names',
+        )
+      }
+
+      const campaignValues = campaignPayload?.data?.values
+      const fileValues = filePayload?.data?.values
+      if (!Array.isArray(campaignValues) || !Array.isArray(fileValues)) {
+        throw new Error('Received invalid import filter options')
+      }
+
+      const normalizeOptions = (values: unknown[]) =>
+        Array.from(
+          new Set(
+            values.filter(
+              (value): value is string =>
+                typeof value === 'string' && value.trim().length > 0,
+            ),
+          ),
+        ).sort((a, b) => a.localeCompare(b))
+
+      setCampaignOptions(normalizeOptions(campaignValues))
+      setFileOptions(normalizeOptions(fileValues))
+    } catch (error) {
+      setCampaignOptions([])
+      setFileOptions([])
+      setFilterOptionsError(
+        error instanceof Error ? error.message : 'Failed to load import filter options',
+      )
+    }
+  }, [])
+
   useEffect(() => {
-    if (isOpen) setPendingFilters(buildInitialFilters())
+    if (isOpen) {
+      setPendingFilters(buildInitialFilters())
+      void loadFilterOptions()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
@@ -83,14 +145,22 @@ export function FilterSheet({
     fetch(`/api/sub-statuses?stageKey=${encodeURIComponent(stageKey)}`)
       .then((r) => r.json())
       .then((data) => {
-        const rows = Array.isArray(data) ? data : (data?.data ?? [])
-        setSubStatuses(rows.map((r: any) => ({
-          id: r.id,
-          stageKey: r.stageKey,
-          label: r.label,
-          type: r.type,
-          closedActions: Array.isArray(r.closedActions) ? r.closedActions : [],
-        })))
+        const rows = Array.isArray(data)
+          ? data as Array<Record<string, unknown>>
+          : (Array.isArray((data as { data?: unknown })?.data) ? ((data as { data?: unknown[] }).data as Array<Record<string, unknown>>) : [])
+
+        setSubStatuses(rows.map((r) => {
+          const row = r as Record<string, unknown>
+          const typeValue = (row.type as SubStatusType | undefined) ?? 'in_progress'
+
+          return {
+            id: String(row.id ?? ''),
+            stageKey: String(row.stageKey ?? ''),
+            label: String(row.label ?? ''),
+            type: typeValue,
+            closedActions: Array.isArray(row.closedActions) ? row.closedActions.map((item) => String(item)) : [],
+          }
+        }))
       })
       .catch(() => setSubStatuses([]))
       .finally(() => setSubStatusesLoading(false))
@@ -357,24 +427,48 @@ export function FilterSheet({
 
               <div className="flex gap-3">
                 <div className="space-y-1.5 flex-1 w-1/2">
-                  <Label className={FIELD_LABEL_CLASS}>Campaign</Label>
-                  <input
-                    value={pendingFilters.campaignName ?? ''}
-                    onChange={(e) => patch({ campaignName: e.target.value || null })}
-                    placeholder="Campaign Name..."
-                    className={FIELD_INPUT_CLASS}
-                  />
+                  <Label className={FIELD_LABEL_CLASS}>Campaign Name</Label>
+                  <Select
+                    value={pendingFilters.campaignName ?? 'all'}
+                    onValueChange={(val) => patch({ campaignName: val === 'all' ? null : val })}
+                  >
+                    <SelectTrigger className={FIELD_TRIGGER_CLASS}><SelectValue placeholder="Any Campaign" /></SelectTrigger>
+                    <SelectContent className={DROPDOWN_SCROLL_CLASS}>
+                      <SelectItem value="all">Any Campaign</SelectItem>
+                      {campaignOptions.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                      {pendingFilters.campaignName && !campaignOptions.includes(pendingFilters.campaignName) && (
+                        <SelectItem value={pendingFilters.campaignName}>{pendingFilters.campaignName}</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5 flex-1 w-1/2">
-                  <Label className={FIELD_LABEL_CLASS}>Import File Name</Label>
-                  <input
-                    value={pendingFilters.importFileName ?? ''}
-                    onChange={(e) => patch({ importFileName: e.target.value || null })}
-                    placeholder="File Name..."
-                    className={FIELD_INPUT_CLASS}
-                  />
+                  <Label className={FIELD_LABEL_CLASS}>File Name</Label>
+                  <Select
+                    value={pendingFilters.importFileName ?? 'all'}
+                    onValueChange={(val) => patch({ importFileName: val === 'all' ? null : val })}
+                  >
+                    <SelectTrigger className={FIELD_TRIGGER_CLASS}><SelectValue placeholder="Any File" /></SelectTrigger>
+                    <SelectContent className={DROPDOWN_SCROLL_CLASS}>
+                      <SelectItem value="all">Any File</SelectItem>
+                      {fileOptions.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                      {pendingFilters.importFileName && !fileOptions.includes(pendingFilters.importFileName) && (
+                        <SelectItem value={pendingFilters.importFileName}>{pendingFilters.importFileName}</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
+              {filterOptionsError && (
+                <p role="alert" className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  {filterOptionsError}
+                </p>
+              )}
             </div>
             )}
           </div>

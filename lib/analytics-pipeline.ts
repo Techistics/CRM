@@ -3,6 +3,7 @@ import { and, count, eq, gte } from 'drizzle-orm'
 import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { db } from '@/db'
 import { leads } from '@/db/schema'
+import { dashboardLeadVisibilityFilter } from '@/lib/dashboard-leads'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 import type {
   ChartWindow,
@@ -30,8 +31,13 @@ export function startDateForChartWindow(window: ChartWindow): Date {
 export async function getPipelineSnapshotForTenant(
   tenantId: string,
   createdSince: Date,
+  excludeClosed = false,
 ): Promise<PipelineChartSnapshot> {
-  const tScope = and(eq(leads.tenantId, tenantId), gte(leads.createdAt, createdSince))
+  const tScope = and(
+    eq(leads.tenantId, tenantId),
+    gte(leads.createdAt, createdSince),
+    dashboardLeadVisibilityFilter(excludeClosed),
+  )
 
   const pipeline = await getTenantPipeline(tenantId)
   const byStage = await db
@@ -131,12 +137,12 @@ export async function getPipelineSnapshotForTenant(
   return { totalLeads, stageData, funnelSteps }
 }
 
-export async function loadChartSnapshotsByWindow(tenantId: string) {
+export async function loadChartSnapshotsByWindow(tenantId: string, excludeClosed = false) {
   const windows: ChartWindow[] = ['week', 'month', 'year']
   const entries = await Promise.all(
     windows.map(async (w) => {
       const since = startDateForChartWindow(w)
-      const snap = await getPipelineSnapshotForTenant(tenantId, since)
+      const snap = await getPipelineSnapshotForTenant(tenantId, since, excludeClosed)
       return [w, snap] as const
     }),
   )

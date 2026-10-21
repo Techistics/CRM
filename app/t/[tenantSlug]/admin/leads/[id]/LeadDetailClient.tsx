@@ -11,6 +11,7 @@ import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { TagSelector } from '@/components/leads/TagSelector'
 import { CURRENCIES } from '@/constants/lead-options'
+import { formatCurrencyAmount } from '@/lib/format-currency'
 import { LeadReminders } from '@/components/leads/LeadReminders'
 import { tenantPath } from '@/lib/tenant-path'
 
@@ -375,7 +376,7 @@ export default function LeadDetailClient({
             {lead.dealValue && (
               <div className="flex items-center gap-1.5 text-sm font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2.5 py-1 rounded-md">
                 <DollarSign className="h-3.5 w-3.5" />
-                <span>{lead.dealCurrency} {Number(lead.dealValue).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                <span>{formatCurrencyAmount(lead.dealValue, lead.dealCurrency)}</span>
               </div>
             )}
           </div>
@@ -463,7 +464,7 @@ export default function LeadDetailClient({
                     { label: 'Source', value: lead.source },
                     {
                       label: 'Deal Value',
-                      value: lead.dealValue ? `${lead.dealCurrency} ${Number(lead.dealValue).toLocaleString()}` : '—',
+                      value: lead.dealValue ? formatCurrencyAmount(lead.dealValue, lead.dealCurrency) : '—',
                     },
                     {
                       label: 'Intake',

@@ -17,6 +17,7 @@ import { LeadReminders } from '@/components/leads/LeadReminders'
 import { LeadDeleteButton } from '@/components/leads/LeadDeleteButton'
 import { LeadRevenueCard } from '@/components/leads/LeadRevenueCard'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { CURRENCIES } from '@/constants/lead-options'
 import type { ActivityRow } from '@/types/leads'
 import SubStatusCustomFieldsForm from '@/components/leads/SubStatusCustomFieldsForm'
 import { ApplicationTab } from '@/components/leads/ApplicationTab'
@@ -562,7 +563,7 @@ export default function ProLeadDetailClient({
                         }
                         className="h-9 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100"
                       >
-                        {['USD','EUR','GBP','CAD','AUD','INR'].map(c => (
+                        {CURRENCIES.map(c => (
                           <option key={c} value={c}>{c}</option>
                         ))}
                       </select>

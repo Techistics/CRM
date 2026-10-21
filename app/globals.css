@@ -105,7 +105,7 @@
     --accent-color: #0DA2E7;
     --accent-text: #2C5000;
     --accent-hover: #b8e05a;
-    --font-app: var(--font-sans), system-ui, sans-serif;
+    --font-app: "DM Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
     --radius-card: 12px;
     --sidebar-width: 240px;
     --topbar-height: 60px;

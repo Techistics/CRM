@@ -1,6 +1,6 @@
 import { db } from '@/db'
-import { leads, users, pipelineSubStatuses } from '@/db/schema'
-import { sql, and, eq, gte, lte } from 'drizzle-orm'
+import { leads, users } from '@/db/schema'
+import { and, eq, gte, lte, sql } from 'drizzle-orm'
 import Link from 'next/link'
 import { requireTenantSession } from '@/lib/tenant-server'
 import { tenantPath } from '@/lib/tenant-path'
@@ -9,6 +9,7 @@ import type { TenantAppRole } from '@/lib/tenant-membership'
 import AdminOverviewPage from '@/app/t/[tenantSlug]/admin/overview/page'
 import { getStageInfo, PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { getTenantPipeline } from '@/lib/pipeline/config'
+import { dashboardLeadVisibilityFilter } from '@/lib/dashboard-leads'
 import {
   Users,
   Activity,
@@ -81,6 +82,8 @@ export default async function ProOverviewPage(props: {
     )
   }
 
+  const leadVisibilityFilter = dashboardLeadVisibilityFilter(role === 'PRO')
+
   // ── All my leads ──────────────────────────────────────────────────────────
   const myLeads = await db
     .select({
@@ -93,13 +96,11 @@ export default async function ProOverviewPage(props: {
       createdAt: leads.createdAt,
     })
     .from(leads)
-    .leftJoin(pipelineSubStatuses, eq(leads.subStatusId, pipelineSubStatuses.id))
     .where(
       and(
         eq(leads.tenantId, tenant.id),
         ...(isElevated ? [] : [eq(leads.assignedTo, dbUserId)]),
-        sql`${leads.stage} NOT IN ('paid', 'cancelled')`,
-        sql`COALESCE(${pipelineSubStatuses.type}, 'in_progress') != 'closed_lost'`
+        leadVisibilityFilter,
       ),
     )
 
@@ -133,13 +134,11 @@ export default async function ProOverviewPage(props: {
       followUp: sql<number>`COUNT(*) FILTER (WHERE ${leads.stage} = 'follow_up')::int`,
     })
     .from(leads)
-    .leftJoin(pipelineSubStatuses, eq(leads.subStatusId, pipelineSubStatuses.id))
     .where(and(
       eq(leads.tenantId, tenant.id),
       ...(isElevated ? [] : [eq(leads.assignedTo, dbUserId)]),
       gte(leads.createdAt, curr30Start),
-      sql`${leads.stage} NOT IN ('paid', 'cancelled')`,
-      sql`COALESCE(${pipelineSubStatuses.type}, 'in_progress') != 'closed_lost'`
+      leadVisibilityFilter,
     ))
 
   const [prevStats] = await db
@@ -149,14 +148,12 @@ export default async function ProOverviewPage(props: {
       followUp: sql<number>`COUNT(*) FILTER (WHERE ${leads.stage} = 'follow_up')::int`,
     })
     .from(leads)
-    .leftJoin(pipelineSubStatuses, eq(leads.subStatusId, pipelineSubStatuses.id))
     .where(and(
       eq(leads.tenantId, tenant.id),
       ...(isElevated ? [] : [eq(leads.assignedTo, dbUserId)]),
       gte(leads.createdAt, prev30Start),
       lte(leads.createdAt, prev30End),
-      sql`${leads.stage} NOT IN ('paid', 'cancelled')`,
-      sql`COALESCE(${pipelineSubStatuses.type}, 'in_progress') != 'closed_lost'`
+      leadVisibilityFilter,
     ))
 
   const trends = {

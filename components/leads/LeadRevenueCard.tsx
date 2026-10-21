@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { getLeadRevenues, saveLeadRevenue } from '@/lib/leads/revenue-actions'
+import { formatCurrencyAmount } from '@/lib/format-currency'
 import { apiCall } from '@/lib/utils/api-handler'
 import { toast } from 'sonner'
 import { Loader2, Paperclip, ExternalLink } from 'lucide-react'
@@ -274,11 +275,11 @@ export function LeadRevenueCard({ leadId }: LeadRevenueCardProps) {
                     </div>
                     <div className="flex justify-between items-center text-muted-foreground">
                       <span>Service Fee (Counselor Fee):</span>
-                      <span className="font-medium text-foreground">PKR {Number(rev.counselorFee).toFixed(2)}</span>
+                      <span className="font-medium text-foreground">{formatCurrencyAmount(rev.counselorFee, 'PKR')}</span>
                     </div>
                     <div className="flex justify-between items-center text-muted-foreground">
                       <span>University Fee:</span>
-                      <span className="font-medium text-foreground">${Number(rev.universityFee).toFixed(2)}</span>
+                      <span className="font-medium text-foreground">{formatCurrencyAmount(rev.universityFee, 'USD')}</span>
                     </div>
                     {rev.slips && rev.slips.length > 0 && (
                       <div className="pt-2 mt-2 border-t space-y-1">

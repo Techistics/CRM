@@ -1,5 +1,4 @@
 import './globals.css'
-import { DM_Sans } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
 import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
@@ -12,16 +11,9 @@ export const metadata: Metadata = {
   title: 'Consulty',
 }
 
-
-const dmSans = DM_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-sans',
-})
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={dmSans.variable} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script
           id="theme-initializer"
@@ -36,7 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className={`${dmSans.variable} min-h-screen antialiased`}>
+      <body className="min-h-screen antialiased">
         <AuthToastWrapper />
         <FetchInterceptor />
         <Analytics />

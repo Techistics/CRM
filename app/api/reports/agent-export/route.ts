@@ -7,6 +7,7 @@ import { resolveTenantAccess } from '@/lib/tenant-access'
 import { can } from '@/lib/authz'
 import { leadsVisibleWhere } from '@/lib/leads-scope'
 import { toMemberScope } from '@/lib/member-scope'
+import { dashboardLeadVisibilityFilter } from '@/lib/dashboard-leads'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -44,6 +45,7 @@ export async function GET(req: NextRequest) {
   const dateFilters = [
     leadsVisibleWhere(tenant.id, toMemberScope({ role: access.role, dbUserId: session.userId, customRoleId: access.customRoleId })),
     eq(leads.tenantId, tenant.id),
+    dashboardLeadVisibilityFilter(access.role === 'PRO'),
   ]
   if (from) dateFilters.push(gte(leads.createdAt, new Date(from)))
   if (to) {

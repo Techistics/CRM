@@ -22,7 +22,7 @@ export default function AnalyticsOverviewClient({
   newLeadsToday,
   unassignedCount,
   agentStats,
-  pipelineValue,
+  pipelineValues,
   wonRevenue,
   inProgressCount,
   closedCount,
@@ -45,7 +45,7 @@ export default function AnalyticsOverviewClient({
   newLeadsToday: number
   unassignedCount: number
   agentStats: AgentStat[]
-  pipelineValue: number
+  pipelineValues: Array<{ currency: string; value: number }>
   wonRevenue: number
   inProgressCount: number
   closedCount: number
@@ -246,7 +246,7 @@ export default function AnalyticsOverviewClient({
         />
         <TeamSnapshot
           counselorCount={agentStats.length}
-          pipelineValue={pipelineValue}
+          pipelineValues={pipelineValues}
           conversionRate={conversionRate}
           className="lg:col-span-1"
         />

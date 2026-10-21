@@ -5,14 +5,16 @@ import AnalyticsOverviewClient from './AnalyticsOverviewClient'
 import { loadChartSnapshotsByWindow } from '@/lib/analytics-pipeline'
 import { reconcileOverdueRemindersForTenant } from '@/lib/lead-reminders-sync'
 import { requirePermissionSession } from '@/lib/tenant-server'
+import { dashboardLeadVisibilityFilter } from '@/lib/dashboard-leads'
 
 export default async function AdminOverviewPage({
   searchParams,
 }: {
   searchParams: Promise<{ from?: string; to?: string }>
 }) {
-  const { tenant } = await requirePermissionSession('analytics.view')
+  const { tenant, role } = await requirePermissionSession('analytics.view')
   const { from, to } = await searchParams
+  const leadVisibilityFilter = dashboardLeadVisibilityFilter(role === 'PRO')
 
   let startDate: Date | null = null
   let endDate: Date | null = null
@@ -52,7 +54,8 @@ export default async function AdminOverviewPage({
 
   const tScope = and(
     eq(leads.tenantId, tenant.id),
-    dateCondition
+    dateCondition,
+    leadVisibilityFilter,
   )
 
   await reconcileOverdueRemindersForTenant(tenant.id)
@@ -79,7 +82,13 @@ export default async function AdminOverviewPage({
     db
       .select({ c: count(leadReminders.id) })
       .from(leadReminders)
-      .where(and(eq(leadReminders.tenantId, tenant.id), eq(leadReminders.status, 'overdue'))),
+      .innerJoin(leads, eq(leadReminders.leadId, leads.id))
+      .where(and(
+        eq(leadReminders.tenantId, tenant.id),
+        eq(leads.tenantId, tenant.id),
+        eq(leadReminders.status, 'overdue'),
+        leadVisibilityFilter,
+      )),
     db
       .select({ stage: leads.primaryStage, total: count(leads.id) })
       .from(leads)
@@ -88,7 +97,11 @@ export default async function AdminOverviewPage({
     db
       .select({ c: count(leads.id) })
       .from(leads)
-      .where(and(eq(leads.tenantId, tenant.id), gte(leads.createdAt, startOfToday))),
+      .where(and(
+        eq(leads.tenantId, tenant.id),
+        gte(leads.createdAt, startOfToday),
+        leadVisibilityFilter,
+      )),
     db
       .select({ c: count(leads.id) })
       .from(leads)
@@ -112,21 +125,26 @@ export default async function AdminOverviewPage({
       .groupBy(leads.assignedTo),
     db
       .select({
-        pipelineValue: sql<number>`COALESCE(SUM(${leads.dealValue}) FILTER (WHERE ${leads.primaryStage} NOT IN ('paid', 'cancelled')), 0)::int`,
-        wonRevenue: sql<number>`COALESCE(SUM(${leads.dealValue}) FILTER (WHERE ${leads.primaryStage} = 'paid'), 0)::int`,
+        currency: leads.dealCurrency,
+        pipelineValue: sql<number>`COALESCE(SUM(${leads.dealValue}) FILTER (WHERE ${leads.primaryStage} NOT IN ('paid', 'cancelled')), 0)`,
+        wonRevenue: sql<number>`COALESCE(SUM(${leads.dealValue}) FILTER (WHERE ${leads.primaryStage} = 'paid'), 0)`,
       })
       .from(leads)
-      .where(tScope),
+      .where(tScope)
+      .groupBy(leads.dealCurrency),
     db.execute(sql`
       SELECT
         u.id, u.name, u.email,
-        COUNT(l.id) as total_leads,
-        COUNT(l.id) FILTER (WHERE l.primary_stage = 'paid') as won,
-        ROUND(COUNT(l.id) FILTER (WHERE l.primary_stage = 'paid')::numeric / NULLIF(COUNT(l.id), 0) * 100, 1) as conversion_rate,
-        MAX(l.last_contacted_at) as last_activity
+        COUNT(leads.id) as total_leads,
+        COUNT(leads.id) FILTER (WHERE leads.primary_stage = 'paid') as won,
+        ROUND(COUNT(leads.id) FILTER (WHERE leads.primary_stage = 'paid')::numeric / NULLIF(COUNT(leads.id), 0) * 100, 1) as conversion_rate,
+        MAX(leads.last_contacted_at) as last_activity
       FROM users u
       INNER JOIN tenant_members tm ON tm.user_id = u.id AND tm.tenant_id = ${tenant.id}
-      LEFT JOIN leads l ON l.assigned_to = u.id AND l.tenant_id = ${tenant.id} AND l.primary_stage NOT IN ('paid', 'cancelled')
+      LEFT JOIN leads ON leads.assigned_to = u.id
+        AND leads.tenant_id = ${tenant.id}
+        AND leads.primary_stage NOT IN ('paid', 'cancelled')
+        AND ${leadVisibilityFilter}
       GROUP BY u.id, u.name, u.email
       ORDER BY total_leads DESC
     `),
@@ -137,7 +155,9 @@ export default async function AdminOverviewPage({
         COUNT(*) FILTER (WHERE tenant_id = ${tenant.id} AND primary_stage IN ('paid', 'cancelled')) as closed,
         COUNT(*) FILTER (WHERE tenant_id = ${tenant.id} AND primary_stage NOT IN ('paid', 'cancelled')) as in_progress
       FROM leads
-      WHERE tenant_id = ${tenant.id} AND created_at >= NOW() - INTERVAL '7 days'
+      WHERE tenant_id = ${tenant.id}
+        AND created_at >= NOW() - INTERVAL '7 days'
+        AND ${leadVisibilityFilter}
       GROUP BY DATE(created_at)
       ORDER BY day ASC
     `),
@@ -149,7 +169,12 @@ export default async function AdminOverviewPage({
         inProgress: sql<number>`COUNT(*) FILTER (WHERE ${leads.primaryStage} NOT IN ('paid', 'cancelled'))::int`,
       })
       .from(leads)
-      .where(and(eq(leads.tenantId, tenant.id), gte(leads.createdAt, (() => { const d = new Date(); d.setDate(d.getDate() - 60); d.setHours(0,0,0,0); return d })(),), lte(leads.createdAt, (() => { const d = new Date(); d.setDate(d.getDate() - 30); d.setHours(23,59,59,999); return d })(),))),
+      .where(and(
+        eq(leads.tenantId, tenant.id),
+        gte(leads.createdAt, (() => { const d = new Date(); d.setDate(d.getDate() - 60); d.setHours(0,0,0,0); return d })()),
+        lte(leads.createdAt, (() => { const d = new Date(); d.setDate(d.getDate() - 30); d.setHours(23,59,59,999); return d })()),
+        leadVisibilityFilter,
+      )),
     db
       .select({
         totalLeads: sql<number>`COUNT(*)::int`,
@@ -157,8 +182,12 @@ export default async function AdminOverviewPage({
         inProgress: sql<number>`COUNT(*) FILTER (WHERE ${leads.primaryStage} NOT IN ('paid', 'cancelled'))::int`,
       })
       .from(leads)
-      .where(and(eq(leads.tenantId, tenant.id), gte(leads.createdAt, (() => { const d = new Date(); d.setDate(d.getDate() - 30); d.setHours(0,0,0,0); return d })()))),
-    loadChartSnapshotsByWindow(tenant.id),
+      .where(and(
+        eq(leads.tenantId, tenant.id),
+        gte(leads.createdAt, (() => { const d = new Date(); d.setDate(d.getDate() - 30); d.setHours(0,0,0,0); return d })()),
+        leadVisibilityFilter,
+      )),
+    loadChartSnapshotsByWindow(tenant.id, role === 'PRO'),
     db
       .select({
         assignedTo: leads.assignedTo,
@@ -168,7 +197,7 @@ export default async function AdminOverviewPage({
       })
       .from(leads)
       .leftJoin(pipelineSubStatuses, eq(leads.subStatusId, pipelineSubStatuses.id))
-      .where(eq(leads.tenantId, tenant.id))
+      .where(and(eq(leads.tenantId, tenant.id), leadVisibilityFilter))
       .groupBy(leads.assignedTo, leads.primaryStage),
     db
       .select({
@@ -364,7 +393,10 @@ export default async function AdminOverviewPage({
       closedCount={pieClosedCount}
       inProgressCount={pieInProgressCount}
       agentStats={agentStats}
-      pipelineValue={Number(valueAggs[0]?.pipelineValue ?? 0)}
+      pipelineValues={valueAggs.map(({ currency, pipelineValue }) => ({
+        currency,
+        value: Number(pipelineValue),
+      }))}
       wonRevenue={Number(valueAggs[0]?.wonRevenue ?? 0)}
       conversionRate={conversionRate}
       teamPerformance={teamPerformance.rows as any}

@@ -79,11 +79,13 @@ export default function TeamManagementClient({
   customRoles = [],
   isAdmin = true,
   canManageAccess = false,
+  canManageTeam = false,
 }: {
   initialMembers: TeamMember[]
   customRoles?: { id: string; name: string }[]
   isAdmin?: boolean
   canManageAccess?: boolean
+  canManageTeam?: boolean
 }) {
   const router = useRouter()
   const [members, setMembers] = useState(initialMembers)
@@ -185,7 +187,7 @@ export default function TeamManagementClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           role: editRole,
-          email: editEmail.trim(),
+          ...((isAdmin || canManageTeam) ? { email: editEmail.trim() } : {}),
           customRoleId: editCustomRoleId === 'none' ? null : editCustomRoleId,
         }),
       })
@@ -415,17 +417,19 @@ export default function TeamManagementClient({
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       {m.status === 'pending_invite' ? (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={busyId === m.id || busyId === 'resend'}
-                          onClick={() => startResend(m)}
-                        >
-                          {busyId === 'resend' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Resend'}
-                        </Button>
+                        (isAdmin || m.role !== 'ADMIN') && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={busyId === m.id || busyId === 'resend'}
+                            onClick={() => startResend(m)}
+                          >
+                            {busyId === 'resend' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Resend'}
+                          </Button>
+                        )
                       ) : (
                         <>
-                          {/* canManageAccess (password reset only): show Edit only for PRO members */}
+                          {/* Role managers can edit PRO custom roles and reset passwords. */}
                           {(isAdmin || (canManageAccess && m.role === 'PRO') || (!isAdmin && !canManageAccess && m.role !== 'ADMIN')) && (
                             <Button
                               size="sm"
@@ -506,7 +510,7 @@ export default function TeamManagementClient({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="PRO">Pro</SelectItem>
-                {(isAdmin || canManageAccess) && <SelectItem value="ADMIN">Admin</SelectItem>}
+                {isAdmin && <SelectItem value="ADMIN">Admin</SelectItem>}
               </SelectContent>
             </Select>
             {(isAdmin || canManageAccess) && inviteRole === 'PRO' && (
@@ -543,14 +547,18 @@ export default function TeamManagementClient({
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{isAdmin ? 'Edit member' : canManageAccess ? 'Reset Password' : 'Edit member'}</DialogTitle>
+            <DialogTitle>Edit member</DialogTitle>
             <DialogDescription>
-              {isAdmin ? "Update this user's role, email or password." : canManageAccess ? 'Set a new temporary password for this user.' : 'Update this counselor\'s email address.'}
+              {isAdmin
+                ? "Update this user's role, email or password."
+                : canManageAccess
+                  ? `Update this PRO member's ${canManageTeam ? 'email, ' : ''}custom role or reset their password.`
+                  : "Update this counselor's email address."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Email and role editing — admin only */}
-            {isAdmin && (
+            {/* Non-admin team managers may update member emails. */}
+            {(isAdmin || canManageTeam) && (
               <Input type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} />
             )}
             {isAdmin && (
@@ -578,6 +586,19 @@ export default function TeamManagementClient({
                   </Select>
                 )}
               </>
+            )}
+            {!isAdmin && canManageAccess && editRole === 'PRO' && (
+              <Select value={editCustomRoleId} onValueChange={setEditCustomRoleId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Custom role (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No custom role</SelectItem>
+                  {customRoles.map(r => (
+                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
             {/* Reset Password — shown for admins AND canManageAccess */}
             {(isAdmin || canManageAccess) && (
@@ -610,8 +631,7 @@ export default function TeamManagementClient({
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               Cancel
             </Button>
-            {/* Only show Save button if admin (email/role changes need saving) */}
-            {isAdmin && (
+            {(isAdmin || canManageAccess || canManageTeam) && (
               <Button
                 disabled={!editId || busyId === editId}
                 onClick={saveEdit}
@@ -640,7 +660,7 @@ export default function TeamManagementClient({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="PRO">Pro</SelectItem>
-              {(isAdmin || canManageAccess) && <SelectItem value="ADMIN">Admin</SelectItem>}
+              {isAdmin && <SelectItem value="ADMIN">Admin</SelectItem>}
             </SelectContent>
           </Select>
           <DialogFooter>

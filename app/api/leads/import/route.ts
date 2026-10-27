@@ -13,6 +13,7 @@ import { requirePermissionApi } from '@/lib/tenant-api'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 import { DEFAULT_SUB_STATUSES } from '@/constants/sub-status-defaults'
 import {
+  applyImportColumnMapping,
   CRM_IMPORT_FIELDS,
   type ImportFieldKey,
   suggestColumnMapping,
@@ -157,11 +158,6 @@ function parseDealCurrency(raw: string): string | null {
   return DEAL_CURRENCIES.has(upper) ? upper : null
 }
 
-function cellValue(value: unknown): string {
-  if (value == null) return ''
-  return String(value).trim()
-}
-
 /**
  * Normalizes a raw phone number string to E.164 format (e.g. +923224971053).
  * Defaults to Pakistan (+92) if no country code is detected.
@@ -184,31 +180,6 @@ function normalizePhone(rawPhone: string): string | null {
     // Fall through to raw
   }
   return stripped
-}
-
-function applyColumnMapping(
-  row: Record<string, unknown>,
-  columnMapping: Record<string, ImportFieldKey | string>,
-) {
-  const mapped: Record<string, string> = {}
-  const activityParts: string[] = []
-
-  for (const [csvHeader, fieldKey] of Object.entries(columnMapping)) {
-    if (fieldKey === 'skip') continue
-    const str = cellValue(row[csvHeader])
-    if (!str) continue
-
-    if (fieldKey === 'activity') {
-      activityParts.push(`${csvHeader}: ${str}`)
-    } else {
-      mapped[fieldKey] = str
-    }
-  }
-
-  return {
-    mapped,
-    activityNote: activityParts.length > 0 ? activityParts.join('\n') : null,
-  }
 }
 
 async function ensureDefaultSubStatus(tenantId: string, defaultStageKey: string) {
@@ -337,7 +308,7 @@ export async function POST(req: NextRequest) {
 
       rawRows.forEach((row, idx) => {
         const rowNumber = idx + 2
-        const { mapped, activityNote } = applyColumnMapping(row, columnMapping)
+        const { mapped, activityNote } = applyImportColumnMapping(row, columnMapping)
 
         const fullName = String(mapped.fullName ?? '').trim()
         if (fullName.length < 2) {

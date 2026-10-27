@@ -2,11 +2,12 @@ import { NextRequest } from 'next/server'
 import { z } from 'zod'
 
 import { db } from '@/db'
-import { requirePermissionApi } from '@/lib/tenant-api'
+import { requireTeamManagementApi } from '@/lib/tenant-api'
 import { createInvitationAndSendEmail } from '@/lib/invitations/service'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { validateCustomRoleId } from '@/lib/validate-custom-role'
 import {
+  validateCustomRoleAssignmentForActor,
   validateTeamInviteForActor,
 } from '@/lib/team-access'
 
@@ -19,7 +20,7 @@ const inviteSchema = z.object({
 
 export async function POST(req: NextRequest) {
   return withApiErrorHandling(async () => {
-    const ctx = await requirePermissionApi('teams.manage')
+    const ctx = await requireTeamManagementApi()
     if (!ctx.ok) return ctx.response
 
     const body = await req.json().catch(() => null)
@@ -31,11 +32,18 @@ export async function POST(req: NextRequest) {
     const { email, role, customRoleId } = parsed.data
     const normalizedEmail = email.toLowerCase().trim()
 
-    const inviteError = validateTeamInviteForActor(ctx.role, role, customRoleId)
+    const inviteError = validateTeamInviteForActor(ctx.role, role, customRoleId, ctx.permissions)
     if (inviteError) return errorResponse(inviteError, 'FORBIDDEN', 403)
 
     const roleError = await validateCustomRoleId(ctx.tenant.id, role, customRoleId)
     if (roleError) return errorResponse(roleError, 'INVALID_CUSTOM_ROLE', 400)
+    const assignmentError = await validateCustomRoleAssignmentForActor(
+      ctx.tenant.id,
+      ctx.role,
+      ctx.permissions,
+      role === 'PRO' ? customRoleId : null,
+    )
+    if (assignmentError) return errorResponse(assignmentError, 'FORBIDDEN', 403)
     const resolvedCustomRoleId = role === 'PRO' ? (customRoleId ?? null) : null
 
     const existingUser = await db.query.users.findFirst({

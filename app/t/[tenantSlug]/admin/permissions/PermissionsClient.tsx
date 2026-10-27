@@ -64,6 +64,7 @@ const PERMISSION_GROUPS = [
     color: 'text-sky-500 bg-sky-500/10 border-sky-500/20',
     permissions: [
       'leads.view',
+      'leads.view_all',
       'leads.create',
       'leads.edit',
       'leads.delete',
@@ -87,7 +88,6 @@ const PERMISSION_GROUPS = [
     icon: Users,
     color: 'text-purple-500 bg-purple-500/10 border-purple-500/20',
     permissions: [
-      'kanban.view',
       'analytics.view',
       'reports.view_all',
       'pipelines.manage',

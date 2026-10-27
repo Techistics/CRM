@@ -1,13 +1,18 @@
 import { db } from '@/db'
 import { users, leads, tenantMembers, invitations, customRoles } from '@/db/schema'
 import { eq, count, and, isNull } from 'drizzle-orm'
+import { redirect } from 'next/navigation'
 
-import { requirePermissionSession } from '@/lib/tenant-server'
-import { hasPermission } from '@/lib/permissions'
+import { requireTenantSession } from '@/lib/tenant-server'
+import { can, forbiddenRedirect, sanitizePermissions } from '@/lib/authz'
+import { validateCustomRolePermissionsForActor } from '@/lib/team-access'
 import TeamManagementClient from '../../admin/team/TeamManagementClient'
 
 export default async function ProTeamPage() {
-  const ctx = await requirePermissionSession('teams.manage')
+  const ctx = await requireTenantSession()
+  if (!can(ctx.permissions, 'teams.manage') && !can(ctx.permissions, 'teams.manage_access')) {
+    redirect(forbiddenRedirect(ctx.tenant.slug, ctx.role))
+  }
   const { tenant, permissions } = ctx
   const tScope = eq(leads.tenantId, tenant.id)
 
@@ -50,9 +55,16 @@ export default async function ProTeamPage() {
     .where(and(eq(invitations.tenantId, tenant.id), eq(invitations.status, 'PENDING')))
 
   const roles = await db
-    .select({ id: customRoles.id, name: customRoles.name })
+    .select({ id: customRoles.id, name: customRoles.name, permissions: customRoles.permissions })
     .from(customRoles)
     .where(eq(customRoles.tenantId, tenant.id))
+  const assignableRoles = roles
+    .filter((role) => !validateCustomRolePermissionsForActor(
+      ctx.role,
+      permissions,
+      sanitizePermissions(role.permissions),
+    ))
+    .map(({ id, name }) => ({ id, name }))
 
   const inviteData = pendingInvites.map((invite) => ({
     id: invite.id,
@@ -86,9 +98,10 @@ export default async function ProTeamPage() {
         activeLeads: Number(m.activeLeads),
         paidLeads: Number(m.paidLeads),
       }))}
-      customRoles={roles}
+      customRoles={assignableRoles}
       isAdmin={false}
-      canManageAccess={hasPermission(permissions, 'teams.manage_access')}
+      canManageAccess={can(permissions, 'teams.manage_access')}
+      canManageTeam={can(permissions, 'teams.manage')}
     />
   )
 }

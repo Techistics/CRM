@@ -107,6 +107,48 @@ export async function requireTenantAdminApi(): Promise<
   return m
 }
 
+export async function requireTeamManagementApi(): Promise<
+  | { ok: true } & TenantMemberContext
+  | { ok: false; response: NextResponse }
+> {
+  const m = await requireTenantMemberApi()
+  if (!m.ok) return m
+
+  if (
+    m.role !== 'ADMIN' &&
+    !can(m.permissions, 'teams.manage') &&
+    !can(m.permissions, 'teams.manage_access')
+  ) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: 'You need team management or access management permission' },
+        { status: 403 },
+      ),
+    }
+  }
+  return m
+}
+
+export async function requireRoleManagerApi(): Promise<
+  | { ok: true } & TenantMemberContext
+  | { ok: false; response: NextResponse }
+> {
+  const m = await requireTenantMemberApi()
+  if (!m.ok) return m
+
+  if (m.role !== 'ADMIN' && !can(m.permissions, 'teams.manage_access')) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: 'Only admins or members with Manage Access permission can manage roles' },
+        { status: 403 },
+      ),
+    }
+  }
+  return m
+}
+
 export async function requirePermissionApi(
   permission: Permission,
 ): Promise<

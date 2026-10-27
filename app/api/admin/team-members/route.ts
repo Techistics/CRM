@@ -2,12 +2,16 @@ import { NextRequest } from 'next/server'
 import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { users, tenantMembers, invitations, auditLogs, leads } from '@/db/schema'
-import { requirePermissionApi, requireTenantMemberApi } from '@/lib/tenant-api'
+import { requireTeamManagementApi, requireTenantMemberApi } from '@/lib/tenant-api'
 import { sendInviteEmail } from '@/lib/mail'
 import crypto from 'crypto'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { teamInviteSchema, teamResendSchema } from '@/lib/validators/auth'
 import { validateCustomRoleId } from '@/lib/validate-custom-role'
+import {
+  validateCustomRoleAssignmentForActor,
+  validateTeamInviteForActor,
+} from '@/lib/team-access'
 import { createInvitationAndSendEmail } from '@/lib/invitations/service';
 import { getRootOrigin } from '@/lib/public-url';
 
@@ -65,7 +69,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   return withApiErrorHandling(async () => {
-    const ctx = await requirePermissionApi('teams.manage')
+    const ctx = await requireTeamManagementApi()
     if (!ctx.ok) return ctx.response
 
     // Rate Limiting Logic
@@ -95,8 +99,17 @@ export async function POST(req: NextRequest) {
 
     const { email: rawEmail, role, customRoleId } = parsed.data
     const email = rawEmail.toLowerCase().trim()
+    const inviteError = validateTeamInviteForActor(ctx.role, role, customRoleId, ctx.permissions)
+    if (inviteError) return errorResponse(inviteError, 'FORBIDDEN', 403)
     const roleError = await validateCustomRoleId(ctx.tenant.id, role, customRoleId)
     if (roleError) return errorResponse(roleError, 'INVALID_CUSTOM_ROLE', 400)
+    const assignmentError = await validateCustomRoleAssignmentForActor(
+      ctx.tenant.id,
+      ctx.role,
+      ctx.permissions,
+      role === 'PRO' ? customRoleId : null,
+    )
+    if (assignmentError) return errorResponse(assignmentError, 'FORBIDDEN', 403)
     const resolvedCustomRoleId = role === 'PRO' ? (customRoleId ?? null) : null
 
     // 1. Find user by email (case-insensitive)
@@ -192,7 +205,7 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   return withApiErrorHandling(async () => {
-    const ctx = await requirePermissionApi('teams.manage')
+    const ctx = await requireTeamManagementApi()
     if (!ctx.ok) return ctx.response
 
     let body: unknown
@@ -225,6 +238,10 @@ export async function PATCH(req: NextRequest) {
       return errorResponse('No pending invitation found for this email', 'NOT_FOUND', 404)
     }
 
+    const nextRole = role ?? invite.role
+    const inviteError = validateTeamInviteForActor(ctx.role, nextRole, null, ctx.permissions)
+    if (inviteError) return errorResponse(inviteError, 'FORBIDDEN', 403)
+
     // Regenerate token and update expiry
     const newToken = crypto.randomBytes(32).toString('hex')
     const newExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000)
@@ -234,7 +251,7 @@ export async function PATCH(req: NextRequest) {
         token: newToken,
         expiresAt: newExpiresAt,
         invitedBy: ctx.dbUserId,
-        role: role ?? invite.role, // Update role if provided, otherwise keep existing
+        role: nextRole, // Update role if provided, otherwise keep existing
         status: 'PENDING' // Reset status to PENDING in case it was EXPIRED
       })
       .where(eq(invitations.id, invite.id))

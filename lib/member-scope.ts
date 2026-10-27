@@ -24,13 +24,18 @@ export function toMemberScope(input: {
 
 /** 
  * ADMIN → always tenant-wide.
- * PRO with leads.assign (can reassign leads = should see all) or reports.view_all → tenant-wide.
+ * PRO with leads.view_all, leads.assign (can reassign leads = should see all),
+ * or reports.view_all → tenant-wide.
  * Plain PRO counselor → only their own assigned leads.
  */
 export function hasElevatedScope(scope: MemberScope): boolean {
   if (scope.role === 'ADMIN') return true
   const perms = scope.permissions ?? []
-  return perms.includes('leads.assign') || perms.includes('reports.view_all')
+  return (
+    perms.includes('leads.view_all') ||
+    perms.includes('leads.assign') ||
+    perms.includes('reports.view_all')
+  )
 }
 
 export function canViewAllAnalytics(scope: MemberScope): boolean {

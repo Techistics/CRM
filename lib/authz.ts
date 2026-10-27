@@ -75,6 +75,7 @@ export const ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/pro/import': 'import.leads',
   '/pro/templates': 'templates.manage',
   '/pro/team': 'teams.manage',
+  '/pro/permissions': 'teams.manage_access',
 }
 
 export function permissionForRoute(routeSuffix: string): Permission | null {

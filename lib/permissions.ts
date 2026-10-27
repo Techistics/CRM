@@ -1,5 +1,6 @@
 export const ALL_PERMISSIONS = [
   'leads.view',
+  'leads.view_all',
   'leads.create',
   'leads.edit',
   'leads.delete',
@@ -21,7 +22,8 @@ export const ALL_PERMISSIONS = [
 export type Permission = typeof ALL_PERMISSIONS[number]
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
-  'leads.view': 'View Leads',
+  'leads.view': 'View My Leads',
+  'leads.view_all': 'View All Leads',
   'leads.create': 'Create Leads',
   'leads.edit': 'Edit Leads',
   'leads.delete': 'Delete Leads',

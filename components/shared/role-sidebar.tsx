@@ -81,7 +81,7 @@ export function RoleSidebar({
     { name: 'Analytics',         href: PRO_ROUTES.analytics,         icon: LineChart,       permission: 'analytics.view',  matchPrefix: true },
     { name: 'Finance',           href: PRO_ROUTES.finance,           icon: DollarSign,      permission: 'finance.view',    matchPrefix: true },
     { name: 'Templates',         href: PRO_ROUTES.templates,         icon: Sparkles,        permission: 'templates.manage', matchPrefix: true },
-    { name: 'Team',              href: PRO_ROUTES.team,              icon: Users,           permission: 'teams.manage',    matchPrefix: true, badgeKey: 'team' },
+    { name: 'Team',              href: PRO_ROUTES.team,              icon: Users,           matchPrefix: true, badgeKey: 'team' },
     { name: 'Diary',             href: PRO_ROUTES.diary,             icon: BookOpen,        matchPrefix: true },
   ]
 
@@ -94,9 +94,16 @@ export function RoleSidebar({
   const proSettings: NavItem[] = [
     { name: 'Settings',     href: PRO_ROUTES.settings,       icon: SettingsIcon },
     { name: 'Pipeline',     href: '/pro/settings/pipeline',  icon: Layers,       permission: 'pipelines.manage' },
+    { name: 'Permissions',  href: PRO_ROUTES.permissions,    icon: KeyRound,     permission: 'teams.manage_access' },
   ]
 
-  const allNav = isAdmin ? adminNav : proNav
+  const allNav = isAdmin
+    ? adminNav
+    : proNav.filter((item) => (
+      item.href !== PRO_ROUTES.team ||
+      permissions.includes('teams.manage') ||
+      permissions.includes('teams.manage_access')
+    ))
   const allSettings = isAdmin ? adminSettings : proSettings
   const mainNav = isAdmin ? allNav : filterNavByPermissions(allNav, permissions)
   const settingsLinks = isAdmin ? allSettings : filterNavByPermissions(allSettings, permissions)

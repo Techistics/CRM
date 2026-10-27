@@ -12,7 +12,7 @@ export const PRO_ROUTES = {
   import: '/pro/import',
   templates: '/pro/templates',
   team: '/pro/team',
+  permissions: '/pro/permissions',
   diary: '/pro/diary',
   finance: '/pro/finance',
 } as const
-

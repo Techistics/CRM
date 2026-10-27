@@ -3,11 +3,12 @@ import { NextRequest } from 'next/server'
 
 import { db } from '@/db'
 import { tenantMembers, auditLogs, users, leads, customRoles } from '@/db/schema'
-import { requirePermissionApi, requireTenantMemberApi } from '@/lib/tenant-api'
+import { requirePermissionApi, requireTeamManagementApi, requireTenantMemberApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { roleUpdateSchema } from '@/lib/validators/auth'
 import { validateCustomRoleId } from '@/lib/validate-custom-role'
 import {
+  validateCustomRoleAssignmentForActor,
   validateTeamMemberRemoveForActor,
   validateTeamMemberUpdateForActor,
 } from '@/lib/team-access'
@@ -53,7 +54,7 @@ export async function PATCH(
   { params }: { params: Promise<{ userId: string }> },
 ) {
   return withApiErrorHandling(async () => {
-    const ctx = await requirePermissionApi('teams.manage')
+    const ctx = await requireTeamManagementApi()
     if (!ctx.ok) return ctx.response
 
     const { userId } = await params
@@ -101,12 +102,22 @@ export async function PATCH(
       return errorResponse('Member not found', 'NOT_FOUND', 404)
     }
 
+    const assignmentError = await validateCustomRoleAssignmentForActor(
+      ctx.tenant.id,
+      ctx.role,
+      ctx.permissions,
+      resolvedCustomRoleId,
+    )
+    if (assignmentError) return errorResponse(assignmentError, 'FORBIDDEN', 403)
+
     const updateError = validateTeamMemberUpdateForActor(
       ctx.role,
       member.currentRole as TeamRole,
       role as TeamRole,
       resolvedCustomRoleId,
       member.customRoleId,
+      ctx.permissions,
+      userId === ctx.dbUserId,
     )
     if (updateError) return errorResponse(updateError, 'FORBIDDEN', 403)
 
@@ -122,7 +133,7 @@ export async function PATCH(
         customRoleId: resolvedCustomRoleId,
       })
       .where(and(eq(tenantMembers.tenantId, ctx.tenant.id), eq(tenantMembers.userId, userId)))
-      if (email) {
+      if (email && (ctx.role === 'ADMIN' || ctx.permissions.includes('teams.manage'))) {
         await db.update(users).set({ email }).where(eq(users.id, userId))
       }
 

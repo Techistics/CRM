@@ -696,6 +696,7 @@ export const metaConnections = pgTable(
     pageId: text('page_id').notNull().unique(),
     pageName: text('page_name'),
     pageToken: text('page_token').notNull(),
+    adAccountId: text('ad_account_id'),
     defaultAssigneeId: uuid('default_assignee_id').references(() => users.id, {
       onDelete: 'set null',
     }),
@@ -740,6 +741,28 @@ export const metaFormMappings = pgTable(
   },
   (t) => ({
     idx_connection: index('idx_meta_form_mappings_connection').on(t.connectionId),
+  }),
+)
+
+/** Meta ad campaigns available for assignment within a connection. */
+export const metaCampaigns = pgTable(
+  'meta_campaigns',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    connectionId: uuid('connection_id')
+      .references(() => metaConnections.id, { onDelete: 'cascade' })
+      .notNull(),
+    campaignId: text('campaign_id').notNull().unique(),
+    campaignName: text('campaign_name').notNull(),
+    status: text('status').notNull(),
+    assigneeId: uuid('assignee_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    idx_connection: index('idx_meta_campaigns_connection').on(t.connectionId),
   }),
 )
 
@@ -799,6 +822,17 @@ export const metaFormMappingRelations = relations(metaFormMappings, ({ one }) =>
   }),
   assignee: one(users, {
     fields: [metaFormMappings.assigneeId],
+    references: [users.id],
+  }),
+}))
+
+export const metaCampaignRelations = relations(metaCampaigns, ({ one }) => ({
+  connection: one(metaConnections, {
+    fields: [metaCampaigns.connectionId],
+    references: [metaConnections.id],
+  }),
+  assignee: one(users, {
+    fields: [metaCampaigns.assigneeId],
     references: [users.id],
   }),
 }))

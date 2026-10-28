@@ -30,6 +30,18 @@ export interface MetaLeadgenResponse {
   field_data: MetaFieldData[]
 }
 
+export interface MetaCampaignResponse {
+  id: string
+  name: string
+  status: string
+}
+
+export interface MetaAdAccountResponse {
+  id: string
+  accountId: string
+  name: string
+}
+
 /** Shape of the error body Meta returns on failure. */
 interface MetaErrorBody {
   error?: {
@@ -249,3 +261,227 @@ async function fetchEntityName(
   return null
 }
 
+/**
+ * Fetches the campaign associated with a Meta ad.
+ * Returns null on any API, network, timeout, or response parsing failure.
+ */
+export async function fetchAdCampaign(
+  adId: string,
+  pageToken: string,
+): Promise<MetaCampaignResponse | null> {
+  const url = new URL(
+    `https://graph.facebook.com/${GRAPH_VERSION}/${encodeURIComponent(adId)}`,
+  )
+  url.searchParams.set('fields', 'campaign{id,name,status}')
+  const result = await fetchGraphJson<{ campaign?: unknown }>(url, pageToken)
+  if (!result || !result.campaign || typeof result.campaign !== 'object') return null
+
+  const campaign = result.campaign as Record<string, unknown>
+  if (
+    typeof campaign.id !== 'string' ||
+    typeof campaign.name !== 'string' ||
+    typeof campaign.status !== 'string'
+  ) {
+    return null
+  }
+
+  return {
+    id: campaign.id,
+    name: campaign.name,
+    status: campaign.status,
+  }
+}
+
+/**
+ * Fetches every campaign in a Meta ad account, following Graph API paging.
+ * Returns an empty array on any API, network, timeout, or response parsing failure.
+ */
+export async function fetchAdAccountCampaigns(
+  adAccountId: string,
+  pageToken: string,
+): Promise<MetaCampaignResponse[]> {
+  const campaigns = await fetchAdAccountCampaignStatuses(adAccountId, pageToken)
+  return campaigns?.filter((campaign) => campaign.status.toUpperCase() === 'ACTIVE') ?? []
+}
+
+/**
+ * Fetches campaign status values for synchronization. Returns null on failure
+ * so callers can distinguish an unavailable response from an empty account.
+ */
+export async function fetchAdAccountCampaignStatuses(
+  adAccountId: string,
+  pageToken: string,
+): Promise<MetaCampaignResponse[] | null> {
+  const url = new URL(
+    `https://graph.facebook.com/${GRAPH_VERSION}/act_${encodeURIComponent(adAccountId)}/campaigns`,
+  )
+  url.searchParams.set('fields', 'id,name,status')
+  url.searchParams.set('limit', '100')
+
+  const campaigns: MetaCampaignResponse[] = []
+  const visited = new Set<string>()
+  let nextUrl: URL | null = url
+
+  while (nextUrl) {
+    if (
+      nextUrl.protocol !== 'https:' ||
+      nextUrl.hostname !== 'graph.facebook.com' ||
+      visited.has(nextUrl.toString())
+    ) {
+      return null
+    }
+    visited.add(nextUrl.toString())
+
+    const result: { data?: unknown; paging?: { next?: unknown } } | null =
+      await fetchGraphJson<{ data?: unknown; paging?: { next?: unknown } }>(
+        nextUrl,
+        pageToken,
+      )
+    if (!result || !Array.isArray(result.data)) return null
+
+    for (const value of result.data) {
+      if (!value || typeof value !== 'object') return null
+      const campaign = value as Record<string, unknown>
+      if (
+        typeof campaign.id !== 'string' ||
+        typeof campaign.name !== 'string' ||
+        typeof campaign.status !== 'string'
+      ) {
+        return null
+      }
+      campaigns.push({
+        id: campaign.id,
+        name: campaign.name,
+        status: campaign.status,
+      })
+    }
+
+    const next: unknown = result.paging?.next
+    if (next === undefined) {
+      nextUrl = null
+    } else if (typeof next === 'string') {
+      try {
+        nextUrl = new URL(next, nextUrl)
+      } catch {
+        return null
+      }
+    } else {
+      return null
+    }
+  }
+
+  return campaigns
+}
+
+/**
+ * Lists ad accounts available to the page token, following Graph API paging.
+ * Returns an empty array on any API, network, timeout, or response parsing failure.
+ */
+export async function fetchAdAccounts(
+  pageToken: string,
+): Promise<MetaAdAccountResponse[]> {
+  const url = new URL(`https://graph.facebook.com/${GRAPH_VERSION}/me/adaccounts`)
+  url.searchParams.set('fields', 'id,account_id,name')
+  url.searchParams.set('limit', '50')
+
+  const accounts: MetaAdAccountResponse[] = []
+  const visited = new Set<string>()
+  let nextUrl: URL | null = url
+
+  while (nextUrl) {
+    if (
+      nextUrl.protocol !== 'https:' ||
+      nextUrl.hostname !== 'graph.facebook.com' ||
+      visited.has(nextUrl.toString())
+    ) {
+      return []
+    }
+    visited.add(nextUrl.toString())
+
+    const result = await fetchGraphJson<{
+      data?: unknown
+      paging?: { next?: unknown }
+    }>(nextUrl, pageToken)
+    if (!result || !Array.isArray(result.data)) return []
+
+    for (const value of result.data) {
+      if (!value || typeof value !== 'object') return []
+      const account = value as Record<string, unknown>
+      if (
+        typeof account.id !== 'string' ||
+        typeof account.account_id !== 'string' ||
+        typeof account.name !== 'string'
+      ) {
+        return []
+      }
+      accounts.push({
+        id: account.id,
+        accountId: account.account_id,
+        name: account.name,
+      })
+    }
+
+    const next: unknown = result.paging?.next
+    if (next === undefined) {
+      nextUrl = null
+    } else if (typeof next === 'string') {
+      try {
+        nextUrl = new URL(next, nextUrl)
+      } catch {
+        return []
+      }
+    } else {
+      return []
+    }
+  }
+
+  return accounts
+}
+
+async function fetchGraphJson<T>(url: URL, pageToken: string): Promise<T | null> {
+  const { signal, clear } = makeController()
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${pageToken}` },
+      signal,
+    })
+  } catch {
+    clear()
+    return null
+  }
+  clear()
+
+  if (response.ok) {
+    try {
+      return (await response.json()) as T
+    } catch {
+      return null
+    }
+  }
+
+  if (response.status < 400 || response.status >= 500) return null
+
+  const fallbackUrl = new URL(url)
+  fallbackUrl.searchParams.set('access_token', pageToken)
+  const { signal: fallbackSignal, clear: clearFallback } = makeController()
+  let fallbackResponse: Response
+  try {
+    fallbackResponse = await fetch(fallbackUrl, {
+      method: 'GET',
+      signal: fallbackSignal,
+    })
+  } catch {
+    clearFallback()
+    return null
+  }
+  clearFallback()
+
+  if (!fallbackResponse.ok) return null
+  try {
+    return (await fallbackResponse.json()) as T
+  } catch {
+    return null
+  }
+}

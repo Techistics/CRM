@@ -12,6 +12,7 @@ import {
   tenantMembers,
   metaConnections,
   metaFormMappings,
+  metaCampaigns,
   metaWebhookEvents,
 } from '@/db/schema'
 
@@ -34,4 +35,5 @@ export type RoleRequest = typeof roleRequests.$inferSelect
 // ─── Meta Lead Ads ────────────────────────────────────────────────────────────
 export type MetaConnection = typeof metaConnections.$inferSelect
 export type MetaFormMapping = typeof metaFormMappings.$inferSelect
+export type MetaCampaign = typeof metaCampaigns.$inferSelect
 export type MetaWebhookEvent = typeof metaWebhookEvents.$inferSelect

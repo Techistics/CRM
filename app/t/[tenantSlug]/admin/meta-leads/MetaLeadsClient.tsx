@@ -38,10 +38,17 @@ type Member = {
   role: 'ADMIN' | 'PRO'
 }
 
+type MetaAdAccount = {
+  id: string
+  accountId: string
+  name: string
+}
+
 type CampaignAssignment = {
   id: string
-  formId: string
-  campaignName: string | null
+  campaignId: string
+  campaignName: string
+  status: string
   assigneeId: string | null
   assigneeName: string | null
   leadCount: number
@@ -128,6 +135,12 @@ export default function MetaLeadsClient({
   const [campaignAssignments, setCampaignAssignments] = useState<CampaignAssignment[]>([])
   const [campaignsLoading, setCampaignsLoading] = useState(true)
   const [campaignsError, setCampaignsError] = useState<string | null>(null)
+  const [adAccounts, setAdAccounts] = useState<MetaAdAccount[]>([])
+  const [adAccountsLoading, setAdAccountsLoading] = useState(true)
+  const [adAccountsError, setAdAccountsError] = useState<string | null>(null)
+  const [adAccountId, setAdAccountId] = useState('')
+  const [campaignSyncing, setCampaignSyncing] = useState(false)
+  const [campaignSyncMessage, setCampaignSyncMessage] = useState<string | null>(null)
   const [members, setMembers] = useState<Member[]>([])
   const [membersError, setMembersError] = useState<string | null>(null)
   const [savingCampaignIds, setSavingCampaignIds] = useState<Set<string>>(new Set())
@@ -237,6 +250,55 @@ export default function MetaLeadsClient({
     void fetchCampaignAssignments()
   }, [fetchCampaignAssignments])
 
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchAdAccounts = async () => {
+      setAdAccountsLoading(true)
+      setAdAccountsError(null)
+      try {
+        const response = await fetch('/api/meta-leads/ad-accounts', { cache: 'no-store' })
+        const body: unknown = await response.json()
+        if (!response.ok) {
+          throw new Error(getErrorMessage(body, 'Failed to load Meta ad accounts'))
+        }
+        const data = getApiData<{
+          accounts: MetaAdAccount[]
+          adAccountId: string | null
+        }>(body)
+        if (!data || !Array.isArray(data.accounts)) {
+          throw new Error('The Meta ad accounts response was invalid')
+        }
+        if (cancelled) return
+
+        setAdAccounts(data.accounts)
+        const savedAccount = data.accounts.find(
+          (account) => account.accountId === data.adAccountId,
+        )
+        setAdAccountId(
+          savedAccount?.accountId ??
+            (data.accounts.length === 1
+              ? data.accounts[0].accountId
+              : data.accounts.length === 0
+                ? data.adAccountId ?? ''
+                : ''),
+        )
+      } catch (error) {
+        if (cancelled) return
+        setAdAccountsError(
+          error instanceof Error ? error.message : 'Failed to load Meta ad accounts',
+        )
+      } finally {
+        if (!cancelled) setAdAccountsLoading(false)
+      }
+    }
+
+    void fetchAdAccounts()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const saveCampaignAssignment = async (campaign: CampaignAssignment) => {
     setSavingCampaignIds((current) => new Set(current).add(campaign.id))
     const result = await apiCall(async () => {
@@ -263,6 +325,30 @@ export default function MetaLeadsClient({
       next.delete(campaign.id)
       return next
     })
+  }
+
+  const syncCampaigns = async () => {
+    setCampaignSyncing(true)
+    setCampaignSyncMessage(null)
+
+    const result = await apiCall(async () => {
+      const response = await fetch('/api/meta-leads/campaigns/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adAccountId: adAccountId || undefined }),
+      })
+      const body: unknown = await response.json()
+      if (!response.ok) throw new Error(getErrorMessage(body, 'Failed to sync campaigns from Meta'))
+      const data = getApiData<{ addedCount: number }>(body)
+      if (!data) throw new Error('The campaign sync response was invalid')
+      await fetchCampaignAssignments()
+      return data.addedCount
+    }, { successMsg: 'Campaigns synced from Meta', errorMsg: 'Failed to sync campaigns from Meta' })
+
+    if (typeof result === 'number') {
+      setCampaignSyncMessage(`Added ${result} ${result === 1 ? 'campaign' : 'campaigns'} from Meta.`)
+    }
+    setCampaignSyncing(false)
   }
 
   const assignOne = async (leadId: string, assignedTo: string) => {
@@ -362,6 +448,51 @@ export default function MetaLeadsClient({
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Leads from campaigns with no counsellor stay Unassigned for an admin to assign.
           </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {adAccountsLoading ? (
+              <div className="flex min-h-10 flex-1 items-center gap-2 text-sm text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading ad accounts…
+              </div>
+            ) : adAccounts.length > 0 ? (
+              <Select value={adAccountId || 'none'} onValueChange={setAdAccountId}>
+                <SelectTrigger className="flex-1" aria-label="Meta ad account">
+                  <SelectValue placeholder="Select ad account" />
+                </SelectTrigger>
+                <SelectContent>
+                  {adAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.accountId}>
+                      {account.name} (act_{account.accountId})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                value={adAccountId}
+                onChange={(event) => setAdAccountId(event.target.value)}
+                inputMode="numeric"
+                maxLength={30}
+                placeholder="Meta ad account ID (digits only)"
+                aria-label="Meta ad account ID"
+              />
+            )}
+            <Button
+              variant="outline"
+              onClick={() => void syncCampaigns()}
+              disabled={
+                adAccountsLoading ||
+                campaignSyncing ||
+                !/^\d+$/.test(adAccountId)
+              }
+            >
+              {campaignSyncing
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <RefreshCw className="h-4 w-4" />}
+              Sync campaigns from Meta
+            </Button>
+          </div>
+          {adAccountsError && <p className="text-sm text-red-600 dark:text-red-400">{adAccountsError}</p>}
+          {campaignSyncMessage && <p className="text-sm text-emerald-700 dark:text-emerald-400">{campaignSyncMessage}</p>}
           {campaignsLoading ? (
             <div className="flex items-center gap-2 py-2 text-sm text-slate-500">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading campaigns…
@@ -373,7 +504,7 @@ export default function MetaLeadsClient({
             </div>
           ) : campaignAssignments.length === 0 ? (
             <p className="rounded-lg border border-slate-200 p-4 text-sm text-slate-500 dark:border-slate-700">
-              No Meta form campaigns are available yet.
+              No Meta campaigns are available yet. Sync campaigns from Meta to configure assignments.
             </p>
           ) : (
             <div className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -384,10 +515,12 @@ export default function MetaLeadsClient({
                   <div key={campaign.id} className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center">
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
-                        {campaign.campaignName || `Form ${campaign.formId}`}
+                        {campaign.campaignName}
                       </p>
-                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        {campaign.leadCount} {campaign.leadCount === 1 ? 'lead' : 'leads'}
+                      <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-500 dark:text-slate-400">
+                        <span>{campaign.status}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{campaign.leadCount} {campaign.leadCount === 1 ? 'lead' : 'leads'}</span>
                       </p>
                     </div>
                     <Select
@@ -399,7 +532,7 @@ export default function MetaLeadsClient({
                       ))}
                       disabled={saving || Boolean(membersError)}
                     >
-                      <SelectTrigger className="w-full sm:w-64" aria-label={`Counsellor for ${campaign.campaignName || campaign.formId}`}>
+                      <SelectTrigger className="w-full sm:w-64" aria-label={`Counsellor for ${campaign.campaignName}`}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

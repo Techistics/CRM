@@ -3,7 +3,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { db } from '@/db'
-import { metaConnections, metaFormMappings, tenantMembers } from '@/db/schema'
+import { metaCampaigns, metaConnections, tenantMembers } from '@/db/schema'
 import { errorResponse, successResponse, withApiErrorHandling } from '@/lib/api-response'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
 
@@ -32,24 +32,24 @@ export async function PATCH(
     }
 
     const { id } = await params
-    const [mapping] = await db
+    const [campaign] = await db
       .select({
-        id: metaFormMappings.id,
-        connectionId: metaFormMappings.connectionId,
+        id: metaCampaigns.id,
+        connectionId: metaCampaigns.connectionId,
       })
-      .from(metaFormMappings)
+      .from(metaCampaigns)
       .innerJoin(
         metaConnections,
         and(
-          eq(metaFormMappings.connectionId, metaConnections.id),
+          eq(metaCampaigns.connectionId, metaConnections.id),
           eq(metaConnections.tenantId, ctx.tenant.id),
         ),
       )
-      .where(eq(metaFormMappings.id, id))
+      .where(eq(metaCampaigns.id, id))
       .limit(1)
 
-    if (!mapping) {
-      return errorResponse('Campaign mapping not found', 'NOT_FOUND', 404)
+    if (!campaign) {
+      return errorResponse('Campaign not found', 'NOT_FOUND', 404)
     }
 
     if (parsed.data.assigneeId) {
@@ -71,12 +71,12 @@ export async function PATCH(
     }
 
     await db
-      .update(metaFormMappings)
+      .update(metaCampaigns)
       .set({ assigneeId: parsed.data.assigneeId })
       .where(
         and(
-          eq(metaFormMappings.id, mapping.id),
-          eq(metaFormMappings.connectionId, mapping.connectionId),
+          eq(metaCampaigns.id, campaign.id),
+          eq(metaCampaigns.connectionId, campaign.connectionId),
         ),
       )
 

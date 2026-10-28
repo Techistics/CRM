@@ -1,7 +1,7 @@
 import { and, asc, count, eq, isNull, sql } from 'drizzle-orm'
 
 import { db } from '@/db'
-import { leads, metaConnections, metaFormMappings, users } from '@/db/schema'
+import { leads, metaCampaigns, metaConnections, users } from '@/db/schema'
 import { successResponse, withApiErrorHandling } from '@/lib/api-response'
 import { requireTenantAdminApi } from '@/lib/tenant-api'
 
@@ -12,33 +12,35 @@ export async function GET() {
 
     const campaigns = await db
       .select({
-        id: metaFormMappings.id,
-        formId: metaFormMappings.formId,
-        campaignName: sql<string | null>`coalesce(${metaFormMappings.campaignName}, ${metaFormMappings.formName})`,
-        assigneeId: metaFormMappings.assigneeId,
+        id: metaCampaigns.id,
+        campaignId: metaCampaigns.campaignId,
+        campaignName: metaCampaigns.campaignName,
+        status: metaCampaigns.status,
+        assigneeId: metaCampaigns.assigneeId,
         assigneeName: users.name,
         leadCount: count(leads.id),
       })
-      .from(metaFormMappings)
+      .from(metaCampaigns)
       .innerJoin(
         metaConnections,
         and(
-          eq(metaFormMappings.connectionId, metaConnections.id),
+          eq(metaCampaigns.connectionId, metaConnections.id),
           eq(metaConnections.tenantId, ctx.tenant.id),
+          sql`upper(${metaCampaigns.status}) = 'ACTIVE'`,
         ),
       )
-      .leftJoin(users, eq(metaFormMappings.assigneeId, users.id))
+      .leftJoin(users, eq(metaCampaigns.assigneeId, users.id))
       .leftJoin(
         leads,
         and(
           eq(leads.tenantId, ctx.tenant.id),
           eq(leads.source, 'meta_lead'),
           isNull(leads.deletedAt),
-          sql`${leads.rawData}->'meta'->>'form_id' = ${metaFormMappings.formId}`,
+          sql`${leads.rawData}->>'campaign_id' = ${metaCampaigns.campaignId}`,
         ),
       )
-      .groupBy(metaFormMappings.id, users.name)
-      .orderBy(asc(metaFormMappings.campaignName), asc(metaFormMappings.formId))
+      .groupBy(metaCampaigns.id, users.name)
+      .orderBy(asc(metaCampaigns.campaignName), asc(metaCampaigns.campaignId))
 
     return successResponse({ campaigns })
   })

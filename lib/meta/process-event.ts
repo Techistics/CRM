@@ -20,6 +20,7 @@ import { and, eq, isNull, lt, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import {
   leads,
+  metaCampaigns,
   metaConnections,
   metaFormMappings,
   metaWebhookEvents,
@@ -30,7 +31,7 @@ import {
 } from '@/db/schema'
 import { sendLeadAssignedEmail } from '@/lib/mail'
 import { createLeadFromMeta } from './create-lead'
-import { fetchAdName, fetchFormName, fetchLead } from './graph'
+import { fetchAdCampaign, fetchFormName, fetchLead } from './graph'
 import { DEFAULT_FIELD_MAP, mapMetaFields } from './map-fields'
 import type { FieldMap } from './map-fields'
 
@@ -77,6 +78,7 @@ export async function processMetaEvent(eventId: string): Promise<void> {
     tenantId: string | null
     status: string
     retryCount: number
+    payload: unknown
   } | undefined
 
   try {
@@ -89,6 +91,7 @@ export async function processMetaEvent(eventId: string): Promise<void> {
         tenantId: metaWebhookEvents.tenantId,
         status: metaWebhookEvents.status,
         retryCount: metaWebhookEvents.retryCount,
+        payload: metaWebhookEvents.payload,
       })
       .from(metaWebhookEvents)
       .where(eq(metaWebhookEvents.id, eventId))
@@ -130,7 +133,7 @@ export async function processMetaEvent(eventId: string): Promise<void> {
 
     // ── 3. Load meta_form_mapping (optional) ─────────────────────────────────
     // Priority for fieldMap: form field_map > connection default_field_map > DEFAULT_FIELD_MAP
-    // Priority for campaignName: mapping.campaign_name > form name [| ad name]
+    // Priority for campaignName: Meta campaign name > mapping campaign name > form name
     let campaignName: string | null = null
     let mappingAssigneeId: string | null = null
     let fieldMap: FieldMap = (() => {
@@ -199,37 +202,89 @@ export async function processMetaEvent(eventId: string): Promise<void> {
     const fetchedLead = await fetchLead(event.leadgenId, connection.pageToken)
     const { mapped, unmapped, guessed } = mapMetaFields(fetchedLead.field_data, fieldMap)
 
-    // Append ad name to campaign name if the payload carries an ad_id (non-fatal)
-    const adId = (fetchedLead as unknown as Record<string, unknown>).ad_id as string | undefined
-    if (adId && campaignName !== null) {
+    const eventPayload = event.payload
+    const adId =
+      eventPayload &&
+      typeof eventPayload === 'object' &&
+      !Array.isArray(eventPayload) &&
+      'ad_id' in eventPayload &&
+      typeof eventPayload.ad_id === 'string'
+        ? eventPayload.ad_id
+        : null
+    let campaignId: string | null = null
+    let adCampaignFound = false
+    let campaignAssigneeId: string | null = null
+
+    if (adId) {
+      let adCampaign = null
       try {
-        const adName = await fetchAdName(adId, connection.pageToken)
-        if (adName) {
-          campaignName = `${campaignName} | ${adName}`
-        }
+        adCampaign = await fetchAdCampaign(adId, connection.pageToken)
       } catch {
-        // non-fatal — continue without ad name
+        // Campaign lookup is non-fatal; use the configured form mapping instead.
       }
-    } else if (adId && campaignName === null) {
-      try {
-        const adName = await fetchAdName(adId, connection.pageToken)
-        if (adName) {
-          campaignName = adName
+
+      if (adCampaign) {
+        adCampaignFound = true
+        campaignId = adCampaign.id
+        campaignName = adCampaign.name
+
+        await db
+          .insert(metaCampaigns)
+          .values({
+            connectionId: connection.id,
+            campaignId: adCampaign.id,
+            campaignName: adCampaign.name,
+            status: adCampaign.status,
+          })
+          .onConflictDoNothing({ target: metaCampaigns.campaignId })
+
+        const [storedCampaign] = await db
+          .select({
+            id: metaCampaigns.id,
+            campaignName: metaCampaigns.campaignName,
+            status: metaCampaigns.status,
+            assigneeId: metaCampaigns.assigneeId,
+          })
+          .from(metaCampaigns)
+          .where(
+            and(
+              eq(metaCampaigns.connectionId, connection.id),
+              eq(metaCampaigns.campaignId, adCampaign.id),
+            ),
+          )
+          .limit(1)
+
+        if (storedCampaign) {
+          campaignAssigneeId = storedCampaign.assigneeId
+          if (
+            storedCampaign.campaignName !== adCampaign.name ||
+            storedCampaign.status !== adCampaign.status
+          ) {
+            await db
+              .update(metaCampaigns)
+              .set({
+                campaignName: adCampaign.name,
+                status: adCampaign.status,
+                updatedAt: new Date(),
+              })
+              .where(eq(metaCampaigns.id, storedCampaign.id))
+          }
         }
-      } catch {
-        // non-fatal
       }
     }
 
     // ── 5. createLeadFromMeta ─────────────────────────────────────────────────
-    const [activeAssignee] = mappingAssigneeId
+    const configuredAssigneeId = adCampaignFound
+      ? campaignAssigneeId
+      : mappingAssigneeId
+    const [activeAssignee] = configuredAssigneeId
       ? await db
           .select({ userId: tenantMembers.userId })
           .from(tenantMembers)
           .where(
             and(
               eq(tenantMembers.tenantId, connection.tenantId),
-              eq(tenantMembers.userId, mappingAssigneeId),
+              eq(tenantMembers.userId, configuredAssigneeId),
               isNull(tenantMembers.deletedAt),
             ),
           )
@@ -246,6 +301,7 @@ export async function processMetaEvent(eventId: string): Promise<void> {
         unmapped,
         guessed,
         campaign_name: campaignName,
+        campaign_id: campaignId,
       },
     })
 

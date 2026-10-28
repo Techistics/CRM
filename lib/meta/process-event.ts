@@ -116,8 +116,6 @@ export async function processMetaEvent(eventId: string): Promise<void> {
         id: metaConnections.id,
         tenantId: metaConnections.tenantId,
         pageToken: metaConnections.pageToken,
-        defaultAssigneeId: metaConnections.defaultAssigneeId,
-        autoAssign: metaConnections.autoAssign,
         defaultFieldMap: metaConnections.defaultFieldMap,
         status: metaConnections.status,
       })
@@ -134,6 +132,7 @@ export async function processMetaEvent(eventId: string): Promise<void> {
     // Priority for fieldMap: form field_map > connection default_field_map > DEFAULT_FIELD_MAP
     // Priority for campaignName: mapping.campaign_name > form name [| ad name]
     let campaignName: string | null = null
+    let mappingAssigneeId: string | null = null
     let fieldMap: FieldMap = (() => {
       const connMap = connection.defaultFieldMap as Record<string, string> | null
       return connMap && Object.keys(connMap).length > 0
@@ -147,9 +146,15 @@ export async function processMetaEvent(eventId: string): Promise<void> {
           campaignName: metaFormMappings.campaignName,
           formName: metaFormMappings.formName,
           fieldMap: metaFormMappings.fieldMap,
+          assigneeId: metaFormMappings.assigneeId,
         })
         .from(metaFormMappings)
-        .where(eq(metaFormMappings.formId, event.formId))
+        .where(
+          and(
+            eq(metaFormMappings.formId, event.formId),
+            eq(metaFormMappings.connectionId, connection.id),
+          ),
+        )
         .limit(1)
 
       if (mapping) {
@@ -158,6 +163,7 @@ export async function processMetaEvent(eventId: string): Promise<void> {
         if (storedMap && Object.keys(storedMap).length > 0) {
           fieldMap = storedMap as FieldMap
         }
+        mappingAssigneeId = mapping.assigneeId
         // Resolve campaign name: stored name wins; otherwise use form name
         const formDisplayName = mapping.formName ?? null
         campaignName = mapping.campaignName ?? formDisplayName
@@ -216,7 +222,20 @@ export async function processMetaEvent(eventId: string): Promise<void> {
     }
 
     // ── 5. createLeadFromMeta ─────────────────────────────────────────────────
-    const assignedTo = connection.autoAssign ? connection.defaultAssigneeId : null
+    const [activeAssignee] = mappingAssigneeId
+      ? await db
+          .select({ userId: tenantMembers.userId })
+          .from(tenantMembers)
+          .where(
+            and(
+              eq(tenantMembers.tenantId, connection.tenantId),
+              eq(tenantMembers.userId, mappingAssigneeId),
+              isNull(tenantMembers.deletedAt),
+            ),
+          )
+          .limit(1)
+      : []
+    const assignedTo = activeAssignee?.userId ?? null
     const result = await createLeadFromMeta({
       tenantId: connection.tenantId,
       assignedTo,

@@ -12,11 +12,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { PIPELINE_STAGES } from '@/constants/pipeline-stages'
 import { apiCall } from '@/lib/utils/api-handler'
 import { cn } from '@/lib/utils'
-import { toast } from 'sonner'
 
 type MetaLead = {
   id: string
@@ -40,12 +38,14 @@ type Member = {
   role: 'ADMIN' | 'PRO'
 }
 
-type Settings = {
-  connected: boolean
-  pageName: string | null
-  autoAssign: boolean
-  defaultAssigneeId: string | null
-  defaultAssigneeName: string | null
+type CampaignAssignment = {
+  id: string
+  formId: string
+  campaignName: string | null
+  assigneeId: string | null
+  assigneeName: string | null
+  leadCount: number
+  draftAssigneeId: string
 }
 
 type ListResult = {
@@ -125,14 +125,12 @@ export default function MetaLeadsClient({
   const [list, setList] = useState<ListResult | null>(null)
   const [listLoading, setListLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
-  const [settings, setSettings] = useState<Settings | null>(null)
-  const [settingsLoading, setSettingsLoading] = useState(true)
-  const [settingsError, setSettingsError] = useState<string | null>(null)
+  const [campaignAssignments, setCampaignAssignments] = useState<CampaignAssignment[]>([])
+  const [campaignsLoading, setCampaignsLoading] = useState(true)
+  const [campaignsError, setCampaignsError] = useState<string | null>(null)
   const [members, setMembers] = useState<Member[]>([])
   const [membersError, setMembersError] = useState<string | null>(null)
-  const [draftAutoAssign, setDraftAutoAssign] = useState(false)
-  const [draftAssigneeId, setDraftAssigneeId] = useState('')
-  const [savingSettings, setSavingSettings] = useState(false)
+  const [savingCampaignIds, setSavingCampaignIds] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkAssigneeId, setBulkAssigneeId] = useState('')
   const [bulkAssigning, setBulkAssigning] = useState(false)
@@ -198,21 +196,21 @@ export default function MetaLeadsClient({
     return () => controller.abort()
   }, [fetchList])
 
-  const fetchSettings = useCallback(async () => {
-    setSettingsLoading(true)
-    setSettingsError(null)
+  const fetchCampaignAssignments = useCallback(async () => {
+    setCampaignsLoading(true)
+    setCampaignsError(null)
     setMembersError(null)
     try {
-      const [settingsResponse, membersResponse] = await Promise.all([
-        fetch('/api/meta-leads/settings', { cache: 'no-store' }),
+      const [campaignsResponse, membersResponse] = await Promise.all([
+        fetch('/api/meta-leads/campaigns', { cache: 'no-store' }),
         fetch('/api/admin/team-members', { cache: 'no-store' }),
       ])
-      const [settingsBody, membersBody]: [unknown, unknown] = await Promise.all([
-        settingsResponse.json(),
+      const [campaignsBody, membersBody]: [unknown, unknown] = await Promise.all([
+        campaignsResponse.json(),
         membersResponse.json(),
       ])
-      if (!settingsResponse.ok) {
-        throw new Error(getErrorMessage(settingsBody, 'Failed to load Meta settings'))
+      if (!campaignsResponse.ok) {
+        throw new Error(getErrorMessage(campaignsBody, 'Failed to load campaign assignments'))
       }
       if (!membersResponse.ok) {
         setMembersError(getErrorMessage(membersBody, 'Failed to load tenant members'))
@@ -222,54 +220,49 @@ export default function MetaLeadsClient({
         else setMembers(memberData.members ?? [])
       }
 
-      const data = getApiData<Settings>(settingsBody)
-      if (!data) throw new Error('The Meta settings response was invalid')
-      setSettings(data)
-      setDraftAutoAssign(data.autoAssign)
-      setDraftAssigneeId(data.defaultAssigneeId ?? '')
+      const data = getApiData<{ campaigns: Omit<CampaignAssignment, 'draftAssigneeId'>[] }>(campaignsBody)
+      if (!data) throw new Error('The campaign assignments response was invalid')
+      setCampaignAssignments((data.campaigns ?? []).map((campaign) => ({
+        ...campaign,
+        draftAssigneeId: campaign.assigneeId ?? '',
+      })))
     } catch (error) {
-      setSettingsError(error instanceof Error ? error.message : 'Failed to load Meta settings')
+      setCampaignsError(error instanceof Error ? error.message : 'Failed to load campaign assignments')
     } finally {
-      setSettingsLoading(false)
+      setCampaignsLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    void fetchSettings()
-  }, [fetchSettings])
+    void fetchCampaignAssignments()
+  }, [fetchCampaignAssignments])
 
-  const saveSettings = async () => {
-    if (!settings?.connected) return
-    if (draftAutoAssign && !draftAssigneeId) {
-      toast.error('Choose a default counsellor before enabling auto-assign')
-      return
-    }
-
-    setSavingSettings(true)
+  const saveCampaignAssignment = async (campaign: CampaignAssignment) => {
+    setSavingCampaignIds((current) => new Set(current).add(campaign.id))
     const result = await apiCall(async () => {
-      const response = await fetch('/api/meta-leads/settings', {
+      const response = await fetch(`/api/meta-leads/campaigns/${campaign.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          autoAssign: draftAutoAssign,
-          defaultAssigneeId: draftAssigneeId || null,
-        }),
+        body: JSON.stringify({ assigneeId: campaign.draftAssigneeId || null }),
       })
       const body: unknown = await response.json()
-      if (!response.ok) throw new Error(getErrorMessage(body, 'Failed to save Meta settings'))
+      if (!response.ok) throw new Error(getErrorMessage(body, 'Failed to save campaign assignment'))
       return true
-    }, { successMsg: 'Meta lead settings saved', errorMsg: 'Failed to save Meta settings' })
+    }, { successMsg: 'Campaign assignment saved', errorMsg: 'Failed to save campaign assignment' })
     if (result) {
-      setSettings((current) => current
+      setCampaignAssignments((current) => current.map((item) => item.id === campaign.id
         ? {
-            ...current,
-            autoAssign: draftAutoAssign,
-            defaultAssigneeId: draftAssigneeId || null,
-            defaultAssigneeName: members.find((member) => member.userId === draftAssigneeId)?.name ?? null,
+            ...item,
+            assigneeId: item.draftAssigneeId || null,
+            assigneeName: members.find((member) => member.userId === item.draftAssigneeId)?.name ?? null,
           }
-        : current)
+        : item))
     }
-    setSavingSettings(false)
+    setSavingCampaignIds((current) => {
+      const next = new Set(current)
+      next.delete(campaign.id)
+      return next
+    })
   }
 
   const assignOne = async (leadId: string, assignedTo: string) => {
@@ -335,11 +328,6 @@ export default function MetaLeadsClient({
   const totalPages = Math.max(1, Math.ceil((list?.total ?? 0) / pageSize))
   const allSelected = Boolean(list?.leads.length && list.leads.every((lead) => selectedIds.has(lead.id)))
   const someSelected = Boolean(list?.leads.some((lead) => selectedIds.has(lead.id)))
-  const settingsChanged = Boolean(
-    settings &&
-    (draftAutoAssign !== settings.autoAssign ||
-      draftAssigneeId !== (settings.defaultAssigneeId ?? '')),
-  )
   const campaignOptions = useMemo(() => list?.campaigns ?? [], [list?.campaigns])
 
   return (
@@ -368,85 +356,76 @@ export default function MetaLeadsClient({
 
       <Card className="border-slate-200 bg-white dark:border-slate-700 dark:bg-[#0f172a]">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Meta lead settings</CardTitle>
+          <CardTitle className="text-base">Campaign assignment</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {settingsLoading ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Leads from campaigns with no counsellor stay Unassigned for an admin to assign.
+          </p>
+          {campaignsLoading ? (
             <div className="flex items-center gap-2 py-2 text-sm text-slate-500">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading settings…
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading campaigns…
             </div>
-          ) : settingsError ? (
+          ) : campaignsError ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
-              <span>{settingsError}</span>
-              <Button variant="outline" size="sm" onClick={() => void fetchSettings()}>Retry</Button>
+              <span>{campaignsError}</span>
+              <Button variant="outline" size="sm" onClick={() => void fetchCampaignAssignments()}>Retry</Button>
             </div>
-          ) : settings && !settings.connected ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-              No Meta Page is connected to this workspace yet. Connect a Meta Page to configure lead assignment.
-            </div>
-          ) : settings ? (
-            <>
-              {settings.pageName && (
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Connected Page: <span className="font-medium text-slate-700 dark:text-slate-200">{settings.pageName}</span>
-                </p>
-              )}
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <label htmlFor="meta-auto-assign" className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                    Auto-assign new Meta leads
-                  </label>
-                  <p className="mt-1 max-w-xl text-xs text-slate-500 dark:text-slate-400">
-                    When OFF, every Meta lead waits here for an admin to assign it.
-                  </p>
-                </div>
-                <Switch
-                  id="meta-auto-assign"
-                  checked={draftAutoAssign}
-                  onCheckedChange={setDraftAutoAssign}
-                  disabled={savingSettings}
-                  aria-label="Auto-assign new Meta leads"
-                />
-              </div>
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-                <div className="space-y-1.5">
-                  <label htmlFor="meta-default-assignee" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Default counsellor
-                  </label>
-                  <Select
-                    value={draftAssigneeId || 'none'}
-                    onValueChange={(value) => setDraftAssigneeId(value === 'none' ? '' : value)}
-                    disabled={savingSettings || Boolean(membersError)}
-                  >
-                    <SelectTrigger id="meta-default-assignee">
-                      <SelectValue placeholder="Choose a counsellor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No default counsellor</SelectItem>
-                      {members.map((member) => (
-                        <SelectItem key={member.userId} value={member.userId}>
-                          {member.name} {member.role === 'ADMIN' ? '(Admin)' : ''}
-                        </SelectItem>
+          ) : campaignAssignments.length === 0 ? (
+            <p className="rounded-lg border border-slate-200 p-4 text-sm text-slate-500 dark:border-slate-700">
+              No Meta form campaigns are available yet.
+            </p>
+          ) : (
+            <div className="divide-y divide-slate-200 dark:divide-slate-700">
+              {campaignAssignments.map((campaign) => {
+                const saving = savingCampaignIds.has(campaign.id)
+                const changed = campaign.draftAssigneeId !== (campaign.assigneeId ?? '')
+                return (
+                  <div key={campaign.id} className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {campaign.campaignName || `Form ${campaign.formId}`}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {campaign.leadCount} {campaign.leadCount === 1 ? 'lead' : 'leads'}
+                      </p>
+                    </div>
+                    <Select
+                      value={campaign.draftAssigneeId || 'none'}
+                      onValueChange={(value) => setCampaignAssignments((current) => current.map((item) =>
+                        item.id === campaign.id
+                          ? { ...item, draftAssigneeId: value === 'none' ? '' : value }
+                          : item,
                       ))}
-                    </SelectContent>
-                  </Select>
-                  {membersError && <p className="text-xs text-red-600">{membersError}</p>}
-                  {!membersError && members.length === 0 && (
-                    <p className="text-xs text-slate-500">No active tenant members were found.</p>
-                  )}
-                  {draftAutoAssign && !draftAssigneeId && (
-                    <p className="text-xs text-amber-700">Select a default counsellor to enable auto-assign.</p>
-                  )}
-                </div>
-                <Button
-                  onClick={() => void saveSettings()}
-                  disabled={!settings.connected || !settingsChanged || savingSettings || Boolean(membersError)}
-                >
-                  {savingSettings ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save settings'}
-                </Button>
-              </div>
-            </>
-          ) : null}
+                      disabled={saving || Boolean(membersError)}
+                    >
+                      <SelectTrigger className="w-full sm:w-64" aria-label={`Counsellor for ${campaign.campaignName || campaign.formId}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Not assigned</SelectItem>
+                        {members.map((member) => (
+                          <SelectItem key={member.userId} value={member.userId}>
+                            {member.name} {member.role === 'ADMIN' ? '(Admin)' : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={() => void saveCampaignAssignment(campaign)}
+                      disabled={!changed || saving || Boolean(membersError)}
+                    >
+                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {membersError && <p className="text-xs text-red-600">{membersError}</p>}
+          {!membersError && !campaignsLoading && members.length === 0 && campaignAssignments.length > 0 && (
+            <p className="text-xs text-slate-500">No active tenant members were found.</p>
+          )}
         </CardContent>
       </Card>
 
@@ -539,18 +518,12 @@ export default function MetaLeadsClient({
           <div className="flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white py-16 text-center dark:border-slate-700 dark:bg-[#0f172a]">
             <Users className="h-8 w-8 text-slate-400" />
             <p className="font-medium text-slate-800 dark:text-slate-200">
-              {!settings?.connected
-                ? 'No Meta connection yet'
-                : list.total === 0
-                  ? 'No Meta leads yet'
-                  : 'No leads match these filters'}
+              {list.total === 0 ? 'No Meta leads yet' : 'No leads match these filters'}
             </p>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              {!settings?.connected
-                ? 'Connect a Meta Page to start receiving leads.'
-                : list.total === 0
-                  ? 'New leads from connected Meta Pages will appear here.'
-                  : 'Try changing or clearing the selected filters.'}
+              {list.total === 0
+                ? 'New leads from connected Meta Pages will appear here.'
+                : 'Try changing or clearing the selected filters.'}
             </p>
           </div>
         ) : (

@@ -728,6 +728,9 @@ export const metaFormMappings = pgTable(
     formId: text('form_id').notNull().unique(),
     formName: text('form_name'),
     campaignName: text('campaign_name'),
+    assigneeId: uuid('assignee_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
     /**
      * Maps Meta form field names to CRM field keys.
      * Shape: { "<meta_field_name>": "<crm_field_key>" }
@@ -793,6 +796,10 @@ export const metaFormMappingRelations = relations(metaFormMappings, ({ one }) =>
   connection: one(metaConnections, {
     fields: [metaFormMappings.connectionId],
     references: [metaConnections.id],
+  }),
+  assignee: one(users, {
+    fields: [metaFormMappings.assigneeId],
+    references: [users.id],
   }),
 }))
 

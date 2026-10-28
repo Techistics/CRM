@@ -2,7 +2,7 @@ import { count, eq, and, isNull } from 'drizzle-orm'
 import { headers } from 'next/headers'
 
 import { db } from '@/db'
-import { tenantMembers, pipelineStages } from '@/db/schema'
+import { tenantMembers, pipelineStages, leads } from '@/db/schema'
 import { UiScaleWrapper } from '@/components/shared/ui-scale-wrapper'
 import { SidebarProvider } from '@/components/sidebar-provider'
 import { RoleSidebar } from '@/components/shared/role-sidebar'
@@ -23,19 +23,38 @@ export default async function AdminLayout({
     redirect(`/t/${tenant.slug}/pro/overview`)
   }
 
-  const [teamRow] = await db
-    .select({ c: count() })
-    .from(tenantMembers)
-    .where(
-      and(
-        eq(tenantMembers.tenantId, tenant.id),
-        eq(tenantMembers.role, 'PRO'),
-        isNull(tenantMembers.deletedAt)
+  const [teamRows, unassignedMetaRows] = await Promise.all([
+    db
+      .select({ c: count() })
+      .from(tenantMembers)
+      .where(
+        and(
+          eq(tenantMembers.tenantId, tenant.id),
+          eq(tenantMembers.role, 'PRO'),
+          isNull(tenantMembers.deletedAt)
+        ),
       ),
-    )
+    db
+      .select({ c: count() })
+      .from(leads)
+      .where(
+        and(
+          eq(leads.tenantId, tenant.id),
+          eq(leads.source, 'meta_lead'),
+          isNull(leads.deletedAt),
+          isNull(leads.assignedTo),
+        ),
+      ),
+  ])
+  const [teamRow] = teamRows
+  const [unassignedMetaRow] = unassignedMetaRows
 
   const teamBadge =
     teamRow && Number(teamRow.c) > 0 ? String(Number(teamRow.c)) : '0'
+  const metaLeadsBadge =
+    unassignedMetaRow && Number(unassignedMetaRow.c) > 0
+      ? String(Number(unassignedMetaRow.c))
+      : ''
 
   const [stagesRow] = await db
     .select({ c: count() })
@@ -55,7 +74,12 @@ export default async function AdminLayout({
   return (
     <SidebarProvider>
       <div className="min-h-screen bg-consulty-canvas dark:bg-consulty-canvas">
-        <RoleSidebar role={role} tenant={tenant} permissions={permissions} badges={{ team: teamBadge }} />
+        <RoleSidebar
+          role={role}
+          tenant={tenant}
+          permissions={permissions}
+          badges={{ team: teamBadge, metaLeads: metaLeadsBadge }}
+        />
         <LayoutWrapper>
           <AdminHeader user={user} tenantSlug={tenant.slug} role={role} customRoleName={customRoleName} />
           <main className="crm-page w-full min-w-0 flex-1 overflow-x-hidden px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">

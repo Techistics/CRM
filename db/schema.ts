@@ -699,6 +699,7 @@ export const metaConnections = pgTable(
     defaultAssigneeId: uuid('default_assignee_id').references(() => users.id, {
       onDelete: 'set null',
     }),
+    autoAssign: boolean('auto_assign').notNull().default(false),
     /**
      * Connection-level fallback field map applied when a form has no explicit
      * field_map. Shape: { "<meta_field_name>": "<crm_key>" }

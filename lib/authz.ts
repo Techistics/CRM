@@ -63,6 +63,7 @@ export const ADMIN_ONLY_PATHS = [
 /** Permission required to access a pro or admin feature route (href suffix after tenant base). */
 export const ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/admin/leads': 'leads.view',
+  '/admin/meta-leads': 'leads.assign',
   '/admin/my-leads': 'leads.view',
   '/admin/import': 'import.leads',
   '/admin/templates': 'templates.manage',

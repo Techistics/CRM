@@ -117,6 +117,7 @@ export async function processMetaEvent(eventId: string): Promise<void> {
         tenantId: metaConnections.tenantId,
         pageToken: metaConnections.pageToken,
         defaultAssigneeId: metaConnections.defaultAssigneeId,
+        autoAssign: metaConnections.autoAssign,
         defaultFieldMap: metaConnections.defaultFieldMap,
         status: metaConnections.status,
       })
@@ -215,9 +216,10 @@ export async function processMetaEvent(eventId: string): Promise<void> {
     }
 
     // ── 5. createLeadFromMeta ─────────────────────────────────────────────────
+    const assignedTo = connection.autoAssign ? connection.defaultAssigneeId : null
     const result = await createLeadFromMeta({
       tenantId: connection.tenantId,
-      assignedTo: connection.defaultAssigneeId ?? null,
+      assignedTo,
       campaignName,
       fields: mapped,
       rawData: {
@@ -261,11 +263,11 @@ export async function processMetaEvent(eventId: string): Promise<void> {
       const workspaceName = tenant?.name ?? 'Consulty'
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
 
-      if (connection.defaultAssigneeId) {
+      if (assignedTo) {
         // ── 6a. Assigned lead — notify the assignee ────────────────────────
         await db.insert(notifications).values({
           tenantId: connection.tenantId,
-          userId: connection.defaultAssigneeId,
+          userId: assignedTo,
           title: 'New lead assigned',
           body: `${leadFullName} has been assigned to you`,
           type: 'lead_assigned',
@@ -285,7 +287,7 @@ export async function processMetaEvent(eventId: string): Promise<void> {
           )
 
         for (const admin of adminMembers) {
-          if (admin.userId === connection.defaultAssigneeId) continue
+          if (admin.userId === assignedTo) continue
           await db.insert(notifications).values({
             tenantId: connection.tenantId,
             userId: admin.userId,
@@ -301,7 +303,7 @@ export async function processMetaEvent(eventId: string): Promise<void> {
           const [agent] = await db
             .select({ name: users.name, email: users.email })
             .from(users)
-            .where(eq(users.id, connection.defaultAssigneeId))
+            .where(eq(users.id, assignedTo))
             .limit(1)
 
           const [membership] = await db
@@ -310,7 +312,7 @@ export async function processMetaEvent(eventId: string): Promise<void> {
             .where(
               and(
                 eq(tenantMembers.tenantId, connection.tenantId),
-                eq(tenantMembers.userId, connection.defaultAssigneeId),
+                eq(tenantMembers.userId, assignedTo),
                 isNull(tenantMembers.deletedAt),
               ),
             )

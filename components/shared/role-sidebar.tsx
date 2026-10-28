@@ -16,7 +16,7 @@ import { adminSettingsLinks } from '@/components/admin/nav-config'
 import { filterNavByPermissions, type Permission } from '@/lib/authz'
 import type { Tenant } from '@/types/models'
 import {
-  LayoutDashboard, Users, Wallet, LineChart, Import,
+  LayoutDashboard, Users, Wallet, LineChart, Import, Megaphone,
   UserCheck, Sparkles, BookOpen, KeyRound, Settings as SettingsIcon,
   Layers, DollarSign,
 } from 'lucide-react'
@@ -63,6 +63,7 @@ export function RoleSidebar({
   const adminNav: NavItem[] = [
     { name: 'Dashboard',         href: ADMIN_ROUTES.overview,   icon: LayoutDashboard, permission: 'analytics.view', matchPrefix: false },
     { name: 'Leads',             href: ADMIN_ROUTES.leads,      icon: Wallet,          permission: 'leads.view',      matchPrefix: true },
+    { name: 'Meta Leads',        href: ADMIN_ROUTES.metaLeads,  icon: Megaphone,       permission: 'leads.assign',    matchPrefix: true, badgeKey: 'metaLeads' },
     { name: 'My Leads',          href: ADMIN_ROUTES.myLeads,    icon: UserCheck,       permission: 'leads.receive',   matchPrefix: true },
     { name: 'Import Leads',      href: ADMIN_ROUTES.import,     icon: Import,          permission: 'import.leads',    matchPrefix: true },
     { name: 'Analytics',         href: ADMIN_ROUTES.analytics,  icon: LineChart,       permission: 'analytics.view',  matchPrefix: true },

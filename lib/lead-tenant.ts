@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 
 import { db } from '@/db'
 import { leads } from '@/db/schema'
-import { hasElevatedScope, type MemberScope } from '@/lib/member-scope'
+import { hasTenantWideLeadAccess, type MemberScope } from '@/lib/member-scope'
 
 export async function getLeadInTenant(leadId: string, tenantId: string) {
   const [lead] = await db
@@ -20,7 +20,7 @@ export async function getLeadForMemberAction(
 ) {
   const lead = await getLeadInTenant(leadId, tenantId)
   if (!lead) return null
-  if (hasElevatedScope(scope)) return lead
+  if (hasTenantWideLeadAccess(scope)) return lead
   if (lead.assignedTo === scope.dbUserId) return lead
   return null
 }

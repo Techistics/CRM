@@ -115,12 +115,17 @@ export default function TeamManagementClient({
   const [removeOpen, setRemoveOpen] = useState(false)
   const [removeMemberData, setRemoveMemberData] = useState<{ id: string; name: string; activeLeadCount: number } | null>(null)
 
+  const activeMembers = useMemo(
+    () => members.filter((m) => m.status !== 'pending_invite'),
+    [members],
+  )
+
   const stats = useMemo(() => {
-    const admins = members.filter((m) => m.role === 'ADMIN').length
-    const pros = members.filter((m) => m.role === 'PRO').length
+    const admins = activeMembers.filter((m) => m.role === 'ADMIN').length
+    const pros = activeMembers.filter((m) => m.role === 'PRO').length
     const pending = members.filter((m) => m.status === 'pending_invite').length
-    return { admins, pros, pending, total: members.length }
-  }, [members])
+    return { admins, pros, pending, total: activeMembers.length }
+  }, [activeMembers, members])
 
   const { tenantSlug } = useParams<{ tenantSlug: string }>()
 
@@ -355,7 +360,7 @@ export default function TeamManagementClient({
               </tr>
             </thead>
             <tbody>
-              {members.map((m) => (
+              {activeMembers.map((m) => (
                 <tr
                   key={m.id}
                   className="border-b last:border-b-0 transition-colors hover:bg-muted/30"
@@ -458,7 +463,7 @@ export default function TeamManagementClient({
                   </td>
                 </tr>
               ))}
-              {members.length === 0 && (
+              {activeMembers.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-14 text-center">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">

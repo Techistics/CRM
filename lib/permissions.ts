@@ -46,7 +46,6 @@ export const DEFAULT_PRO_PERMISSIONS: Permission[] = [
   'leads.view',
   'leads.create',
   'leads.edit',
-  'analytics.view',
   'templates.manage'
 ]
 

@@ -75,11 +75,11 @@ export function RoleSidebar({
 
   // PRO nav (only used when role === 'PRO')
   const proNav: NavItem[] = [
-    { name: 'Dashboard',         href: PRO_ROUTES.overview,          icon: LayoutDashboard, permission: 'analytics.view', matchPrefix: false },
+    { name: 'Dashboard',         href: PRO_ROUTES.overview,          icon: LayoutDashboard, matchPrefix: false },
     { name: 'Leads',             href: PRO_ROUTES.leads,             icon: Wallet,          permission: 'leads.view',      matchPrefix: true },
     { name: 'Reassigned Leads',  href: PRO_ROUTES.reassignedLeads,   icon: UserCheck,       permission: 'leads.receive',   matchPrefix: true },
     { name: 'Import Leads',      href: PRO_ROUTES.import,            icon: Import,          permission: 'import.leads',    matchPrefix: true },
-    { name: 'Analytics',         href: PRO_ROUTES.analytics,         icon: LineChart,       permission: 'analytics.view',  matchPrefix: true },
+    { name: 'Analytics',         href: PRO_ROUTES.analytics,         icon: LineChart,       matchPrefix: true },
     { name: 'Finance',           href: PRO_ROUTES.finance,           icon: DollarSign,      permission: 'finance.view',    matchPrefix: true },
     { name: 'Templates',         href: PRO_ROUTES.templates,         icon: Sparkles,        permission: 'templates.manage', matchPrefix: true },
     { name: 'Team',              href: PRO_ROUTES.team,              icon: Users,           matchPrefix: true, badgeKey: 'team' },
@@ -156,7 +156,7 @@ export function RoleSidebar({
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="px-3 pt-4 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+            <div className="px-3 pt-4 pb-1.5 text-[12px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
               Main
             </div>
             <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
@@ -169,7 +169,7 @@ export function RoleSidebar({
                     key={item.href}
                     href={href}
                     className={cn(
-                      'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors',
+                      'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-lg transition-colors',
                       active
                         ? 'font-semibold text-brand bg-brand-light dark:bg-brand/10'
                         : 'font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100',
@@ -188,7 +188,7 @@ export function RoleSidebar({
             </nav>
 
             <div className="border-t border-slate-200 dark:border-slate-800 px-2 py-3">
-              <p className="px-3 pt-4 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              <p className="px-3 pt-4 pb-1.5 text-[12px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
                 Settings
               </p>
               {settingsLinks.length ? (
@@ -201,7 +201,7 @@ export function RoleSidebar({
                         key={item.name}
                         href={href}
                         className={cn(
-                          'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors',
+                          'flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-base transition-colors',
                           active
                             ? 'font-semibold text-brand bg-brand-light dark:bg-brand/10'
                             : 'font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100',

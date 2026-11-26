@@ -11,6 +11,13 @@ import { can, canMovePipelineBackward } from '@/lib/authz'
 import type { ActivityRow } from '@/types/leads'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 
+/** Reads `campaign_name` off a lead's raw_data JSONB (Meta imports store it there). */
+function readRawCampaignName(rawData: unknown): string | null {
+  if (!rawData || typeof rawData !== 'object' || Array.isArray(rawData)) return null
+  const value = (rawData as Record<string, unknown>).campaign_name
+  return typeof value === 'string' && value.trim().length > 0 ? value : null
+}
+
 export default async function ProLeadDetailPage({
   params,
 }: {
@@ -23,6 +30,21 @@ export default async function ProLeadDetailPage({
   if (!leadRow) notFound()
 
   const lead = stripDealFields(leadRow, ctx.role, ctx.permissions)
+
+  // Campaign name: the CSV import batch value wins (unchanged for CSV leads).
+  // Falls back to raw_data.campaign_name when the lead has no csv_import_id
+  // (Meta leads) or the batch row is missing.
+  let campaignName: string | null = null
+  if (leadRow.csvImportId) {
+    const importBatch = await db.query.csvImports.findFirst({
+      where: (csvImports, { eq }) => eq(csvImports.id, leadRow.csvImportId!),
+      columns: { campaignName: true },
+    })
+    campaignName = importBatch?.campaignName ?? null
+  }
+  if (!campaignName) {
+    campaignName = readRawCampaignName(leadRow.rawData)
+  }
 
   const pipeline = await getTenantPipeline(ctx.tenant.id)
   const stageLabels = Object.fromEntries(pipeline.stages.map((s) => [s.key, s.label]))
@@ -108,6 +130,7 @@ export default async function ProLeadDetailPage({
   return (
     <ProLeadDetailClient
       lead={lead}
+      campaignName={campaignName}
       activities={mergedActivities}
       allUsers={allUsers}
       currentUser={{ id: ctx.dbUserId }}

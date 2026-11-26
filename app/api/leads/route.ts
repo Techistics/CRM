@@ -1,3 +1,4 @@
+import { normalizePhone, phoneMatchCondition } from '@/lib/leads/phone'
 import { NextRequest } from 'next/server'
 import { and, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
 
@@ -5,6 +6,7 @@ import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { db } from '@/db'
 import { leads, leadTagAssignments, leadTags, leadStageAssignments, leadRevenues, pipelineSubStatuses, csvImports } from '@/db/schema'
 import { leadsVisibleWhere } from '@/lib/leads-scope'
+import { leadStatusWhere } from '@/lib/lead-status'
 import { toMemberScope } from '@/lib/member-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
 import { leadCreateBodySchema } from '@/lib/validators/lead'
@@ -50,13 +52,33 @@ export async function GET(req: NextRequest) {
         )
         .orderBy(asc(column))
 
-      const values = Array.from(
-        new Set(
-          rows
-            .map((row) => row.value)
-            .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-        ),
-      ).sort((a, b) => a.localeCompare(b))
+      const csvValues = rows
+        .map((row) => row.value)
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map((value) => value.trim())
+
+      // Meta (and other non-CSV) leads store the campaign in raw_data.campaign_name
+      let metaValues: string[] = []
+      if (optionType === 'campaign-name') {
+        const metaRows = await db
+          .selectDistinct({ value: sql<string | null>`${leads.rawData}->>'campaign_name'` })
+          .from(leads)
+          .where(
+            and(
+              eq(leads.tenantId, ctx.tenant.id),
+              isNull(leads.deletedAt),
+              sql`trim(coalesce(${leads.rawData}->>'campaign_name', '')) <> ''`,
+            ),
+          )
+        metaValues = metaRows
+          .map((row) => row.value)
+          .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+          .map((value) => value.trim())
+      }
+
+      const values = Array.from(new Set([...csvValues, ...metaValues])).sort((a, b) =>
+        a.localeCompare(b),
+      )
 
       return successResponse({ values })
     }
@@ -132,21 +154,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (subStatusType === 'in_progress' || subStatusType === 'closed_lost') {
-      conditions.push(
-        inArray(
-          leads.subStatusId,
-          db
-            .select({ id: pipelineSubStatuses.id })
-            .from(pipelineSubStatuses)
-            .where(
-              and(
-                eq(pipelineSubStatuses.tenantId, ctx.tenant.id),
-                eq(pipelineSubStatuses.type, subStatusType),
-                ...(stage ? [eq(pipelineSubStatuses.stageKey, stage)] : []),
-              ),
-            ),
-        ),
-      )
+      conditions.push(leadStatusWhere(ctx.tenant.id, subStatusType, stage))
     }
 
     if (subStatusId) {
@@ -165,24 +173,18 @@ export async function GET(req: NextRequest) {
           SELECT 1 FROM applications a
           WHERE a.lead_id = ${leads.id}
             AND a.tenant_id = ${ctx.tenant.id}
-            ${
-              appUniversityName ? sql`AND a.university_name ILIKE ${'%' + appUniversityName + '%'}` : sql``
-            }
-            ${
-              appCourseName ? sql`AND a.course_name ILIKE ${'%' + appCourseName + '%'}` : sql``
-            }
-            ${
-              appSource ? sql`AND a.source = ${appSource}` : sql``
-            }
-            ${
-              appStatus ? sql`AND a.application_status = ${appStatus}` : sql``
-            }
-            ${
-              appIntakeMonth ? sql`AND a.intake_month = ${appIntakeMonth}` : sql``
-            }
-            ${
-              appIntakeYear ? sql`AND a.intake_year = ${appIntakeYear}` : sql``
-            }
+            ${appUniversityName ? sql`AND a.university_name ILIKE ${'%' + appUniversityName + '%'}` : sql``
+          }
+            ${appCourseName ? sql`AND a.course_name ILIKE ${'%' + appCourseName + '%'}` : sql``
+          }
+            ${appSource ? sql`AND a.source = ${appSource}` : sql``
+          }
+            ${appStatus ? sql`AND a.application_status = ${appStatus}` : sql``
+          }
+            ${appIntakeMonth ? sql`AND a.intake_month = ${appIntakeMonth}` : sql``
+          }
+            ${appIntakeYear ? sql`AND a.intake_year = ${appIntakeYear}` : sql``
+          }
         )`
       )
     }
@@ -226,7 +228,12 @@ export async function GET(req: NextRequest) {
 
     // ── Campaign name filter ───────────────────────────────────
     if (campaignName?.trim()) {
-      conditions.push(eq(csvImports.campaignName, campaignName))
+      conditions.push(
+        sql`COALESCE(
+          (SELECT ci.campaign_name FROM csv_imports ci WHERE ci.id = ${leads.csvImportId} LIMIT 1),
+          ${leads.rawData}->>'campaign_name'
+        ) = ${campaignName.trim()}`,
+      )
     }
 
     // ── Import file name filter ────────────────────────────────
@@ -319,10 +326,13 @@ export async function GET(req: NextRequest) {
         WHERE pipeline_sub_statuses.id = ${leads.subStatusId}
         LIMIT 1
       )`.as('sub_status_type'),
-      campaignName: sql<string | null>`(
-        SELECT ci.campaign_name FROM csv_imports ci
-        WHERE ci.id = ${leads.csvImportId}
-        LIMIT 1
+      campaignName: sql<string | null>`COALESCE(
+        (
+          SELECT ci.campaign_name FROM csv_imports ci
+          WHERE ci.id = ${leads.csvImportId}
+          LIMIT 1
+        ),
+        ${leads.rawData}->>'campaign_name'
       )`.as('campaign_name'),
       latestLog: sql<string | null>`(
         SELECT body FROM consultant_logs
@@ -404,8 +414,8 @@ export async function POST(req: NextRequest) {
     const parsed = leadCreateBodySchema.safeParse(body)
     if (!parsed.success) {
       return errorResponse(
-        'Validation failed', 
-        'VALIDATION_ERROR', 
+        'Validation failed',
+        'VALIDATION_ERROR',
         400
       )
     }
@@ -423,7 +433,8 @@ export async function POST(req: NextRequest) {
     const emailNorm =
       data.email === undefined || data.email === '' || data.email === null
         ? null
-        : data.email
+        : data.email.trim().toLowerCase()
+    const phoneNorm = normalizePhone(data.contactNumber)
 
     const pipeline = await getTenantPipeline(ctx.tenant.id)
     if (pipeline.stages.length === 0) {
@@ -435,26 +446,31 @@ export async function POST(req: NextRequest) {
 
     // 1. Duplicate check (if not forced)
     if (!data.force) {
-      const existing = await db
-        .select({ id: leads.id })
-        .from(leads)
-        .where(
-          and(
-            eq(leads.tenantId, ctx.tenant.id),
-            or(
-              emailNorm ? eq(leads.email, emailNorm) : undefined,
-              data.contactNumber ? eq(leads.contactNumber, data.contactNumber) : undefined
+      const dupConditions = [
+        emailNorm ? eq(leads.email, emailNorm) : undefined,
+        phoneMatchCondition(phoneNorm) ?? undefined,
+      ].filter((c): c is NonNullable<typeof c> => c !== undefined)
+
+      if (dupConditions.length > 0) {
+        const existing = await db
+          .select({ id: leads.id })
+          .from(leads)
+          .where(
+            and(
+              eq(leads.tenantId, ctx.tenant.id),
+              isNull(leads.deletedAt),
+              or(...dupConditions),
             )
           )
-        )
-        .limit(1)
+          .limit(1)
 
-      if (existing.length > 0) {
-        return errorResponse(
-          'A lead with this contact number or email already exists',
-          'DUPLICATE_LEAD',
-          409
-        )
+        if (existing.length > 0) {
+          return errorResponse(
+            'A lead with this contact number or email already exists',
+            'DUPLICATE_LEAD',
+            409
+          )
+        }
       }
     }
 
@@ -519,7 +535,7 @@ export async function POST(req: NextRequest) {
           displayId: shortId,
           tenantId: ctx.tenant.id,
           fullName: data.fullName,
-          contactNumber: data.contactNumber?.trim() || null,
+          contactNumber: phoneNorm,
           email: emailNorm,
           city: data.city?.trim() || null,
           country: data.country?.trim() || DEFAULT_LEAD_COUNTRY,

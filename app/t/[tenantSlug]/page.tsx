@@ -32,12 +32,5 @@ export default async function TenantHomePage({
     redirect(`${base}/admin/overview`)
   }
 
-  // PRO users always go to /pro/
-  if (actor.permissions?.includes('analytics.view')) {
-    redirect(`${base}/pro/overview`)
-  } else if (actor.permissions?.includes('leads.view')) {
-    redirect(`${base}/pro/leads`)
-  } else {
-    redirect(`${base}/pro/diary`)
-  }
+  redirect(`${base}/pro/overview`)
 }

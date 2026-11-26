@@ -12,6 +12,8 @@ import {
 } from '@/db/schema'
 import { eq, and, isNull } from 'drizzle-orm'
 
+import { normalizePhone } from '@/lib/leads/phone'
+
 const TENANT_ID = '08b90516-c465-4032-bee7-9c1b7da91b32'
 
 // ─── Seed Data Pools ─────────────────────────────────────────────────────────
@@ -214,7 +216,7 @@ export async function GET() {
         const [lead] = await db.insert(leads).values({
           tenantId: TENANT_ID,
           fullName: name,
-          contactNumber: randomPhone(),
+          contactNumber: normalizePhone(randomPhone()),
           email: `${name.toLowerCase().replace(/\s/g, '.')}${randInt(10, 99)}@gmail.com`,
           city: rand(CITIES),
           country: 'Pakistan',

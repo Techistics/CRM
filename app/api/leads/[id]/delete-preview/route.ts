@@ -8,7 +8,8 @@ import {
   leadReminders,
   leadUploadedDocuments,
 } from '@/db/schema'
-import { getLeadInTenant } from '@/lib/lead-tenant'
+import { getLeadForMemberAction } from '@/lib/lead-tenant'
+import { toMemberScope } from '@/lib/member-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 
@@ -21,7 +22,11 @@ export async function GET(
     if (!ctx.ok) return ctx.response
 
     const { id } = await params
-    const lead = await getLeadInTenant(id, ctx.tenant.id)
+    const lead = await getLeadForMemberAction(
+      id,
+      ctx.tenant.id,
+      toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] }),
+    )
     if (!lead) {
       return errorResponse('Lead not found', 'NOT_FOUND', 404)
     }

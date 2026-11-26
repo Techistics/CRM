@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { leads, leadActivities } from '@/db/schema'
 import { eq, and, gte, lte, desc } from 'drizzle-orm'
-import { requirePermissionSession } from '@/lib/tenant-server'
+import { requireTenantSession } from '@/lib/tenant-server'
 import { canViewAllAnalytics, toMemberScope } from '@/lib/member-scope'
 import { getStageInfo } from '@/constants/pipeline-stages'
 
@@ -17,7 +17,7 @@ function escapeCsv(val: unknown): string {
 
 export async function GET(request: Request) {
   try {
-    const ctx = await requirePermissionSession('analytics.view')
+    const ctx = await requireTenantSession()
     const viewAll = canViewAllAnalytics(toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] }))
 
     const { searchParams } = new URL(request.url)
@@ -72,7 +72,12 @@ export async function GET(request: Request) {
         leadActivities,
         and(eq(leads.id, leadActivities.leadId), ...activityConditions),
       )
-      .where(eq(leads.tenantId, ctx.tenant.id))
+      .where(
+        and(
+          eq(leads.tenantId, ctx.tenant.id),
+          ...(!viewAll ? [eq(leads.assignedTo, ctx.dbUserId)] : []),
+        ),
+      )
       .orderBy(desc(leadActivities.createdAt))
 
     // Group by lead ID to get only the latest activity per lead

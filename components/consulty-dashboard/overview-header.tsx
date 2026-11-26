@@ -1,7 +1,8 @@
 'use client'
 
-import { Download, Loader2, ChevronDown } from 'lucide-react'
+import { Download, Loader2, ChevronDown, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,8 @@ type OverviewHeaderProps = {
   exportingPipeline: boolean
   exportingAgent: boolean
   isLoading?: boolean
+  allLeads?: boolean
+  onToggleAllLeads?: () => void
 }
 
 export function OverviewHeader({
@@ -28,6 +31,8 @@ export function OverviewHeader({
   exportingPipeline,
   exportingAgent,
   isLoading,
+  allLeads = false,
+  onToggleAllLeads,
 }: OverviewHeaderProps) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -49,6 +54,22 @@ export function OverviewHeader({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          aria-pressed={allLeads}
+          onClick={onToggleAllLeads}
+          className={cn(
+            'h-8 gap-1.5 rounded-consulty-sm border-consulty-border-subtle px-3 text-crm-xs font-medium hover:bg-consulty-surface-subtle dark:border-consulty-border dark:hover:bg-consulty-surface-raised',
+            allLeads
+              ? 'bg-consulty-primary-soft text-consulty-primary hover:bg-consulty-primary-soft dark:bg-consulty-primary-soft/30'
+              : 'bg-consulty-surface text-consulty-text-secondary dark:bg-consulty-surface',
+          )}
+        >
+          <Users className="h-3.5 w-3.5" />
+          All Leads
+        </Button>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -91,7 +112,13 @@ export function OverviewHeader({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <DateRangePicker value={dateRange} onChange={onDateRangeChange} />
+        {allLeads ? (
+          <span className="inline-flex h-8 items-center rounded-consulty-sm border border-consulty-border-subtle bg-consulty-surface-subtle px-3 text-crm-xs font-medium text-consulty-text-muted dark:border-consulty-border dark:bg-consulty-surface-subtle/50">
+            All time
+          </span>
+        ) : (
+          <DateRangePicker value={dateRange} onChange={onDateRangeChange} />
+        )}
       </div>
     </div>
   )

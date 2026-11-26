@@ -4,7 +4,7 @@ import { and, eq, gte, lte, sql } from 'drizzle-orm'
 import Link from 'next/link'
 import { requireTenantSession } from '@/lib/tenant-server'
 import { tenantPath } from '@/lib/tenant-path'
-import { toMemberScope, hasElevatedScope } from '@/lib/member-scope'
+import { toMemberScope, canViewAllAnalytics } from '@/lib/member-scope'
 import type { TenantAppRole } from '@/lib/tenant-membership'
 import AdminOverviewPage from '@/app/t/[tenantSlug]/admin/overview/page'
 import { getStageInfo, PIPELINE_STAGES } from '@/constants/pipeline-stages'
@@ -61,7 +61,7 @@ export default async function ProOverviewPage(props: {
   searchParams: Promise<{ from?: string; to?: string }>
 }) {
   const { tenant, dbUserId, role, permissions, customRoleId } = await requireTenantSession()
-  const isElevated = hasElevatedScope(
+  const isElevated = canViewAllAnalytics(
     toMemberScope({ role: role as TenantAppRole, dbUserId, customRoleId, permissions })
   )
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter, usePathname, useSearchParams, useParams } from 'next/navigation'
 import { Activity, CheckCircle2, TrendingUp, Users } from 'lucide-react'
 import { toast } from 'sonner'
@@ -8,6 +8,7 @@ import { DashboardShell } from '@/components/consulty-dashboard/ui/dashboard-she
 import { OverviewHeader } from '@/components/consulty-dashboard/overview-header'
 import { MetricCardsGrid, type MetricCardData } from '@/components/consulty-dashboard/metric-card'
 import { LeadDistributionCard } from '@/components/consulty-dashboard/lead-distribution-card'
+import { PipelineDistributionCard } from '@/components/consulty-dashboard/pipeline-distribution-card'
 import { TeamPerformanceTable } from '@/components/consulty-dashboard/team-performance-table'
 import { TeamSnapshot } from '@/components/consulty-dashboard/team-snapshot'
 import type { AgentStat, ChartWindow, PipelineChartSnapshot } from '@/types/analytics'
@@ -33,8 +34,9 @@ export default function AnalyticsOverviewClient({
   dateRange,
   agentStageBreakdown,
   unassignedBreakdown = [],
-  filteredAgentStageBreakdown,
-  filteredUnassignedBreakdown = [],
+  // Period-filtered breakdowns are no longer used by the cards; still accepted for the page.
+  filteredAgentStageBreakdown: _filteredAgentStageBreakdown,
+  filteredUnassignedBreakdown: _filteredUnassignedBreakdown = [],
 }: {
   chartByWindow: Record<ChartWindow, PipelineChartSnapshot>
   overdueRemindersCount: number
@@ -78,14 +80,14 @@ export default function AnalyticsOverviewClient({
     totalLeads: number
     stages: Array<{ key: string; label: string; count: number; closedCount?: number }>
   }>
-  unassignedBreakdown?: Array<{ key: string; label: string; count: number }>
+  unassignedBreakdown?: Array<{ key: string; label: string; count: number; closedCount?: number }>
   filteredAgentStageBreakdown?: Array<{
     agentId: string | null
     agentName: string
     totalLeads: number
     stages: Array<{ key: string; label: string; count: number; closedCount?: number }>
   }>
-  filteredUnassignedBreakdown?: Array<{ key: string; label: string; count: number }>
+  filteredUnassignedBreakdown?: Array<{ key: string; label: string; count: number; closedCount?: number }>
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -103,6 +105,27 @@ export default function AnalyticsOverviewClient({
 
   const [exportingPipeline, setExportingPipeline] = useState(false)
   const [exportingAgent, setExportingAgent] = useState(false)
+  const [allLeads, setAllLeads] = useState(false)
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(`consulty:dashboard:allLeads:${tenantSlug}`)
+      if (stored === '1') setAllLeads(true)
+    } catch {
+      // ignore unavailable storage
+    }
+  }, [tenantSlug])
+
+  const setAllLeadsPersisted = (next: boolean) => {
+    setAllLeads(next)
+    try {
+      window.localStorage.setItem(`consulty:dashboard:allLeads:${tenantSlug}`, next ? '1' : '0')
+    } catch {
+      // ignore unavailable storage
+    }
+  }
+
+  const toggleAllLeads = () => setAllLeadsPersisted(!allLeads)
 
   const handleExport = async (type: 'pipeline' | 'agent') => {
     const setLoader = type === 'pipeline' ? setExportingPipeline : setExportingAgent
@@ -139,6 +162,7 @@ export default function AnalyticsOverviewClient({
   }
 
   const handleRangeChange = (range: { from: Date | null; to: Date | null }) => {
+    if (allLeads) setAllLeadsPersisted(false)
     const nextParams = new URLSearchParams(searchParams.toString())
     if (range.from) nextParams.set('from', range.from.toISOString().split('T')[0])
     else nextParams.delete('from')
@@ -147,19 +171,84 @@ export default function AnalyticsOverviewClient({
     router.push(`${pathname}?${nextParams.toString()}`, { scroll: false })
   }
 
-  const breakdown = agentStageBreakdown ?? []
-  const donutUnassignedCount = (unassignedBreakdown ?? []).reduce((sum, b) => sum + b.count, 0)
-  const donutTotalLeads = donutUnassignedCount + breakdown.reduce((sum, a) => sum + a.totalLeads, 0)
+  const activeAgentBreakdown = allLeads ? agentStageBreakdown : _filteredAgentStageBreakdown
+  const activeUnassignedBreakdown = allLeads ? unassignedBreakdown : _filteredUnassignedBreakdown
+
+  const breakdown = activeAgentBreakdown ?? []
+  const donutUnassignedCount = (activeUnassignedBreakdown ?? []).reduce((sum, b) => sum + b.count, 0)
+  const listedTotalLeads = donutUnassignedCount + breakdown.reduce((sum, a) => sum + a.totalLeads, 0)
+  const donutTotalLeads = allLeads ? totalLeads : listedTotalLeads
+  const unlistedAssigneesCount = Math.max(0, donutTotalLeads - listedTotalLeads)
+
+  const cardBreakdown =
+    unlistedAssigneesCount > 0
+      ? [
+          ...breakdown,
+          {
+            agentId: null,
+            agentName: 'Other / Unlisted',
+            totalLeads: unlistedAssigneesCount,
+            stages: [],
+          },
+        ]
+      : breakdown
   const comparisonLabel = 'vs previous period'
 
-  const filteredBreakdown = filteredAgentStageBreakdown ?? []
-  const filteredDonutUnassignedCount = (filteredUnassignedBreakdown ?? []).reduce((sum, b) => sum + b.count, 0)
-  const filteredDonutTotalLeads = filteredDonutUnassignedCount + filteredBreakdown.reduce((sum, a) => sum + a.totalLeads, 0)
+  // Closed vs open comes from the lead's sub-status (closed_lost), never from the stage key.
+  const openStageTotals = new Map<string, { label: string; count: number }>()
+  const closedStageTotals = new Map<string, { label: string; count: number }>()
+  for (const stage of [
+    ...breakdown.flatMap((agent) => agent.stages),
+    ...(activeUnassignedBreakdown ?? []),
+  ]) {
+    const closed = Math.min(stage.count, stage.closedCount ?? 0)
+    const open = stage.count - closed
+    const bump = (target: Map<string, { label: string; count: number }>, amount: number) => {
+      if (amount <= 0) return
+      const prev = target.get(stage.key)
+      target.set(stage.key, { label: prev?.label ?? stage.label, count: (prev?.count ?? 0) + amount })
+    }
+    bump(openStageTotals, open)
+    bump(closedStageTotals, closed)
+  }
+
+  const sumStageTotals = (totals: Map<string, { label: string; count: number }>) =>
+    Array.from(totals.values()).reduce((sum, value) => sum + value.count, 0)
+
+  const openStageSum = sumStageTotals(openStageTotals)
+  const closedStageSum = sumStageTotals(closedStageTotals)
+  const inProgressTotal = allLeads ? inProgressCount : openStageSum
+  const closedTotal = allLeads ? closedCount : closedStageSum
+
+  const toPipelineStages = (
+    totals: Map<string, { label: string; count: number }>,
+    residual: number,
+  ) => {
+    const stages = Array.from(totals.entries()).map(([key, value]) => ({
+      key,
+      label: value.label,
+      count: value.count,
+    }))
+    if (residual > 0) {
+      stages.push({ key: 'unknown_stage', label: 'Unknown stage', count: residual })
+    }
+    return stages.sort((a, b) => b.count - a.count)
+  }
+
+  const pipelineGroups = [
+    { key: 'in_progress', label: 'In Progress', count: inProgressTotal, totals: openStageTotals, stageSum: openStageSum },
+    { key: 'closed', label: 'Closed', count: closedTotal, totals: closedStageTotals, stageSum: closedStageSum },
+  ].map(({ key, label, count, totals, stageSum }) => ({
+    key,
+    label,
+    count,
+    stages: toPipelineStages(totals, Math.max(0, count - stageSum)),
+  }))
 
   const metricCards: MetricCardData[] = [
     {
       label: 'Total Leads',
-      value: totalLeads.toLocaleString(),
+      value: donutTotalLeads.toLocaleString(),
       trend: trends?.totalLeads.value ?? '+0%',
       positive: trends?.totalLeads.positive ?? true,
       comparison: comparisonLabel,
@@ -212,6 +301,8 @@ export default function AnalyticsOverviewClient({
         onExport={handleExport}
         exportingPipeline={exportingPipeline}
         exportingAgent={exportingAgent}
+        allLeads={allLeads}
+        onToggleAllLeads={toggleAllLeads}
       />
 
       <MetricCardsGrid metrics={metricCards} />
@@ -219,20 +310,16 @@ export default function AnalyticsOverviewClient({
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-10">
         <LeadDistributionCard
           unassignedCount={donutUnassignedCount}
-          breakdown={breakdown}
-          unassignedBreakdown={unassignedBreakdown}
+          breakdown={cardBreakdown}
+          unassignedBreakdown={activeUnassignedBreakdown}
           totalLeads={donutTotalLeads}
           tenantSlug={tenantSlug}
           className="lg:col-span-7"
         />
-        <LeadDistributionCard
-          title="Period Distribution"
-          description="Leads in selected period"
-          unassignedCount={filteredDonutUnassignedCount}
-          breakdown={filteredBreakdown}
-          unassignedBreakdown={filteredUnassignedBreakdown}
-          totalLeads={filteredDonutTotalLeads}
-          tenantSlug={tenantSlug}
+        <PipelineDistributionCard
+          groups={pipelineGroups}
+          totalLeads={donutTotalLeads}
+          description="All leads by pipeline stage"
           className="lg:col-span-3"
           compact={true}
         />

@@ -10,8 +10,7 @@
  *   - app/api/leads/import/route.ts   — phone normalisation, dedupe pattern
  */
 
-import { and, eq, isNull, or } from 'drizzle-orm'
-import { isValidPhoneNumber, parsePhoneNumber } from 'libphonenumber-js'
+import { and, eq, isNull, or, type SQL } from 'drizzle-orm'
 
 import { DEFAULT_LEAD_COUNTRY } from '@/constants/lead-defaults'
 import { DEFAULT_SUB_STATUSES } from '@/constants/sub-status-defaults'
@@ -23,6 +22,7 @@ import {
   pipelineSubStatuses,
   tenantMembers,
 } from '@/db/schema'
+import { normalizePhone, phoneMatchCondition } from '@/lib/leads/phone'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -54,31 +54,7 @@ export type CreateLeadFromMetaResult =
   | { status: 'created'; leadId: string }
   | { status: 'duplicate'; leadId: string }
 
-// ─── Helpers (copied verbatim from import/route.ts to keep parity) ─────────────
-
-/**
- * Normalizes a raw phone number string to E.164 format (e.g. +923224971053).
- * Defaults to Pakistan (+92) if no country code is detected.
- * Falls back to the stripped raw value if parsing fails.
- *
- * Source: app/api/leads/import/route.ts › normalizePhone
- */
-function normalizePhone(rawPhone: string): string | null {
-  const stripped = rawPhone.replace(/[\s\-().]/g, '')
-  if (!stripped || !/\d/.test(stripped)) return null
-
-  try {
-    if (isValidPhoneNumber(stripped, 'PK')) {
-      return parsePhoneNumber(stripped, 'PK').format('E.164')
-    }
-    if (stripped.startsWith('+') && isValidPhoneNumber(stripped)) {
-      return parsePhoneNumber(stripped).format('E.164')
-    }
-  } catch {
-    // Fall through to raw
-  }
-  return stripped
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
  * Generates a display_id of the form "AB1234".
@@ -186,6 +162,74 @@ function isUniqueViolation(err: unknown): boolean {
   return false
 }
 
+// ─── Duplicate handling ───────────────────────────────────────────────────────
+
+/**
+ * Handles the "this lead already exists" branch: logs the duplicate against the
+ * existing lead and returns the `'duplicate'` result so callers can stamp the
+ * webhook event accordingly.
+ *
+ * The existing row is never rewritten except for a campaign back-fill: when it
+ * has no `raw_data.campaign_name` and this event carries one, the campaign
+ * name/id are merged into its `raw_data`. `contact_number` and `email` keep
+ * whatever formatting the row was stored with.
+ */
+async function resolveDuplicate(input: {
+  tenantId: string
+  actorUserId: string | null
+  existing: { id: string; rawData: unknown }
+  campaignName: string | null
+  incomingCampaignId: string | null
+}): Promise<CreateLeadFromMetaResult> {
+  const { tenantId, actorUserId, existing, campaignName, incomingCampaignId } = input
+
+  console.log(
+    `[createLeadFromMeta] Duplicate lead ${existing.id} (campaign: ${campaignName ?? 'unknown'}) — reusing existing lead`,
+  )
+
+  const existingRawData =
+    existing.rawData && typeof existing.rawData === 'object' && !Array.isArray(existing.rawData)
+      ? (existing.rawData as Record<string, unknown>)
+      : {}
+
+  if (!existingRawData.campaign_name && (campaignName || incomingCampaignId)) {
+    try {
+      await db
+        .update(leads)
+        .set({
+          rawData: {
+            ...existingRawData,
+            ...(campaignName ? { campaign_name: campaignName } : {}),
+            ...(incomingCampaignId ? { campaign_id: incomingCampaignId } : {}),
+          },
+        })
+        .where(eq(leads.id, existing.id))
+    } catch (mergeErr) {
+      // Non-fatal: the duplicate result still stands.
+      console.error('[createLeadFromMeta] Failed to back-fill campaign data:', mergeErr)
+    }
+  }
+
+  // actorUserId may still be null if the tenant has no members at all —
+  // guard to avoid a NOT NULL violation on leadActivities.userId.
+  if (actorUserId) {
+    try {
+      await db.insert(leadActivities).values({
+        tenantId,
+        leadId: existing.id,
+        userId: actorUserId,
+        type: 'note' as const,
+        note: 'Duplicate Meta lead received',
+      })
+    } catch (activityErr) {
+      // Non-fatal: log but don't fail the overall result.
+      console.error('[createLeadFromMeta] Failed to insert duplicate activity note:', activityErr)
+    }
+  }
+
+  return { status: 'duplicate', leadId: existing.id }
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 /**
@@ -220,8 +264,7 @@ export async function createLeadFromMeta(
   // ── 2. Normalise inputs ──────────────────────────────────────────────────
   const fullName = fields.fullName?.trim() || 'Meta Lead'
 
-  const rawPhone = fields.contactNumber?.trim() ?? ''
-  const contactNumber = rawPhone.length > 0 ? normalizePhone(rawPhone) : null
+  const contactNumber = normalizePhone(fields.contactNumber)
 
   const rawEmail = fields.email?.trim().toLowerCase() ?? ''
   const email = rawEmail.length > 0 ? rawEmail : null
@@ -234,43 +277,40 @@ export async function createLeadFromMeta(
   }
 
   // ── 3. Dedupe check ──────────────────────────────────────────────────────
-  // Mirror the import route: match on email OR phone within the tenant.
+  // Match on email OR phone within the tenant, excluding soft-deleted rows.
+  // The phone predicate is format-tolerant (see phoneMatchCondition) so a
+  // lead stored as "0325…" is still recognised when Meta sends "+92325…".
+  const incomingCampaignId =
+    rawData && typeof rawData === 'object' && !Array.isArray(rawData)
+      ? (rawData as Record<string, unknown>).campaign_id
+      : null
+
   const dedupeConditions = [
     email ? eq(leads.email, email) : undefined,
-    contactNumber ? eq(leads.contactNumber, contactNumber) : undefined,
-  ].filter(Boolean)
+    phoneMatchCondition(contactNumber) ?? undefined,
+  ].filter((condition): condition is SQL => condition !== undefined)
 
   if (dedupeConditions.length > 0) {
     const [existing] = await db
-      .select({ id: leads.id })
+      .select({ id: leads.id, rawData: leads.rawData })
       .from(leads)
       .where(
         and(
           eq(leads.tenantId, tenantId),
-          or(...(dedupeConditions as Parameters<typeof or>)),
+          isNull(leads.deletedAt),
+          or(...dedupeConditions),
         ),
       )
       .limit(1)
 
     if (existing) {
-      // Log a note on the existing lead and return 'duplicate'.
-      // actorUserId may still be null if the tenant has no members at all —
-      // guard to avoid a NOT NULL violation on leadActivities.userId.
-      if (actorUserId) {
-        try {
-          await db.insert(leadActivities).values({
-            tenantId,
-            leadId: existing.id,
-            userId: actorUserId,
-            type: 'note' as const,
-            note: 'Duplicate Meta lead received',
-          })
-        } catch (activityErr) {
-          // Non-fatal: log but don't fail the overall result.
-          console.error('[createLeadFromMeta] Failed to insert duplicate activity note:', activityErr)
-        }
-      }
-      return { status: 'duplicate', leadId: existing.id }
+      return resolveDuplicate({
+        tenantId,
+        actorUserId,
+        existing,
+        campaignName,
+        incomingCampaignId: typeof incomingCampaignId === 'string' ? incomingCampaignId : null,
+      })
     }
   }
 
@@ -357,34 +397,28 @@ export async function createLeadFromMeta(
           // query on, so skip the lookup and fall through to a display_id retry.
           if (dedupeConditions.length > 0) {
             const raceDedupe = await db
-              .select({ id: leads.id })
+              .select({ id: leads.id, rawData: leads.rawData })
               .from(leads)
               .where(
                 and(
                   eq(leads.tenantId, tenantId),
-                  or(...(dedupeConditions as Parameters<typeof or>)),
+                  isNull(leads.deletedAt),
+                  or(...dedupeConditions),
                 ),
               )
               .limit(1)
 
-            const raceLeadId = raceDedupe[0]?.id
-            if (!raceLeadId) {
+            const raceLead = raceDedupe[0]
+            if (!raceLead) {
               throw new Error('duplicate race: existing lead not found')
             }
-            if (actorUserId) {
-              try {
-                await db.insert(leadActivities).values({
-                  tenantId,
-                  leadId: raceLeadId,
-                  userId: actorUserId,
-                  type: 'note' as const,
-                  note: 'Duplicate Meta lead received',
-                })
-              } catch {
-                // Non-fatal
-              }
-            }
-            return { status: 'duplicate', leadId: raceLeadId }
+            return resolveDuplicate({
+              tenantId,
+              actorUserId,
+              existing: raceLead,
+              campaignName,
+              incomingCampaignId: typeof incomingCampaignId === 'string' ? incomingCampaignId : null,
+            })
           }
           // No dedupe conditions — can't be an email/phone race in practice;
           // fall through to retry the insert with a fresh display_id.

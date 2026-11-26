@@ -6,6 +6,7 @@ import { loadChartSnapshotsByWindow } from '@/lib/analytics-pipeline'
 import { reconcileOverdueRemindersForTenant } from '@/lib/lead-reminders-sync'
 import { requirePermissionSession } from '@/lib/tenant-server'
 import { dashboardLeadVisibilityFilter } from '@/lib/dashboard-leads'
+import { closedLeadWhere, openLeadWhere } from '@/lib/lead-status'
 
 export default async function AdminOverviewPage({
   searchParams,
@@ -77,7 +78,8 @@ export default async function AdminOverviewPage({
     currPeriodStats,
     chartByWindow,
     activeAgentStageRaw,
-    filteredAgentStageRaw
+    filteredAgentStageRaw,
+    totalLeadsRow
   ] = await Promise.all([
     db
       .select({ c: count(leadReminders.id) })
@@ -136,14 +138,13 @@ export default async function AdminOverviewPage({
       SELECT
         u.id, u.name, u.email,
         COUNT(leads.id) as total_leads,
-        COUNT(leads.id) FILTER (WHERE leads.primary_stage = 'paid') as won,
-        ROUND(COUNT(leads.id) FILTER (WHERE leads.primary_stage = 'paid')::numeric / NULLIF(COUNT(leads.id), 0) * 100, 1) as conversion_rate,
+        COUNT(leads.id) FILTER (WHERE ${closedLeadWhere(tenant.id)}) as won,
+        ROUND(COUNT(leads.id) FILTER (WHERE ${closedLeadWhere(tenant.id)})::numeric / NULLIF(COUNT(leads.id), 0) * 100, 1) as conversion_rate,
         MAX(leads.last_contacted_at) as last_activity
       FROM users u
       INNER JOIN tenant_members tm ON tm.user_id = u.id AND tm.tenant_id = ${tenant.id}
       LEFT JOIN leads ON leads.assigned_to = u.id
         AND leads.tenant_id = ${tenant.id}
-        AND leads.primary_stage NOT IN ('paid', 'cancelled')
         AND ${leadVisibilityFilter}
       GROUP BY u.id, u.name, u.email
       ORDER BY total_leads DESC
@@ -152,8 +153,8 @@ export default async function AdminOverviewPage({
       SELECT 
         DATE(created_at) as day,
         COUNT(*) FILTER (WHERE tenant_id = ${tenant.id}) as total,
-        COUNT(*) FILTER (WHERE tenant_id = ${tenant.id} AND primary_stage IN ('paid', 'cancelled')) as closed,
-        COUNT(*) FILTER (WHERE tenant_id = ${tenant.id} AND primary_stage NOT IN ('paid', 'cancelled')) as in_progress
+        COUNT(*) FILTER (WHERE tenant_id = ${tenant.id} AND ${closedLeadWhere(tenant.id)}) as closed,
+        COUNT(*) FILTER (WHERE tenant_id = ${tenant.id} AND ${openLeadWhere(tenant.id)}) as in_progress
       FROM leads
       WHERE tenant_id = ${tenant.id}
         AND created_at >= NOW() - INTERVAL '7 days'
@@ -165,8 +166,8 @@ export default async function AdminOverviewPage({
       .select({
         totalLeads: sql<number>`COUNT(*)::int`,
         newLeads: sql<number>`COUNT(*)::int`,
-        closed: sql<number>`COUNT(*) FILTER (WHERE ${leads.primaryStage} IN ('paid', 'cancelled'))::int`,
-        inProgress: sql<number>`COUNT(*) FILTER (WHERE ${leads.primaryStage} NOT IN ('paid', 'cancelled'))::int`,
+        closed: sql<number>`COUNT(*) FILTER (WHERE ${closedLeadWhere(tenant.id)})::int`,
+        inProgress: sql<number>`COUNT(*) FILTER (WHERE ${openLeadWhere(tenant.id)})::int`,
       })
       .from(leads)
       .where(and(
@@ -178,8 +179,8 @@ export default async function AdminOverviewPage({
     db
       .select({
         totalLeads: sql<number>`COUNT(*)::int`,
-        closed: sql<number>`COUNT(*) FILTER (WHERE ${leads.primaryStage} IN ('paid', 'cancelled'))::int`,
-        inProgress: sql<number>`COUNT(*) FILTER (WHERE ${leads.primaryStage} NOT IN ('paid', 'cancelled'))::int`,
+        closed: sql<number>`COUNT(*) FILTER (WHERE ${closedLeadWhere(tenant.id)})::int`,
+        inProgress: sql<number>`COUNT(*) FILTER (WHERE ${openLeadWhere(tenant.id)})::int`,
       })
       .from(leads)
       .where(and(
@@ -209,10 +210,20 @@ export default async function AdminOverviewPage({
       .from(leads)
       .leftJoin(pipelineSubStatuses, eq(leads.subStatusId, pipelineSubStatuses.id))
       .where(tScope)
-      .groupBy(leads.assignedTo, leads.primaryStage)
+      .groupBy(leads.assignedTo, leads.primaryStage),
+    db
+      .select({
+        total: sql<number>`COUNT(*)::int`,
+        closed: sql<number>`COUNT(*) FILTER (WHERE ${closedLeadWhere(tenant.id)})::int`,
+      })
+      .from(leads)
+      .where(and(eq(leads.tenantId, tenant.id), isNull(leads.deletedAt))),
   ])
 
   const overdueRemindersCount = Number(overdueRemindersRow[0]?.c ?? 0)
+  const totalLeadsCount = Number(totalLeadsRow[0]?.total ?? 0)
+  const closedLeadsCount = Number(totalLeadsRow[0]?.closed ?? 0)
+  const inProgressLeadsCount = totalLeadsCount - closedLeadsCount
   const totalLeads = byStage.reduce((sum, s) => sum + Number(s.total), 0)
   const newLeadsToday = Number(newLeadsTodayRow[0]?.c ?? 0)
   const unassignedCount = Number(unassignedRow[0]?.c ?? 0)
@@ -322,24 +333,6 @@ export default async function AdminOverviewPage({
       stages: toStageBreakdown(item.stages),
     }))
 
-  let pieTotalLeads = 0
-  let pieClosedCount = 0
-  let pieInProgressCount = 0
-
-  for (const [stage, v] of Object.entries(unassignedStages)) {
-    pieTotalLeads += v.count
-    if (stage === 'paid' || stage === 'cancelled') pieClosedCount += v.count
-    else pieInProgressCount += v.count
-  }
-
-  for (const item of agentBreakdownMap.values()) {
-    for (const [stage, v] of Object.entries(item.stages)) {
-      pieTotalLeads += v.count
-      if (stage === 'paid' || stage === 'cancelled') pieClosedCount += v.count
-      else pieInProgressCount += v.count
-    }
-  }
-
   const filteredAgentBreakdownMap = new Map<string, { agentId: string, agentName: string, totalLeads: number, stages: StageCounts }>()
   for (const agent of proUsers) {
     filteredAgentBreakdownMap.set(agent.id, {
@@ -384,14 +377,14 @@ export default async function AdminOverviewPage({
     <AnalyticsOverviewClient
       chartByWindow={chartByWindow}
       overdueRemindersCount={overdueRemindersCount}
-      totalLeads={pieTotalLeads}
+      totalLeads={totalLeadsCount}
       activeCount={activeCount}
       paidCount={paidCount}
       cancelledCount={cancelledCount}
       newLeadsToday={newLeadsToday}
       unassignedCount={unassignedCount}
-      closedCount={pieClosedCount}
-      inProgressCount={pieInProgressCount}
+      closedCount={closedLeadsCount}
+      inProgressCount={inProgressLeadsCount}
       agentStats={agentStats}
       pipelineValues={valueAggs.map(({ currency, pipelineValue }) => ({
         currency,

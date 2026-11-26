@@ -1,6 +1,6 @@
 import type { TenantAppRole } from '@/lib/tenant-membership'
 
-/** Scope context for tenant data access (leads, analytics, kanban). */
+/** Scope context for tenant data access. */
 export type MemberScope = {
   role: TenantAppRole
   dbUserId: string
@@ -22,22 +22,18 @@ export function toMemberScope(input: {
   }
 }
 
-/** 
- * ADMIN → always tenant-wide.
- * PRO with leads.view_all, leads.assign (can reassign leads = should see all),
- * or reports.view_all → tenant-wide.
- * Plain PRO counselor → only their own assigned leads.
- */
-export function hasElevatedScope(scope: MemberScope): boolean {
+/** ADMINs and members explicitly granted leads.view_all can see all tenant leads. */
+export function hasTenantWideLeadAccess(scope: MemberScope): boolean {
   if (scope.role === 'ADMIN') return true
-  const perms = scope.permissions ?? []
-  return (
-    perms.includes('leads.view_all') ||
-    perms.includes('leads.assign') ||
-    perms.includes('reports.view_all')
-  )
+  return (scope.permissions ?? []).includes('leads.view_all')
 }
 
 export function canViewAllAnalytics(scope: MemberScope): boolean {
-  return hasElevatedScope(scope)
+  if (scope.role === 'ADMIN') return true
+  return (scope.permissions ?? []).includes('analytics.view')
+}
+
+export function canViewAllReports(scope: MemberScope): boolean {
+  if (scope.role === 'ADMIN') return true
+  return (scope.permissions ?? []).includes('reports.view_all')
 }

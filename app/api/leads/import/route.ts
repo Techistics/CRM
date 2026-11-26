@@ -1,9 +1,8 @@
 import { NextRequest } from 'next/server'
 import Papa from 'papaparse'
 import * as XLSX from 'xlsx'
-import { and, eq, inArray, isNull, or } from 'drizzle-orm'
+import { and, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm'
 import { z } from 'zod'
-import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js'
 
 import { db } from '@/db'
 import { csvImports, leads, tenantMembers, users, leadStageAssignments, pipelineSubStatuses, leadActivities } from '@/db/schema'
@@ -18,6 +17,7 @@ import {
   type ImportFieldKey,
   suggestColumnMapping,
 } from '@/lib/leads/import-fields'
+import { normalizePhone, phoneMatchCondition, phoneMatchKey } from '@/lib/leads/phone'
 
 const filePayloadSchema = z.object({
   fileData: z.string().min(1),
@@ -158,30 +158,6 @@ function parseDealCurrency(raw: string): string | null {
   return DEAL_CURRENCIES.has(upper) ? upper : null
 }
 
-/**
- * Normalizes a raw phone number string to E.164 format (e.g. +923224971053).
- * Defaults to Pakistan (+92) if no country code is detected.
- * Falls back to the stripped raw value if parsing fails.
- */
-function normalizePhone(rawPhone: string): string | null {
-  const stripped = rawPhone.replace(/[\s\-().]/g, '')
-  if (!stripped || !/\d/.test(stripped)) return null
-  
-  try {
-    // Try with explicit PK default first
-    if (isValidPhoneNumber(stripped, 'PK')) {
-      return parsePhoneNumber(stripped, 'PK').format('E.164')
-    }
-    // Try as-is (in case it already has a + country code)
-    if (stripped.startsWith('+') && isValidPhoneNumber(stripped)) {
-      return parsePhoneNumber(stripped).format('E.164')
-    }
-  } catch {
-    // Fall through to raw
-  }
-  return stripped
-}
-
 async function ensureDefaultSubStatus(tenantId: string, defaultStageKey: string) {
   let [firstSubStatus] = await db
     .select({ id: pipelineSubStatuses.id, closedActions: pipelineSubStatuses.closedActions })
@@ -232,6 +208,92 @@ async function ensureDefaultSubStatus(tenantId: string, defaultStageKey: string)
     defaultSubStatusId: firstSubStatus?.id ?? null,
     defaultClosedAction: (firstSubStatus?.closedActions as string[])?.[0] ?? null,
   }
+}
+
+// ─── Existing-lead lookup (shared by preview + confirm) ───────────────────────
+
+type ExistingLeadMatch = { leadId: string; matchedOn: 'email' | 'phone' }
+
+/** Columns selected by the existing-lead lookup, shared by both phases. */
+const existingLeadColumns = {
+  id: leads.id,
+  contactNumber: leads.contactNumber,
+  email: leads.email,
+  // Legacy rows are not necessarily E.164 — the digits let us pair them in JS.
+  digits: sql<string>`regexp_replace(coalesce(${leads.contactNumber}, ''), '\\D', '', 'g')`,
+}
+
+/**
+ * Builds the "is this row already in the CRM?" predicate for a batch of
+ * normalised phones / emails: same tenant, soft-deleted rows excluded, and the
+ * same keys in both phases (email OR format-tolerant phone).
+ *
+ * Returns `null` when there is nothing to look up.
+ */
+function existingLeadWhere(
+  tenantId: string,
+  phones: string[],
+  emails: string[],
+): SQL | null {
+  const uniquePhones = [...new Set(phones)]
+  const uniqueEmails = [...new Set(emails)]
+
+  if (uniquePhones.length === 0 && uniqueEmails.length === 0) return null
+
+  const parts: SQL[] = []
+
+  const phoneConditions = uniquePhones
+    .map((phone) => phoneMatchCondition(phone))
+    .filter((condition): condition is SQL => condition !== null)
+  const phonePart = phoneConditions.length > 0 ? or(...phoneConditions) : undefined
+  if (phonePart) parts.push(phonePart)
+
+  if (uniqueEmails.length > 0) parts.push(inArray(leads.email, uniqueEmails))
+
+  return and(eq(leads.tenantId, tenantId), isNull(leads.deletedAt), or(...parts)) ?? null
+}
+
+/**
+ * Pairs each incoming row with a lead that already exists. The preview phase
+ * reports these rows as duplicates and the confirm phase updates them instead
+ * of inserting — sharing this mapping keeps the two phases in lockstep.
+ */
+function matchExistingLeads(
+  rows: ReadonlyArray<{ contactNumber?: string | null; email?: string | null }>,
+  existingLeads: Array<{
+    id: string
+    contactNumber: string | null
+    email: string | null
+    digits: string | null
+  }>,
+): Map<number, ExistingLeadMatch> {
+  const byPhoneKey = new Map<string, string>()
+  const byEmailKey = new Map<string, string>()
+
+  for (const lead of existingLeads) {
+    const phoneKey = phoneMatchKey(lead.digits ?? lead.contactNumber)
+    if (phoneKey && !byPhoneKey.has(phoneKey)) byPhoneKey.set(phoneKey, lead.id)
+
+    const emailKey = lead.email?.trim().toLowerCase()
+    if (emailKey && !byEmailKey.has(emailKey)) byEmailKey.set(emailKey, lead.id)
+  }
+
+  const matches = new Map<number, ExistingLeadMatch>()
+
+  rows.forEach((row, index) => {
+    const phoneKey = row.contactNumber ? phoneMatchKey(row.contactNumber) : null
+    const phoneMatch = phoneKey ? byPhoneKey.get(phoneKey) : undefined
+    if (phoneMatch) {
+      matches.set(index, { leadId: phoneMatch, matchedOn: 'phone' })
+      return
+    }
+
+    const emailKey = row.email?.trim().toLowerCase()
+    const emailMatch = emailKey ? byEmailKey.get(emailKey) : undefined
+    if (emailMatch) matches.set(index, { leadId: emailMatch, matchedOn: 'email' })
+  })
+
+  return matches
 }
 
 export async function POST(req: NextRequest) {
@@ -317,7 +379,7 @@ export async function POST(req: NextRequest) {
         }
 
         const contactNumberRaw = String(mapped.contactNumber ?? '').trim()
-        const contactNumber = contactNumberRaw.length > 0 ? normalizePhone(contactNumberRaw) : null
+        const contactNumber = normalizePhone(contactNumberRaw)
 
         const emailRaw = String(mapped.email ?? '').trim()
         const email =
@@ -355,7 +417,9 @@ export async function POST(req: NextRequest) {
       const seenEmails = new Set<string>()
       const seenPhones = new Set<string>()
       const uniqueRows = parsedRows.filter((row) => {
-        // Check for duplicate phone within the file
+        // Check for duplicate phone within the file. `contactNumber` already ran
+        // through normalizePhone during parsing, so "+92 300…", "0300…" and
+        // "300…" rows collapse onto the same key here.
         if (row.contactNumber) {
           if (seenPhones.has(row.contactNumber)) {
             duplicates.push({ row: row.rowNumber, name: row.fullName, matchedOn: 'phone' })
@@ -375,48 +439,37 @@ export async function POST(req: NextRequest) {
         return true
       })
 
-      const emails = uniqueRows.map((row) => row.email).filter((v): v is string => Boolean(v))
-      const phones = uniqueRows.map((row) => row.contactNumber).filter((v): v is string => Boolean(v))
-
-      // Check both email and phone against existing DB records in parallel
-      const [existingByEmail, existingByPhone] = await Promise.all([
-        emails.length > 0
-          ? db
-              .select({ email: leads.email })
-              .from(leads)
-              .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.email, emails)))
-          : Promise.resolve([]),
-        phones.length > 0
-          ? db
-              .select({ contactNumber: leads.contactNumber })
-              .from(leads)
-              .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.contactNumber, phones)))
-          : Promise.resolve([]),
-      ])
-
-      const existingEmailSet = new Set(
-        existingByEmail.map((item) => item.email).filter((v): v is string => Boolean(v)),
-      )
-      const existingPhoneSet = new Set(
-        existingByPhone.map((item) => item.contactNumber).filter((v): v is string => Boolean(v)),
+      // Same duplicate rule the confirm phase uses below (email OR
+      // format-tolerant phone, tenant-scoped, soft-deleted rows excluded) —
+      // both phases go through existingLeadWhere + matchExistingLeads so the
+      // preview can never disagree with what confirm actually does.
+      const previewWhere = existingLeadWhere(
+        ctx.tenant.id,
+        uniqueRows.map((row) => row.contactNumber).filter((v): v is string => Boolean(v)),
+        uniqueRows.map((row) => row.email).filter((v): v is string => Boolean(v)),
       )
 
-      const parsedData = uniqueRows
-        .filter((row) => {
-          if (row.email && existingEmailSet.has(row.email.toLowerCase())) {
-            duplicates.push({ row: row.rowNumber, name: row.fullName, matchedOn: 'email (already in CRM)' })
-            return false
-          }
-          if (row.contactNumber && existingPhoneSet.has(row.contactNumber)) {
-            duplicates.push({ row: row.rowNumber, name: row.fullName, matchedOn: 'phone (already in CRM)' })
-            return false
-          }
-          return true
-        })
-        .map((row) => {
-          const { rowNumber: _rowNumber, ...rest } = row
-          return rest
-        })
+      const existingLeads = previewWhere
+        ? await db.select(existingLeadColumns).from(leads).where(previewWhere)
+        : []
+
+      const existingByRow = matchExistingLeads(uniqueRows, existingLeads)
+
+      const parsedData: z.infer<typeof parsedLeadSchema>[] = []
+      uniqueRows.forEach((row, index) => {
+        const match = existingByRow.get(index)
+        if (match) {
+          duplicates.push({
+            row: row.rowNumber,
+            name: row.fullName,
+            matchedOn: match.matchedOn === 'phone' ? 'phone (already in CRM)' : 'email (already in CRM)',
+          })
+          return
+        }
+
+        const { rowNumber: _rowNumber, ...rest } = row
+        parsedData.push(rest)
+      })
 
       return successResponse({
         fileName: parsed.data.fileName,
@@ -481,7 +534,7 @@ export async function POST(req: NextRequest) {
         return {
           tenantId: ctx.tenant.id,
           fullName: leadRow.fullName,
-          contactNumber: leadRow.contactNumber,
+          contactNumber: normalizePhone(leadRow.contactNumber),
           email: leadRow.email ?? null,
           city: leadRow.city ?? null,
           country: leadRow.country ?? 'Pakistan',
@@ -543,54 +596,48 @@ export async function POST(req: NextRequest) {
         await db.transaction(async (tx) => {
           const reimportDate = new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })
 
-          // ── Step 1a: Lookup existing leads by PHONE ────────────────────
-          const incomingPhones = rowsToInsertWithBatch
-            .map((r) => r.contactNumber)
-            .filter((p): p is string => Boolean(p))
+          // ── Step 1: Lookup leads that already exist ────────────────────
+          // Identical rule to the parse/preview phase (email OR format-
+          // tolerant phone), so a row reported as new there is not silently
+          // updated here, and a row flagged as a duplicate there is updated
+          // here instead of being inserted twice.
+          const confirmWhere = existingLeadWhere(
+            ctx.tenant.id,
+            rowsToInsertWithBatch
+              .map((r) => r.contactNumber)
+              .filter((p): p is string => Boolean(p)),
+            rowsToInsertWithBatch
+              .map((r) => r.email)
+              .filter((e): e is string => Boolean(e)),
+          )
 
-          const existingByPhone = incomingPhones.length > 0
-            ? await tx
-                .select({ id: leads.id, contactNumber: leads.contactNumber })
-                .from(leads)
-                .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.contactNumber, incomingPhones)))
+          const existingLeads = confirmWhere
+            ? await tx.select(existingLeadColumns).from(leads).where(confirmWhere)
             : []
 
-          const existingPhoneToId = new Map(existingByPhone.map((l) => [l.contactNumber, l.id]))
-
-          // ── Step 1b: Lookup by EMAIL for rows that have no phone ───────
-          const incomingEmailsNoPhone = rowsToInsertWithBatch
-            .filter((r) => !r.contactNumber && r.email)
-            .map((r) => r.email!)
-
-          const existingByEmail = incomingEmailsNoPhone.length > 0
-            ? await tx
-                .select({ id: leads.id, email: leads.email })
-                .from(leads)
-                .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.email, incomingEmailsNoPhone)))
-            : []
-
-          const existingEmailToId = new Map(existingByEmail.map((l) => [l.email, l.id]))
+          const existingByRow = matchExistingLeads(rowsToInsertWithBatch, existingLeads)
 
           // ── Step 2: Split rows into update vs insert ───────────────────
           const updateRows: typeof rowsToInsertWithBatch = []
           const updateLeadIds: string[] = []
           const newRows: typeof rowsToInsertWithBatch = []
 
-          for (const row of rowsToInsertWithBatch) {
-            const idByPhone = row.contactNumber ? existingPhoneToId.get(row.contactNumber) : undefined
-            const idByEmail = !row.contactNumber && row.email ? existingEmailToId.get(row.email) : undefined
-            const existingId = idByPhone ?? idByEmail
-            if (existingId) {
+          rowsToInsertWithBatch.forEach((row, index) => {
+            const match = existingByRow.get(index)
+            if (match) {
               updateRows.push(row)
-              updateLeadIds.push(existingId)
+              updateLeadIds.push(match.leadId)
             } else {
               newRows.push(row)
             }
-          }
+          })
 
           updatedCount = updateRows.length
 
           // ── Step 3: UPDATE existing leads (preserve counselor + stage) ─
+          // Only timestamps are touched: the stored contact_number keeps its
+          // original formatting even when the incoming value differs only by
+          // format (+92… vs 0325…), so no existing row is rewritten.
           for (let i = 0; i < updateRows.length; i++) {
             const leadId = updateLeadIds[i]
             await tx

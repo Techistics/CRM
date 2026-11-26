@@ -1,10 +1,10 @@
-import { requirePermissionSession } from '@/lib/tenant-server'
-import { hasElevatedScope, toMemberScope } from '@/lib/member-scope'
+import { requireTenantSession } from '@/lib/tenant-server'
+import { canViewAllAnalytics, toMemberScope } from '@/lib/member-scope'
 import ProAnalyticsPageClient from './ProAnalyticsPageClient'
 
 export default async function ProAnalyticsPage() {
-  const ctx = await requirePermissionSession('analytics.view')
+  const ctx = await requireTenantSession()
   return (
-    <ProAnalyticsPageClient elevated={hasElevatedScope(toMemberScope(ctx))} />
+    <ProAnalyticsPageClient elevated={canViewAllAnalytics(toMemberScope(ctx))} />
   )
 }

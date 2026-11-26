@@ -27,9 +27,9 @@ export function can(permissions: PermissionSet, permission: Permission): boolean
   return hasPermission(permissions, permission)
 }
 
-/** Admins (all permissions) and members with leads.edit can move a lead backward in the pipeline. */
+/** Members with leads.edit can move a lead backward in the pipeline. */
 export function canMovePipelineBackward(permissions: PermissionSet): boolean {
-  return can(permissions, 'leads.receive')
+  return can(permissions, 'leads.edit')
 }
 
 export function canAny(permissions: PermissionSet, checks: Permission[]): boolean {
@@ -72,7 +72,6 @@ export const ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/admin/users': 'teams.manage',
   '/pro/leads': 'leads.view',
   '/pro/reassigned-leads': 'leads.receive',
-  '/pro/analytics': 'analytics.view',
   '/pro/import': 'import.leads',
   '/pro/templates': 'templates.manage',
   '/pro/team': 'teams.manage',

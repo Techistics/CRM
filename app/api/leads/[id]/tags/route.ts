@@ -2,7 +2,9 @@ import { NextRequest } from 'next/server'
 import { and, eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { leadTagAssignments, leadTags, leads } from '@/db/schema'
-import { requireLeadEditApi, requireLeadViewApi } from '@/lib/tenant-api'
+import { leadIdsInScopeWhere } from '@/lib/leads-scope'
+import { toMemberScope } from '@/lib/member-scope'
+import { requireLeadEditApi } from '@/lib/tenant-api'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { z } from 'zod'
 
@@ -35,11 +37,17 @@ export async function POST(
     const { tagId } = parsed.data
 
     return await db.transaction(async (tx) => {
-      // 1. Verify lead belongs to tenant
+      // 1. Verify the lead is within the member's editable lead scope
       const [lead] = await tx
         .select({ id: leads.id })
         .from(leads)
-        .where(and(eq(leads.id, leadId), eq(leads.tenantId, ctx.tenant.id)))
+        .where(
+          leadIdsInScopeWhere(
+            ctx.tenant.id,
+            [leadId],
+            toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] }),
+          ),
+        )
 
       if (!lead) return errorResponse('Lead not found', 'NOT_FOUND', 404)
 
@@ -77,17 +85,42 @@ export async function DELETE(
     if (!ctx.ok) return ctx.response
 
     const { id: leadId } = await params
-    const tagId = req.nextUrl.searchParams.get('tagId')
+    const parsedTagId = assignSchema.shape.tagId.safeParse(req.nextUrl.searchParams.get('tagId'))
 
-    if (!tagId) return errorResponse('tagId is required', 'VALIDATION_ERROR', 400)
+    if (!parsedTagId.success) {
+      return errorResponse('A valid tagId is required', 'VALIDATION_ERROR', 400)
+    }
+    const tagId = parsedTagId.data
 
-    await db.delete(leadTagAssignments).where(
-      and(
-        eq(leadTagAssignments.leadId, leadId),
-        eq(leadTagAssignments.tagId, tagId),
-      ),
-    )
+    return await db.transaction(async (tx) => {
+      const [lead] = await tx
+        .select({ id: leads.id })
+        .from(leads)
+        .where(
+          leadIdsInScopeWhere(
+            ctx.tenant.id,
+            [leadId],
+            toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] }),
+          ),
+        )
 
-    return successResponse({ ok: true })
+      if (!lead) return errorResponse('Lead not found', 'NOT_FOUND', 404)
+
+      const [tag] = await tx
+        .select({ id: leadTags.id })
+        .from(leadTags)
+        .where(and(eq(leadTags.id, tagId), eq(leadTags.tenantId, ctx.tenant.id)))
+
+      if (!tag) return errorResponse('Tag not found', 'NOT_FOUND', 404)
+
+      await tx.delete(leadTagAssignments).where(
+        and(
+          eq(leadTagAssignments.leadId, leadId),
+          eq(leadTagAssignments.tagId, tagId),
+        ),
+      )
+
+      return successResponse({ ok: true })
+    })
   })
 }

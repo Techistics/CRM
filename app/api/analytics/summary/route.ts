@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { users, tenantMembers, leads, tenantTimesheets, leadActivities, leadRevenues } from '@/db/schema'
 import { eq, and, gte, lte, isNull, sql } from 'drizzle-orm'
-import { requirePermissionApi } from '@/lib/tenant-api'
+import { requireTenantMemberApi } from '@/lib/tenant-api'
 import { canViewAllAnalytics, toMemberScope } from '@/lib/member-scope'
 
 export async function GET(request: Request) {
-  const ctx = await requirePermissionApi('analytics.view')
+  const ctx = await requireTenantMemberApi()
   if (!ctx.ok) return ctx.response
 
   const { tenant, dbUserId } = ctx

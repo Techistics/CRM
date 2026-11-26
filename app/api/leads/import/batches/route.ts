@@ -17,6 +17,7 @@ import {
   users,
 } from '@/db/schema'
 import { errorResponse, successResponse, withApiErrorHandling } from '@/lib/api-response'
+import { hasTenantWideLeadAccess, toMemberScope } from '@/lib/member-scope'
 import { requirePermissionApi } from '@/lib/tenant-api'
 
 export async function GET() {
@@ -62,31 +63,31 @@ export async function DELETE(req: NextRequest) {
       return errorResponse('No valid batch ids', 'VALIDATION_ERROR', 400)
     }
 
-    // Verify batches belong to this tenant
-    const ownedBatches = await db
-      .select({ id: csvImports.id })
-      .from(csvImports)
-      .where(and(eq(csvImports.tenantId, ctx.tenant.id), inArray(csvImports.id, validIds)))
+    const result = await db.transaction(async (tx) => {
+      const ownedBatches = await tx
+        .select({ id: csvImports.id })
+        .from(csvImports)
+        .where(and(eq(csvImports.tenantId, ctx.tenant.id), inArray(csvImports.id, validIds)))
+      const ownedIds = ownedBatches.map((b) => b.id)
+      if (ownedIds.length === 0) {
+        return { forbidden: false, deletedLeads: 0, deletedBatches: 0 }
+      }
 
-    const ownedIds = ownedBatches.map((b) => b.id)
-    if (ownedIds.length === 0) {
-      return successResponse({ deletedLeads: 0, deletedBatches: 0 })
-    }
+      const scope = toMemberScope({ ...ctx, permissions: ctx.permissions ?? [] })
+      const leadRows = await tx
+        .select({ id: leads.id, assignedTo: leads.assignedTo })
+        .from(leads)
+        .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.csvImportId, ownedIds)))
 
-    // Find all leads linked to these batches (scoped to tenant)
-    const leadRows = await db
-      .select({ id: leads.id })
-      .from(leads)
-      .where(and(eq(leads.tenantId, ctx.tenant.id), inArray(leads.csvImportId, ownedIds)))
+      if (
+        !hasTenantWideLeadAccess(scope) &&
+        leadRows.some((lead) => lead.assignedTo !== scope.dbUserId)
+      ) {
+        return { forbidden: true, deletedLeads: 0, deletedBatches: 0 }
+      }
 
-    const leadIds = leadRows.map((r) => r.id)
+      const leadIds = leadRows.map((r) => r.id)
 
-    // Atomically delete leads, all related data, AND the batch records in one transaction.
-    // Previously csvImports deletion was outside the transaction — if the lead-deletion
-    // transaction failed, csvImports would still be deleted, triggering the FK
-    // onDelete:'set null' which nullified leads.csvImportId. This left leads orphaned
-    // (invisible in batch history but still in the DB).
-    await db.transaction(async (tx) => {
       if (leadIds.length > 0) {
         // Clean up all child tables (tenant-scoped where column exists)
         await tx.delete(leadActivities).where(
@@ -133,11 +134,17 @@ export async function DELETE(req: NextRequest) {
       await tx.delete(csvImports).where(
         and(eq(csvImports.tenantId, ctx.tenant.id), inArray(csvImports.id, ownedIds)),
       )
+
+      return { forbidden: false, deletedLeads: leadIds.length, deletedBatches: ownedIds.length }
     })
 
+    if (result.forbidden) {
+      return errorResponse('Batch contains leads outside your access scope', 'FORBIDDEN', 403)
+    }
+
     return successResponse({
-      deletedLeads: leadIds.length,
-      deletedBatches: ownedIds.length,
+      deletedLeads: result.deletedLeads,
+      deletedBatches: result.deletedBatches,
     })
   })
 }

@@ -51,6 +51,7 @@ export default function ProLeadDetailClient({
   canEditPayments = false,
   canMoveStageBackward = false,
   stageLabels: serverStageLabels = {},
+  campaignName,
 }: {
   lead: Lead
   activities: ActivityRow[]
@@ -62,6 +63,7 @@ export default function ProLeadDetailClient({
   canEditPayments?: boolean
   canMoveStageBackward?: boolean
   stageLabels?: Record<string, string>
+  campaignName?: string | null
 }) {
   const router = useRouter()
   const params = useParams()
@@ -395,6 +397,12 @@ export default function ProLeadDetailClient({
           <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mt-3">{lead.fullName}</h1>
           <div className="flex items-center gap-3 mt-3">
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{currentStageLabel}</span>
+            {campaignName && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-700/50">
+                <span className="h-1.5 w-1.5 rounded-full bg-violet-500 flex-shrink-0" />
+                {campaignName}
+              </span>
+            )}
             {saving && <Loader2 className="h-3 w-3 animate-spin text-gray-400" />}
           </div>
         </div>

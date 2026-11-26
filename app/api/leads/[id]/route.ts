@@ -19,6 +19,7 @@ import { requirePermissionApi } from '@/lib/tenant-api'
 import { leadPatchBodySchema } from '@/lib/validators/lead'
 import { successResponse, errorResponse, withApiErrorHandling } from '@/lib/api-response'
 import { canEditPayments, stripDealFields } from '@/lib/leads/deal-access'
+import { normalizePhone } from '@/lib/leads/phone'
 import {
   normalizeCustomFields,
   normalizeFieldValues,
@@ -169,7 +170,7 @@ return withApiErrorHandling(async () => {
         : lead.email,
     contactNumber:
       patch.contactNumber !== undefined
-        ? strOrNull(patch.contactNumber)
+        ? normalizePhone(patch.contactNumber)
         : lead.contactNumber,
     city: patch.city !== undefined ? strOrNull(patch.city) : lead.city,
     country: nextCountry,

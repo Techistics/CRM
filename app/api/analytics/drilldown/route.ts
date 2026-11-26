@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { leads, tenantTimesheets, leadActivities } from '@/db/schema'
 import { eq, and, gte, lte, or, isNull, sql } from 'drizzle-orm'
-import { requirePermissionApi } from '@/lib/tenant-api'
+import { requireTenantMemberApi } from '@/lib/tenant-api'
 import { canViewAllAnalytics, toMemberScope } from '@/lib/member-scope'
 
 export async function GET(request: Request) {
-  const ctx = await requirePermissionApi('analytics.view')
+  const ctx = await requireTenantMemberApi()
   if (!ctx.ok) return ctx.response
 
   const { tenant, dbUserId } = ctx
@@ -110,7 +110,12 @@ export async function GET(request: Request) {
           ...(endDate ? [lte(leadActivities.createdAt, endDate)] : []),
         )
       )
-      .where(eq(leads.tenantId, tenant.id))
+      .where(
+        and(
+          eq(leads.tenantId, tenant.id),
+          ...(!viewAll ? [eq(leads.assignedTo, dbUserId)] : []),
+        ),
+      )
 
 
 
@@ -167,6 +172,7 @@ export async function GET(request: Request) {
         and(
           eq(leadActivities.tenantId, tenant.id),
           eq(leadActivities.userId, targetUserId),
+          ...(!viewAll ? [eq(leads.assignedTo, dbUserId)] : []),
           ...(startDate ? [gte(leadActivities.createdAt, startDate)] : []),
           ...(endDate ? [lte(leadActivities.createdAt, endDate)] : []),
         ),

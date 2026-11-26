@@ -9,6 +9,13 @@ import { getLeadInTenant } from '@/lib/lead-tenant'
 import type { ActivityRow } from '@/types/leads'
 import { getTenantPipeline } from '@/lib/pipeline/config'
 
+/** Reads `campaign_name` off a lead's raw_data JSONB (Meta imports store it there). */
+function readRawCampaignName(rawData: unknown): string | null {
+  if (!rawData || typeof rawData !== 'object' || Array.isArray(rawData)) return null
+  const value = (rawData as Record<string, unknown>).campaign_name
+  return typeof value === 'string' && value.trim().length > 0 ? value : null
+}
+
 export default async function LeadDetailPage({
   params,
 }: {
@@ -23,14 +30,19 @@ export default async function LeadDetailPage({
   const pipeline = await getTenantPipeline(tenant.id)
   const stageLabels = Object.fromEntries(pipeline.stages.map((s) => [s.key, s.label]))
 
-  // Fetch campaign name if lead belongs to an import batch
-  let campaignName = null
+  // Campaign name: the CSV import batch value wins (unchanged for CSV leads).
+  // Falls back to raw_data.campaign_name when the lead has no csv_import_id
+  // (Meta leads) or the batch row is missing.
+  let campaignName: string | null = null
   if (lead.csvImportId) {
     const importBatch = await db.query.csvImports.findFirst({
       where: (csvImports, { eq }) => eq(csvImports.id, lead.csvImportId!),
       columns: { campaignName: true },
     })
     campaignName = importBatch?.campaignName ?? null
+  }
+  if (!campaignName) {
+    campaignName = readRawCampaignName(lead.rawData)
   }
 
   const activities = await db

@@ -32,7 +32,6 @@ export const proMainNav: PermissionNavLink[] = [
     href: PRO_ROUTES.analytics,
     icon: BarChart3,
     matchPrefix: true,
-    permission: 'analytics.view',
   },
   {
     name: 'Import Leads',
